@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 检出基础分支（不要改成 PR 的 head）
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: 打标签
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
