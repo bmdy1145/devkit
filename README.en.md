@@ -52,6 +52,8 @@ In the version string, `Glass` / `Neon` / `Mono` / `Clean` / `Material` / `Minim
 
 The previous generation `A1_V_Φ7` is available **in parallel** with Φ8 under `projects/devkit/code/A1_V_Φ7/`, with four skins (baseline / glass / neon / monospace). Two earlier generations, `A1_V_Φ5` (two versions) and `A1_V_Φ4` (one version), are also kept under `projects/devkit/code/` for historical reference — neither has skin variants.
 
+The latest is **`A1_V_Φ8_Fix_Fix`** (`projects/devkit/code/A1_V_Φ8_Fix_Fix/`): it fixes 16 defects and polish items on top of `A1_V_Φ8_Fix`, and switches the icon font (Material Symbols Outlined) from the Google Fonts CDN to a **locally embedded** one — 32 icon ligatures subset into a 4.8 KB woff2, so `bolt` / `keyboard` and friends are no longer painted as English words when the network is unreachable. Body webfonts still load from their original external links, and the CSP allows `data:` accordingly.
+
 ## Usage
 
 1. **Easiest: grab a Release.** Every update to `main` is published automatically, packaged per main line with all of that generation's skins attached — one click, no browsing. See https://github.com/bmdy1145/devkit/releases
@@ -101,7 +103,13 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │       ├── index.html               # Project landing page (version picker + download shortcut)
 │       └── code/
 │           ├── index.html                   # Index for the branch directory
-│           ├── A1_V_Φ8/                     # Current main line
+│           ├── A1_V_Φ8_Fix_Fix/             # Current latest iteration layer (Fix stacked on Fix)
+│           │   ├── index.html                              # Version list for this branch
+│           │   ├── deepseek_A1_V_Φ8_Fix_Fix_CN.html        # Baseline skin
+│           │   ├── deepseek_A1_V_Φ8_Glass_Fix_Fix_CN.html  # Glassmorphism
+│           │   ├── deepseek_A1_V_Φ8_Mono_Fix_Fix_CN.html   # Monospace + two-axis themes
+│           │   └── … (the other six skins share the _Fix_Fix_CN suffix)  # Neon/Clean/Material/Minimal/Premium/Shadcn
+│           ├── A1_V_Φ8/                     # Φ8 main line (with 4th-layer Fix tag)
 │           │   ├── index.html                              # Version list for this branch
 │           │   ├── deepseek_A1_V_Φ8_Clean_Fix_CN.html      # Clean
 │           │   ├── deepseek_A1_V_Φ8_Material_Fix_CN.html   # Material Design (MD3)
@@ -125,6 +133,12 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │           └── A1_V_Φ4/                     # Early main line (historical reference)
 │               ├── index.html
 │               └── deepseek_A1_V_Φ4_CN.html              # Fixes 15 defects
+│   └── submerge-pro/                # Project: SubMerge Pro (bilingual subtitle translation & splitting tool)
+│       ├── index.html               # Project landing page
+│       └── code/
+│           └── A1_II_Φ10/
+│               ├── index.html
+│               └── deepseek_html_20260705_d1ca99.html   # Undo added; smart assembly disabled after applying translation
 └── .claude/skills/devkit-spec/      # Claude Code skill (version & collaboration spec + version templates)
 ```
 
@@ -137,7 +151,7 @@ This repository is organised as `projects/<name>/`, one directory per project:
 - Each project ships its own `index.html` as its landing page. The internal directory structure and version-numbering rules are **up to each project** — the repo imposes no shared convention on them.
 - The root `index.html` is a **project picker**; it only lists entries to the projects.
 - `docs/` (conventions) and `.github/` (automation) are **shared across projects**. Note that `version_guard.py`, `size_guard.py`, `smoke_test.py` and `auto_release.py` currently **apply to DevKit only** — their path constants are hard-wired to `projects/devkit/code/`. A new project that wants the same checks needs those scripts adapted.
-- Only one project (`devkit`) exists today; future projects just go under `projects/<name>/` with no change to DevKit's structure.
+- Two projects exist today: `devkit` and `submerge-pro`. Future projects just go under `projects/<name>/` with no change to DevKit's structure.
 
 ### Pages deployment note
 

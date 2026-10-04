@@ -1,0 +1,916 @@
+<!--
+    项目名称：SubMerge Pro - 双语字幕翻译拆分工具
+    版本代号：A1_II_Φ10
+    基于分支：A1（主开发分支）
+    父版本：A1_II_Φ9
+    修改说明：新增撤销功能，应用翻译后自动禁止智能拼装以防语言不对齐
+    日期：2026-07-07
+    版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+    许可证：GPLv3
+-->
+<!--
+    以下是当前项目的完整版本结构文字表述，供维护参考：
+    当前最新版本：A1_II_Φ10
+
+    Beta（基线版本，2026-05-01创建）
+    └── A1 分支（初始开发分支，2026-05-02创建）
+        ├── A1_I（初始创建，2026-05-02创建，基于Beta）
+        │   ├── A1_I_Φ1
+        │   ├── A1_I_Φ2
+        │   └── A1_I_Φ3
+        └── A1_II（推翻重做，2026-05-02创建，基于A1_I_Φ3）
+            ├── A1_II_Φ1
+            ├── A1_II_Φ2
+            ├── A1_II_Φ3
+            ├── A1_II_Φ4
+            ├── A1_II_Φ5
+            ├── A1_II_Φ6
+            ├── A1_II_Φ7
+            ├── A1_II_Φ8
+            ├── A1_II_Φ9
+            └── A1_II_Φ10（新增撤销+翻译后禁止拼装，2026-07-07创建，基于A1_II_Φ9）
+-->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>SubMerge Pro · 双语字幕翻译</title>
+    <style>
+        :root {
+            --bg: #f5f7fc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --text2: #475569;
+            --accent: #2563eb;
+            --accent-light: #eff6ff;
+            --warn-bg: #fef9c3;
+            --warn-text: #854d0e;
+            --radius: 40px;
+            --card-radius: 20px;
+            --shadow: 0 12px 30px rgba(0,0,0,0.06);
+        }
+        * { box-sizing: border-box; margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        body { background: var(--bg); padding: 16px 12px; min-height: 100vh; display: flex; justify-content: center; }
+        .container { max-width: 1300px; width: 100%; background: var(--surface); border-radius: 28px; box-shadow: var(--shadow); padding: 20px 16px 16px; }
+        .header-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        h1 { font-size: clamp(1.4rem, 5vw, 2rem); font-weight: 650; color: var(--text); }
+        .badge { background: #e0e7ff; color: var(--accent); font-size: 0.7rem; padding: 4px 10px; border-radius: 30px; margin-left: 8px; }
+        .subhead { color: var(--text2); margin-bottom: 18px; border-left: 5px solid var(--accent); padding-left: 16px; font-size: 0.9rem; }
+        .upload-area { background: #fafcff; border: 2px dashed var(--border); border-radius: var(--card-radius); padding: 20px; text-align: center; cursor: pointer; margin-bottom: 18px; }
+        .upload-area:active { background: #f0f7ff; }
+        .upload-area .btn { margin-top: 12px; }
+        .file-info { margin-top: 8px; font-weight: 500; font-size: 0.9rem; word-break: break-word; }
+        input[type="file"] { display: none; }
+        .lang-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0; background: #f8fafc; padding: 12px 16px; border-radius: var(--radius); }
+        .lang-toolbar label { font-weight: 500; font-size: 0.9rem; }
+        .lang-input-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 260px; }
+        .lang-input-group input { flex: 1 1 150px; border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; font-size: 0.9rem; background: white; }
+        .preset-lang-select { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; font-size: 0.9rem; background: white; max-width: 160px; flex: 1 0 auto; }
+        .btn-icon { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; font-size: 0.85rem; cursor: pointer; white-space: nowrap; }
+        .fps-row { display: flex; align-items: center; gap: 8px; margin-left: 10px; }
+        .fps-row select, .fps-row input { border: 1px solid var(--border); border-radius: 30px; padding: 6px 10px; font-size: 0.85rem; background: white; }
+        .fps-row input { width: 70px; }
+        .status-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 8px 0; }
+        .alert { background: var(--warn-bg); color: var(--warn-text); padding: 6px 16px; border-radius: var(--radius); font-size: 0.85rem; }
+        .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 14px 0; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--card-radius); padding: 16px; }
+        .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+        .btn { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 14px; font-size: 0.85rem; font-weight: 500; cursor: pointer; }
+        .btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
+        .btn-outline-blue { border-color: #bfdbfe; background: var(--accent-light); color: #1e40af; }
+        textarea { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 16px; font-size: 0.9rem; line-height: 1.5; background: #fafcff; resize: vertical; min-height: 150px; font-family: monospace; }
+        .preview-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 14px 0 8px; }
+        .toolbar-left { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+        .export-mode-group { display: flex; gap: 4px; background: #f1f5f9; padding: 4px; border-radius: var(--radius); }
+        .mode-btn { padding: 6px 14px; border: none; background: transparent; border-radius: var(--radius); font-size: 0.8rem; cursor: pointer; }
+        .mode-btn.active { background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.05); color: var(--accent); }
+        .time-fix-selector { display: flex; align-items: center; gap: 6px; background: #f8fafc; padding: 4px 12px; border-radius: var(--radius); font-size: 0.8rem; }
+        .time-fix-selector select { border: 1px solid var(--border); border-radius: 30px; padding: 6px 10px; font-size: 0.8rem; background: white; }
+        .preview-table-wrapper { max-height: 350px; overflow: auto; border-radius: 16px; border: 1px solid var(--border); margin-top: 10px; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.75rem; min-width: 550px; table-layout: fixed; }
+        th { text-align: left; padding: 10px 6px; background: #f1f5f9; position: sticky; top: 0; font-weight: 600; }
+        td { padding: 8px 6px; border-bottom: 1px solid #edf2f7; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; hyphens: auto; }
+        .word-count { background: #e2e8f0; padding: 2px 6px; border-radius: 30px; font-size: 0.6rem; }
+        .warning { color: #b45309; }
+        .footer-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 18px; }
+        .license-footer { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 0.7rem; color: var(--text2); text-align: center; }
+        .btn:disabled { opacity: 0.5; pointer-events: none; }
+        .error-text { color: #dc2626; }
+        @media (max-width: 700px) {
+            .card-grid { grid-template-columns: 1fr; }
+            .header-row { flex-direction: column; align-items: flex-start; }
+            .lang-toolbar { flex-direction: column; align-items: stretch; }
+            .lang-input-group { flex-wrap: wrap; }
+            .preview-toolbar { flex-direction: column; align-items: stretch; }
+            .toolbar-left { flex-direction: column; align-items: stretch; width: 100%; }
+            .export-mode-group, .time-fix-selector { align-self: flex-start; }
+            .btn { padding: 10px 14px; font-size: 0.9rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header-row">
+        <h1>📝 SubMerge Pro <span class="badge">双语分词拆分</span></h1>
+    </div>
+    <div class="subhead">上传字幕 → 一键复制完整提示词发给DeepSeek → 粘贴译文 → 自动拆分双语且单条词数≤10 → 导出【已翻译-语言】SRT</div>
+
+    <div class="upload-area" id="dropZone">
+        <div>📂 点击或拖拽上传字幕文件（.srt / .bcc / .txt）</div>
+        <div style="color:#64748b; font-size:0.85rem; margin:6px 0;">支持 UTF-8、Shift-JIS、GBK 等多种编码</div>
+        <button class="btn btn-outline-blue" id="browseBtn">📁 选择文件</button>
+        <div class="file-info" id="fileInfo"></div>
+    </div>
+    <input type="file" id="fileInput" accept=".srt,.bcc,.txt,text/plain">
+
+    <div class="lang-toolbar">
+        <label>🌐 目标语言:</label>
+        <div class="lang-input-group">
+            <input type="text" id="langNameInput" placeholder="例如: 俄语" value="俄语">
+            <select id="presetLangSelect" class="preset-lang-select"></select>
+            <button class="btn-icon" id="pasteLangBtn">📋 粘贴</button>
+        </div>
+        <div class="fps-row" id="fpsRow" style="display:none;">
+            <label>🎞️ FPS:</label>
+            <select id="fpsSelect">
+                <option value="23.976">23.976</option>
+                <option value="24">24</option>
+                <option value="25" selected>25</option>
+                <option value="29.97">29.97</option>
+                <option value="30">30</option>
+                <option value="custom">自定义</option>
+            </select>
+            <input type="number" id="fpsCustomInput" value="25" min="1" max="120" step="0.001" style="display:none;">
+        </div>
+        <span style="color:#64748b; font-size:0.8rem;">点击「复制」生成完整提示词</span>
+    </div>
+
+    <div class="status-bar">
+        <span id="entryCountDisplay" class="alert">⏳ 未加载字幕</span>
+        <span style="margin-left:8px; font-size:0.85rem;">📏 双语总词数上限: 10 (英文按词，中文2字=1词)</span>
+    </div>
+
+    <div class="card-grid">
+        <div class="card">
+            <div class="card-header">
+                <h3>📤 合并文本预览</h3>
+                <button class="btn btn-outline-blue" id="copyMergedBtn" disabled>📋 复制完整提示词</button>
+            </div>
+            <textarea id="mergedTextView" readonly placeholder="上传后显示带编号的原文……"></textarea>
+            <div style="margin-top:8px; color:#475569; font-size:0.85rem;">💡 点击复制按钮，即可获得可直接发送给DeepSeek的完整提示词</div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <h3>📥 粘贴译文</h3>
+                <div style="display:flex;gap:6px;">
+                    <button class="btn btn-outline-blue" id="pasteTranslationBtn" disabled>📎 粘贴</button>
+                    <button class="btn btn-primary" id="applyTranslationBtn" disabled>✨ 应用并拆分</button>
+                </div>
+            </div>
+            <textarea id="translationInput" placeholder="粘贴DeepSeek返回的带编号译文……"></textarea>
+            <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+                <button class="btn" id="clearTranslationBtn" disabled>🧹 清空</button>
+                <span id="parseHint" style="color:#2563eb; font-size:0.85rem;"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="preview-toolbar">
+        <div class="toolbar-left">
+            <div class="time-fix-selector">
+                <span>⏱️ 过短处理:</span>
+                <select id="timeFixSelect">
+                    <option value="extend" selected>延长至10ms并顺延</option>
+                    <option value="delete">删除该条</option>
+                    <option value="keep">保留原样</option>
+                </select>
+            </div>
+            <button class="btn btn-outline-blue" id="mergeBtn" disabled title="将连续词数≤10的字幕合并为一条">🔧 智能拼装</button>
+            <button class="btn btn-outline-blue" id="undoBtn" disabled title="撤销上一步操作">↩️ 撤销</button>
+            <div class="export-mode-group" id="exportModeGroup">
+                <button class="mode-btn" data-mode="orig">原文</button>
+                <button class="mode-btn active" data-mode="both">双语</button>
+                <button class="mode-btn" data-mode="trans">译文</button>
+            </div>
+        </div>
+        <button class="btn btn-primary" id="exportBtn" disabled>⬇ 导出</button>
+    </div>
+
+    <div class="preview-table-wrapper">
+        <table id="previewTable">
+            <thead><tr><th>#</th><th>时间轴</th><th>原文</th><th>译文</th><th>词数</th></tr></thead>
+            <tbody id="tableBody"><tr><td colspan="5" style="text-align:center;color:#94a3b8;">上传字幕文件后显示</td></tr></tbody>
+        </table>
+    </div>
+
+    <div class="footer-actions">
+        <button class="btn" id="resetBtn" disabled>🔄 重置翻译</button>
+    </div>
+
+    <div style="margin-top:16px; font-size:0.8rem; color:#475569; background:#f1f5f9; padding:10px; border-radius:16px;">
+        ⚙️ 拆分规则：若原文+译文总词数＞10，则按时间均分原轴，保证每条双语词数≤10，且每段时长≥1ms。<br>
+        🔧 拼装规则：将连续且总词数≤10的字幕合并为一条，时间轴取首尾。<br>
+        📁 导出文件命名：<strong>【已翻译-语言名】原文件名.srt</strong><br>
+        🔤 编码支持：自动尝试 UTF-8、Shift-JIS、EUC-JP、GBK、ISO-8859-1、Windows-1252 等。<br>
+        🧹 空行优化：若拆分后某条仅有原文或仅有译文，则仅输出单行。
+    </div>
+
+    <div class="license-footer">
+        SubMerge Pro  Copyright (C) 2026-至今  北冥的鱼, DeepSeek<br>
+        本程序是自由软件：您可以依据自由软件基金会发布的 GNU 通用公共许可证（版本3或任何更新版本）的条款再发布和/或修改它。<br>
+        我们分发本程序是希望它能有用，但是<strong>没有任何担保</strong>；甚至没有<strong>适销性或特定目的适用性</strong>的默示担保。<br>
+        您应该已经收到一份 GNU 通用公共许可证的副本。如果没有，请参阅 <a href="https://www.gnu.org/licenses/" target="_blank" rel="noopener">https://www.gnu.org/licenses/</a>。
+    </div>
+</div>
+
+<script>
+(function(){
+    "use strict";
+
+    // ====== 单词计数 ======
+    function countWords(text) {
+        if (!text) return 0;
+        const segments = text.split(/([\u4e00-\u9fa5]+)/g);
+        let total = 0;
+        for (let seg of segments) {
+            if (!seg) continue;
+            if (/[\u4e00-\u9fa5]/.test(seg)) {
+                total += Math.ceil(seg.length / 2);
+            } else {
+                const words = seg.match(/[A-Za-z0-9]+(?:'[A-Za-z]+)?/g) || [];
+                total += words.length;
+            }
+        }
+        return total;
+    }
+
+    // ====== 拆分双语文本 ======
+    function splitPairedText(orig, trans, maxWords) {
+        maxWords = maxWords || 10;
+        if (!orig && !trans) return [{ orig: '', trans: '' }];
+        function tokenize(text) {
+            const tokens = [];
+            const segments = text.split(/([\u4e00-\u9fa5]+)/g);
+            for (let seg of segments) {
+                if (!seg) continue;
+                if (/[\u4e00-\u9fa5]/.test(seg)) {
+                    for (let i = 0; i < seg.length; i += 2) {
+                        tokens.push(seg.substring(i, i+2));
+                    }
+                } else {
+                    const words = seg.match(/[A-Za-z0-9]+(?:'[A-Za-z]+)?|\S/g) || [];
+                    tokens.push(...words);
+                }
+            }
+            return tokens;
+        }
+        const origTokens = tokenize(orig);
+        const transTokens = tokenize(trans);
+        const chunks = [];
+        let oIdx = 0, tIdx = 0;
+        while (oIdx < origTokens.length || tIdx < transTokens.length) {
+            let oChunkTokens = [];
+            let tChunkTokens = [];
+            let currentWords = 0;
+            while ((oIdx < origTokens.length || tIdx < transTokens.length) && currentWords < maxWords) {
+                const canTakeOrig = oIdx < origTokens.length;
+                const canTakeTrans = tIdx < transTokens.length;
+                if (canTakeOrig && canTakeTrans) {
+                    if (currentWords + 2 <= maxWords) {
+                        oChunkTokens.push(origTokens[oIdx++]);
+                        tChunkTokens.push(transTokens[tIdx++]);
+                        currentWords += 2;
+                    } else break;
+                } else if (canTakeOrig) {
+                    if (currentWords + 1 <= maxWords) {
+                        oChunkTokens.push(origTokens[oIdx++]);
+                        currentWords += 1;
+                    } else break;
+                } else if (canTakeTrans) {
+                    if (currentWords + 1 <= maxWords) {
+                        tChunkTokens.push(transTokens[tIdx++]);
+                        currentWords += 1;
+                    } else break;
+                }
+            }
+            let origChunk = oChunkTokens.join('');
+            let transChunk = tChunkTokens.join('');
+            origChunk = origChunk.replace(/([a-zA-Z0-9])([\u4e00-\u9fa5])/g, '$1 $2').replace(/([\u4e00-\u9fa5])([a-zA-Z0-9])/g, '$1 $2');
+            transChunk = transChunk.replace(/([a-zA-Z0-9])([\u4e00-\u9fa5])/g, '$1 $2').replace(/([\u4e00-\u9fa5])([a-zA-Z0-9])/g, '$1 $2');
+            chunks.push({ orig: origChunk.trim(), trans: transChunk.trim() });
+        }
+        return chunks.length ? chunks : [{ orig: orig || '', trans: trans || '' }];
+    }
+
+    // ====== 时间转换 ======
+    function getBccFps() {
+        const fpsSelect = document.getElementById('fpsSelect');
+        const fpsCustomInput = document.getElementById('fpsCustomInput');
+        if (!fpsSelect) return 25;
+        const val = fpsSelect.value;
+        if (val === 'custom') return parseFloat(fpsCustomInput.value) || 25;
+        return parseFloat(val);
+    }
+
+    function timeToMs(timeStr) {
+        const parts = timeStr.split(':');
+        const hours = parseInt(parts[0]);
+        const minutes = parseInt(parts[1]);
+        const secAndMs = parts[2];
+        let seconds, millis;
+        if (secAndMs.includes(',')) {
+            const [sec, ms] = secAndMs.split(',');
+            seconds = parseInt(sec);
+            millis = parseInt(ms.padEnd(3, '0'));
+        } else if (secAndMs.includes('.')) {
+            const [sec, frames] = secAndMs.split('.');
+            seconds = parseInt(sec);
+            const fps = getBccFps();
+            millis = Math.round(parseInt(frames.padEnd(2, '0')) * (1000 / fps));
+        } else {
+            seconds = parseInt(secAndMs);
+            millis = 0;
+        }
+        return ((hours * 3600 + minutes * 60 + seconds) * 1000 + millis);
+    }
+
+    function msToTime(ms) {
+        const hours = Math.floor(ms / 3600000);
+        ms %= 3600000;
+        const minutes = Math.floor(ms / 60000);
+        ms %= 60000;
+        const seconds = Math.floor(ms / 1000);
+        const millis = ms % 1000;
+        return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')},${String(millis).padStart(3,'0')}`;
+    }
+
+    // ====== 全局状态 ======
+    let originalEntries = [];
+    let displayEntries = [];
+    // 撤销历史（只保存一步）
+    let historyDisplayEntries = null;
+    let historyMergedText = null;
+    let hasTranslation = false; // 应用翻译后置为 true，禁止拼装
+    let fileName = '';
+    let exportMode = 'both';
+
+    // ====== DOM ======
+    const $ = (id) => document.getElementById(id);
+    const dropZone = $('dropZone');
+    const fileInput = $('fileInput');
+    const fileInfo = $('fileInfo');
+    const entryCountDisplay = $('entryCountDisplay');
+    const mergedTextView = $('mergedTextView');
+    const translationInput = $('translationInput');
+    const copyMergedBtn = $('copyMergedBtn');
+    const applyTranslationBtn = $('applyTranslationBtn');
+    const clearTranslationBtn = $('clearTranslationBtn');
+    const pasteTranslationBtn = $('pasteTranslationBtn');
+    const exportBtn = $('exportBtn');
+    const resetBtn = $('resetBtn');
+    const tableBody = $('tableBody');
+    const parseHint = $('parseHint');
+    const langNameInput = $('langNameInput');
+    const timeFixSelect = $('timeFixSelect');
+    const fpsRow = $('fpsRow');
+    const fpsSelect = $('fpsSelect');
+    const fpsCustomInput = $('fpsCustomInput');
+    const presetLangSelect = $('presetLangSelect');
+    const browseBtn = $('browseBtn');
+    const exportModeGroup = $('exportModeGroup');
+    const mergeBtn = $('mergeBtn');
+    const undoBtn = $('undoBtn');
+
+    // ====== 预设语言 ======
+    const popularLangs = ["中文","英语","西班牙语","阿拉伯语","印地语","葡萄牙语","俄语","日语","德语","法语","韩语","意大利语","土耳其语","波兰语","乌克兰语","荷兰语","泰语","瑞典语","希腊语","捷克语"];
+    popularLangs.forEach(l => { const o = document.createElement("option"); o.value = l; o.textContent = l; presetLangSelect.appendChild(o); });
+    presetLangSelect.addEventListener("change", () => { langNameInput.value = presetLangSelect.value; });
+
+    // ====== FPS 逻辑 ======
+    function setFpsVal(val) {
+        const opts = [...fpsSelect.options].map(o => o.value);
+        if (opts.includes(val.toString())) {
+            fpsSelect.value = val;
+            fpsCustomInput.style.display = 'none';
+        } else {
+            fpsSelect.value = 'custom';
+            fpsCustomInput.style.display = 'inline-block';
+            fpsCustomInput.value = val;
+        }
+    }
+    fpsSelect.addEventListener('change', () => {
+        fpsCustomInput.style.display = fpsSelect.value === 'custom' ? 'inline-block' : 'none';
+        if (originalEntries.length > 0 && fileName.toLowerCase().endsWith('.bcc')) {
+            rebuildDisplayEntries();
+            updateUI();
+        }
+    });
+    fpsCustomInput.addEventListener('change', () => {
+        if (fpsSelect.value === 'custom' && originalEntries.length > 0 && fileName.toLowerCase().endsWith('.bcc')) {
+            rebuildDisplayEntries();
+            updateUI();
+        }
+    });
+    function guessFpsFromFilename(fname) {
+        const name = fname.replace(/\.\w+$/, '');
+        const commonFps = ['23.976','24','25','29.97','30','50','60'];
+        for (let p of [/(\d{2}\.\d{3})/, /(\d{2})fps/i, /(\d{2})/]) {
+            const m = name.match(p);
+            if (m) { const c = m[1].replace(/^0+/, ''); if (commonFps.includes(c)) return c; }
+        }
+        return null;
+    }
+
+    // ====== 过短时间处理 ======
+    function applyTimeFix(entries, strategy) {
+        if (strategy === 'keep') return entries;
+        const fixed = [];
+        for (let i = 0; i < entries.length; i++) {
+            const e = entries[i];
+            const startMs = timeToMs(e.start);
+            const endMs = timeToMs(e.end);
+            if (endMs - startMs < 10) {
+                if (strategy === 'delete') continue;
+                if (strategy === 'extend') {
+                    const newEndMs = startMs + 10;
+                    e.end = msToTime(newEndMs);
+                    const shift = newEndMs - endMs;
+                    for (let j = i + 1; j < entries.length; j++) {
+                        entries[j].start = msToTime(timeToMs(entries[j].start) + shift);
+                        entries[j].end = msToTime(timeToMs(entries[j].end) + shift);
+                    }
+                }
+            }
+            fixed.push(e);
+        }
+        return fixed;
+    }
+
+    // ====== 保存历史记录 ======
+    function saveHistory() {
+        historyDisplayEntries = JSON.parse(JSON.stringify(displayEntries));
+        historyMergedText = mergedTextView.value;
+        undoBtn.disabled = false;
+    }
+
+    // ====== 撤销 ======
+    function undo() {
+        if (!historyDisplayEntries) return;
+        displayEntries = JSON.parse(JSON.stringify(historyDisplayEntries));
+        mergedTextView.value = historyMergedText;
+        historyDisplayEntries = null;
+        historyMergedText = null;
+        undoBtn.disabled = true;
+        renderTable();
+        updateUI();
+        parseHint.textContent = '↩️ 已撤销';
+    }
+
+    // ====== 智能拼装 ======
+    function mergeShortEntries(entries, maxWords) {
+        maxWords = maxWords || 10;
+        if (!entries.length) return entries;
+        const merged = [];
+        let current = {
+            index: entries[0].index,
+            start: entries[0].start,
+            end: entries[0].end,
+            orig: entries[0].orig || '',
+            trans: entries[0].trans || '',
+            wordCount: entries[0].wordCount || 0,
+            sourceIndex: entries[0].sourceIndex
+        };
+        for (let i = 1; i < entries.length; i++) {
+            const e = entries[i];
+            const combinedOrig = (current.orig + ' ' + (e.orig || '')).trim();
+            const combinedTrans = (current.trans + ' ' + (e.trans || '')).trim();
+            const combinedWords = countWords(combinedOrig) + countWords(combinedTrans);
+            const timeGap = timeToMs(e.start) - timeToMs(current.end);
+            if (combinedWords <= maxWords && timeGap <= 2000) {
+                current.orig = combinedOrig;
+                current.trans = combinedTrans;
+                current.end = e.end;
+                current.wordCount = combinedWords;
+                current.sourceIndex = Math.min(current.sourceIndex, e.sourceIndex || e.index);
+            } else {
+                merged.push(current);
+                current = {
+                    index: e.index,
+                    start: e.start,
+                    end: e.end,
+                    orig: e.orig || '',
+                    trans: e.trans || '',
+                    wordCount: e.wordCount || 0,
+                    sourceIndex: e.sourceIndex || e.index
+                };
+            }
+        }
+        merged.push(current);
+        return merged.map((e, i) => ({ ...e, index: i + 1 }));
+    }
+
+    function applyMerge() {
+        if (!displayEntries.length) return;
+        if (hasTranslation) {
+            alert('已应用翻译，为避免语言不对齐，智能拼装已禁用。如需拼装请先重置翻译。');
+            return;
+        }
+        saveHistory();
+        displayEntries = mergeShortEntries(displayEntries, 10);
+        // 刷新合并文本预览
+        if (displayEntries.length) {
+            const lines = displayEntries.map((e, idx) => `[${idx + 1}] ${(e.orig || '').replace(/\s*\n\s*/g, ' ')}`);
+            mergedTextView.value = lines.join('\n');
+        }
+        renderTable();
+        updateUI();
+        parseHint.textContent = '🔧 已执行智能拼装';
+    }
+
+    // ====== UI 更新 ======
+    function updateUI() {
+        const hasOrig = originalEntries.length > 0;
+        entryCountDisplay.innerHTML = hasOrig ? `✅ 原始 ${originalEntries.length} 条 · 拆分后 ${displayEntries.length} 条` : '⏳ 未加载字幕';
+        copyMergedBtn.disabled = !hasOrig;
+        applyTranslationBtn.disabled = !hasOrig;
+        clearTranslationBtn.disabled = !hasOrig;
+        pasteTranslationBtn.disabled = !hasOrig;
+        exportBtn.disabled = !hasOrig;
+        resetBtn.disabled = !hasOrig;
+        // 翻译后禁止拼装
+        mergeBtn.disabled = !hasOrig || hasTranslation;
+        if (hasOrig) {
+            const source = displayEntries.length > 0 ? displayEntries : originalEntries;
+            const lines = source.map((e, idx) => `[${idx + 1}] ${(e.orig || e.text || '').replace(/\s*\n\s*/g, ' ')}`);
+            mergedTextView.value = lines.join('\n');
+        } else {
+            mergedTextView.value = '';
+        }
+        fpsRow.style.display = fileName.toLowerCase().endsWith('.bcc') ? 'flex' : 'none';
+        renderTable();
+    }
+
+    // ====== 重建显示条目 ======
+    function rebuildDisplayEntries() {
+        if (!originalEntries.length) {
+            displayEntries = [];
+            return;
+        }
+        const strategy = timeFixSelect ? timeFixSelect.value : 'extend';
+        let base = originalEntries.map(e => ({
+            index: e.index,
+            start: e.start,
+            end: e.end,
+            text: e.text,
+            translatedText: e.translatedText
+        }));
+        base = applyTimeFix(base, strategy);
+        const newDisplay = [];
+        let globalIndex = 1;
+        for (let entry of base) {
+            const origText = entry.text || '';
+            const transText = entry.translatedText || '';
+            const totalWords = countWords(origText) + countWords(transText);
+            if (totalWords <= 10) {
+                newDisplay.push({
+                    index: globalIndex++,
+                    start: entry.start,
+                    end: entry.end,
+                    orig: origText,
+                    trans: transText,
+                    wordCount: totalWords,
+                    sourceIndex: entry.index
+                });
+            } else {
+                const chunks = splitPairedText(origText, transText, 10);
+                const startMs = timeToMs(entry.start);
+                const endMs = timeToMs(entry.end);
+                const duration = endMs - startMs;
+                const chunkCount = chunks.length;
+                const chunkDuration = Math.max(1, Math.floor(duration / chunkCount));
+                for (let i = 0; i < chunkCount; i++) {
+                    const chunkStart = startMs + i * chunkDuration;
+                    let chunkEnd;
+                    if (i === chunkCount - 1) {
+                        chunkEnd = endMs;
+                    } else {
+                        chunkEnd = startMs + (i + 1) * chunkDuration;
+                    }
+                    if (chunkEnd <= chunkStart) {
+                        chunkEnd = chunkStart + 1;
+                    }
+                    chunkEnd = Math.min(chunkEnd, endMs);
+                    newDisplay.push({
+                        index: globalIndex++,
+                        start: msToTime(chunkStart),
+                        end: msToTime(chunkEnd),
+                        orig: chunks[i].orig,
+                        trans: chunks[i].trans,
+                        wordCount: countWords(chunks[i].orig) + countWords(chunks[i].trans),
+                        sourceIndex: entry.index
+                    });
+                }
+            }
+        }
+        displayEntries = newDisplay;
+    }
+
+    // ====== 渲染表格 ======
+    function renderTable() {
+        if (!displayEntries.length) {
+            if (!originalEntries.length) {
+                tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">上传字幕文件后显示</td></tr>';
+            } else {
+                tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">暂无数据</td></tr>';
+            }
+            return;
+        }
+        let html = '';
+        for (let e of displayEntries) {
+            const wordClass = e.wordCount > 10 ? 'warning' : '';
+            const origHtml = escapeHtml(e.orig).replace(/\n/g,'<br>');
+            const transHtml = escapeHtml(e.trans).replace(/\n/g,'<br>') || '<span style="color:#94a3b8;">—</span>';
+            html += `<tr>
+                <td>${e.index}</td>
+                <td style="font-family:monospace;">${e.start} → ${e.end}</td>
+                <td>${origHtml}</td>
+                <td>${transHtml}</td>
+                <td><span class="word-count ${wordClass}">${e.wordCount}</span></td>
+            </tr>`;
+        }
+        tableBody.innerHTML = html;
+    }
+
+    function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    // ====== 解析字幕 ======
+    function parseSubtitle(content) {
+        const entries = [];
+        const cleanContent = content.replace(/^\uFEFF/, '').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+        const blocks = cleanContent.split(/\n\s*\n/);
+        const seenIndices = new Set();
+        for (let block of blocks) {
+            block = block.trim();
+            if (!block) continue;
+            const lines = block.split('\n').map(l => l.trim()).filter(l => l !== '');
+            if (lines.length < 3) continue;
+            if (!/^\d+$/.test(lines[0])) continue;
+            const timeMatch = lines[1].match(/^(\d{1,2}:\d{2}:\d{2}[,\.]\d{1,3})\s*-->\s*(\d{1,2}:\d{2}:\d{2}[,\.]\d{1,3})$/);
+            if (!timeMatch) continue;
+            const index = parseInt(lines[0], 10);
+            if (seenIndices.has(index)) continue;
+            seenIndices.add(index);
+            let start = timeMatch[1].replace('.', ',');
+            let end = timeMatch[2].replace('.', ',');
+            const startMs = timeToMs(start);
+            const endMs = timeToMs(end);
+            if (startMs >= endMs) {
+                end = msToTime(startMs + 1);
+            }
+            const text = lines.slice(2).join('\n').trim();
+            if (!text) continue;
+            entries.push({
+                index: index,
+                start: start,
+                end: end,
+                text: text,
+                translatedText: null
+            });
+        }
+        entries.sort((a,b) => a.index - b.index);
+        return entries;
+    }
+
+    // ====== 多编码尝试 ======
+    async function tryParseWithEncodings(arrayBuffer) {
+        const encodings = ['UTF-8', 'Shift-JIS', 'EUC-JP', 'GBK', 'ISO-8859-1', 'Windows-1252'];
+        for (const enc of encodings) {
+            try {
+                const decoder = new TextDecoder(enc, { fatal: true });
+                const text = decoder.decode(arrayBuffer);
+                const parsed = parseSubtitle(text);
+                if (parsed.length > 0) {
+                    return { parsed, encoding: enc, error: null };
+                }
+            } catch (e) {}
+        }
+        try {
+            const decoder = new TextDecoder('UTF-8', { fatal: false });
+            const text = decoder.decode(arrayBuffer);
+            const parsed = parseSubtitle(text);
+            if (parsed.length > 0) {
+                return { parsed, encoding: 'UTF-8 (fallback)', error: null };
+            }
+        } catch (e) {}
+        return { parsed: [], encoding: null, error: '所有编码尝试失败，文件可能已损坏或不是标准字幕文件。' };
+    }
+
+    // ====== 应用翻译 ======
+    function applyTranslation(transStr) {
+        const map = new Map();
+        const regex = /\[(\d+)\]\s*([\s\S]*?)(?=\n?\s*\[\d+\]|$)/g;
+        let m;
+        while ((m = regex.exec(transStr)) !== null) {
+            map.set(parseInt(m[1]), m[2].trim());
+        }
+        if (map.size === 0) { alert('未检测到[编号]格式'); return false; }
+        let applied = 0;
+        for (let e of originalEntries) {
+            if (map.has(e.index)) {
+                e.translatedText = map.get(e.index);
+                applied++;
+            }
+        }
+        parseHint.textContent = `✅ 应用了 ${applied} 条翻译`;
+        // 标记已翻译，禁止拼装
+        hasTranslation = true;
+        // 清除撤销历史（翻译后不可撤销到之前状态）
+        historyDisplayEntries = null;
+        historyMergedText = null;
+        undoBtn.disabled = true;
+        rebuildDisplayEntries();
+        updateUI();
+        return true;
+    }
+
+    // ====== 加载文件 ======
+    async function loadFile(file) {
+        fileName = file.name;
+        const arrayBuffer = await file.arrayBuffer();
+        const { parsed, encoding, error } = await tryParseWithEncodings(arrayBuffer);
+        if (error || !parsed.length) {
+            alert(`❌ 解析失败：${error || '未找到任何字幕条目，请检查文件格式。'}`);
+            fileInfo.innerHTML = '<span class="error-text">文件读取失败，可能已损坏或格式不标准</span>';
+            return;
+        }
+        originalEntries = parsed;
+        translationInput.value = '';
+        hasTranslation = false;
+        // 清除撤销历史
+        historyDisplayEntries = null;
+        historyMergedText = null;
+        undoBtn.disabled = true;
+        if (fileName.toLowerCase().endsWith('.bcc')) {
+            const guessedFps = guessFpsFromFilename(fileName);
+            if (guessedFps) {
+                setFpsVal(guessedFps);
+                fileInfo.innerHTML = `📄 ${file.name} (${parsed.length}条) · 编码: ${encoding} · 推测帧率: ${guessedFps}`;
+            } else {
+                setFpsVal('25');
+                fileInfo.innerHTML = `📄 ${file.name} (${parsed.length}条) · 编码: ${encoding} · 帧率设为25 (可手动调整)`;
+            }
+        } else {
+            fileInfo.innerHTML = `📄 ${file.name} (${parsed.length}条) · 编码: ${encoding}`;
+        }
+        rebuildDisplayEntries();
+        updateUI();
+    }
+
+    // ====== 导出 SRT ======
+    function exportSRT() {
+        if (!displayEntries.length) return;
+        let srt = '';
+        for (let e of displayEntries) {
+            let subtitleText = '';
+            if (exportMode === 'orig') {
+                subtitleText = e.orig;
+            } else if (exportMode === 'trans') {
+                subtitleText = e.trans;
+            } else {
+                if (e.orig && e.trans) {
+                    subtitleText = `${e.orig}\n${e.trans}`;
+                } else if (e.orig) {
+                    subtitleText = e.orig;
+                } else if (e.trans) {
+                    subtitleText = e.trans;
+                }
+            }
+            srt += `${e.index}\n${e.start} --> ${e.end}\n${subtitleText}\n\n`;
+        }
+        const blob = new Blob([srt], {type: 'text/plain;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const base = fileName.replace(/\.(srt|bcc|txt)$/i,'') || 'subtitle';
+        let lang = langNameInput.value.trim();
+        if (!lang) lang = '译文';
+        a.download = `【已翻译-${lang}】${base}.srt`;
+        a.href = url; a.click(); URL.revokeObjectURL(url);
+    }
+
+    // ====== 复制完整提示词 ======
+    async function copyFullPrompt() {
+        if (!mergedTextView.value) return;
+        let targetLang = langNameInput.value.trim();
+        if (!targetLang) targetLang = '简体中文';
+        const mergedText = mergedTextView.value;
+        const promptTemplate = `【角色设定】
+你是一位精通多语种的字幕翻译专家，能够将各类外语字幕准确翻译为指定的目标语言，译文风格得体、措辞考究，适用于纪录片、访谈、讲座等正式场合。
+
+【任务】
+请将以下以 [数字] 开头的字幕文本逐条翻译为 ${targetLang} 。
+
+【翻译要求】
+1. 严格格式：必须完整保留每一条开头的 [数字] 编号，仅翻译编号之后的内容。
+2. 翻译范围：将任何非目标语言的外语内容翻译为目标语言，专有名词保留原文。
+3. 语言风格：译文自然流畅，符合目标语言表达习惯，避免俚语和过度口语化。
+4. 断句：原句过长可合理断句，但绝不合并多条字幕。
+5. 格式保留：保留换行符 \\n 及特殊标记。
+6. 纯输出：只返回翻译后的带编号文本，不得附加任何解释。
+
+【待翻译内容】
+${mergedText}`;
+        try {
+            await navigator.clipboard.writeText(promptTemplate);
+            copyMergedBtn.textContent = '✅ 已复制';
+            setTimeout(() => copyMergedBtn.textContent = '📋 复制完整提示词', 2000);
+        } catch (err) {
+            alert('复制失败，请手动复制');
+        }
+    }
+
+    // ====== 粘贴译文 ======
+    async function pasteTranslation() {
+        try {
+            const text = await navigator.clipboard.readText();
+            translationInput.value = text;
+            parseHint.textContent = '📋 已从剪贴板粘贴译文';
+        } catch (err) {
+            alert('无法读取剪贴板，请手动粘贴（Ctrl+V）');
+        }
+    }
+
+    // ====== 粘贴语言 ======
+    async function pasteLang() {
+        try {
+            const text = await navigator.clipboard.readText();
+            langNameInput.value = text;
+        } catch (err) {
+            alert('无法读取剪贴板，请手动输入');
+        }
+    }
+
+    // ====== 重置翻译（恢复拼装能力） ======
+    function resetTranslation() {
+        for (let e of originalEntries) e.translatedText = null;
+        translationInput.value = '';
+        hasTranslation = false;
+        historyDisplayEntries = null;
+        historyMergedText = null;
+        undoBtn.disabled = true;
+        rebuildDisplayEntries();
+        updateUI();
+        parseHint.textContent = '🔄 翻译已重置';
+    }
+
+    // ====== 事件绑定 ======
+    browseBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); fileInput.click(); });
+    dropZone.addEventListener('click', (e) => { if (e.target !== browseBtn && !browseBtn.contains(e.target)) fileInput.click(); });
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = '#3b82f6'; });
+    dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '#cbd5e1');
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#cbd5e1';
+        const file = e.dataTransfer.files[0];
+        if (file) loadFile(file);
+    });
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files[0]) loadFile(fileInput.files[0]);
+        fileInput.value = '';
+    });
+    copyMergedBtn.addEventListener('click', copyFullPrompt);
+    pasteTranslationBtn.addEventListener('click', pasteTranslation);
+    document.getElementById('pasteLangBtn').addEventListener('click', pasteLang);
+    applyTranslationBtn.addEventListener('click', () => {
+        if (translationInput.value.trim()) applyTranslation(translationInput.value);
+    });
+    clearTranslationBtn.addEventListener('click', () => {
+        translationInput.value = '';
+        parseHint.textContent = '';
+    });
+    resetBtn.addEventListener('click', resetTranslation);
+    exportBtn.addEventListener('click', exportSRT);
+    timeFixSelect.addEventListener('change', () => { rebuildDisplayEntries(); updateUI(); });
+    mergeBtn.addEventListener('click', applyMerge);
+    undoBtn.addEventListener('click', undo);
+
+    // ====== 导出模式切换 ======
+    exportModeGroup.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            exportModeGroup.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            exportMode = this.dataset.mode;
+        });
+    });
+
+    // ====== 初始化 ======
+    updateUI();
+})();
+</script>
+</body>
+</html>

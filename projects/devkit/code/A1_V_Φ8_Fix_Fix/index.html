@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A1_V_Φ8 · DevKit</title>
+<meta name="description" content="DevKit A1_V_Φ8 分支的全部版本文件。">
+<!--
+    ============================================================
+    项目名称：AI 开发快捷工具箱（DevKit）· 站点外壳
+    文件性质：GitHub Pages 目录索引（/code/A1_V_Φ8/）。不属于 DevKit
+              应用的版本架构，不占用版本号。
+    职责：列出本主干下的全部版本文件，供逐层浏览。
+    日期：2026-10-03
+    版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+    许可证：GPLv3
+    ============================================================
+    维护提示：新增版本时，复制一个 <a class="card"> 块，改 href / 版本号 /
+              说明 / 日期 / 大小即可。若新版本成为最新，把 .latest 徽标
+              移到新卡片上，并同步更新首页「最新版本」直达条。
+    约定：href 中的 Φ 一律用百分号编码 %CE%A6（与仓库原 index.html 一致），
+          避免个别浏览器/服务器对非 ASCII 路径处理不一致；页面显示文字仍写 Φ。
+    ============================================================
+-->
+<style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --tone: 187, 243, 81;
+        --tone2: 0, 188, 255;
+        --tint: 10, 12, 17;
+        --text: #e9f2ec;
+        --text2: #8b9aa6;
+        --primary: #bbf351;
+        --primary-fg: #08090d;
+        --edge: 0.24;
+        --radius: 10px;
+        --mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+    }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+        min-height: 100vh;
+        font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+        color: var(--text);
+        background:
+            radial-gradient(1100px 700px at 10% -14%, rgba(187,243,81,0.10), transparent 58%),
+            radial-gradient(900px 620px at 96% 2%, rgba(0,188,255,0.09), transparent 60%),
+            radial-gradient(760px 520px at 50% 116%, rgba(187,243,81,0.06), transparent 58%),
+            #08090d;
+        background-attachment: fixed;
+        line-height: 1.6;
+        padding: 56px 24px 72px;
+        display: flex; justify-content: center;
+    }
+
+    .wrap { width: 100%; max-width: 880px; }
+
+    /* ---------- 面包屑 ---------- */
+    nav.crumbs {
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        color: var(--text2);
+        margin-bottom: 20px;
+        letter-spacing: 0.02em;
+    }
+    nav.crumbs a { color: var(--text2); text-decoration: none; }
+    nav.crumbs a:hover { color: var(--primary); }
+    nav.crumbs a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    nav.crumbs .sep { opacity: 0.45; margin: 0 6px; }
+    nav.crumbs .here { color: var(--primary); }
+
+    h1 {
+        font-family: var(--mono);
+        font-size: 1.35rem; font-weight: 600;
+        color: var(--primary);
+        text-shadow: 0 0 18px rgba(var(--tone), 0.55);
+        margin-bottom: 6px;
+        word-break: break-all;
+    }
+    .sub { color: var(--text2); font-size: 0.88rem; margin-bottom: 32px; }
+
+    h2 {
+        font-size: 0.78rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.12em;
+        color: var(--text2);
+        font-family: var(--mono);
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 10px;
+    }
+    h2::after {
+        content: ''; flex: 1; height: 1px;
+        background: linear-gradient(90deg, rgba(var(--tone), 0.4), transparent);
+    }
+
+    /* ---------- 版本卡片 ---------- */
+    .card {
+        display: block; text-decoration: none; color: inherit;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone), var(--edge)), 0 0 26px -16px rgba(var(--tone), 1);
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    .card + .card { margin-top: 12px; }
+    .card:hover {
+        border-color: rgba(var(--tone), 0.55);
+        box-shadow: 0 0 0 1px rgba(var(--tone), 0.55), 0 0 34px -12px rgba(var(--tone), 1);
+        transform: translateY(-2px);
+    }
+    .card:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
+    .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .ver {
+        font-family: var(--mono);
+        font-size: 1rem; font-weight: 600; color: var(--primary);
+        text-shadow: 0 0 14px rgba(var(--tone), 0.55);
+        word-break: break-all;
+    }
+    .latest {
+        font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
+        color: var(--primary-fg); background: var(--primary);
+        border-radius: 999px; padding: 1px 9px; margin-left: 8px;
+        vertical-align: middle; white-space: nowrap;
+        box-shadow: 0 0 16px -4px rgba(var(--tone), 1);
+    }
+    .new {
+        font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
+        color: var(--primary); background: transparent;
+        border: 1px solid var(--primary);
+        border-radius: 999px; padding: 0 8px; margin-left: 8px;
+        vertical-align: middle; white-space: nowrap;
+    }
+    .card-go { font-size: 0.8rem; color: var(--text2); white-space: nowrap; }
+    .card:hover .card-go { color: var(--primary); }
+    /* 注意：这是 span，必须显式转块级，否则垂直 margin 不生效 */
+    .card-desc { display: block; font-size: 0.85rem; color: var(--text2); margin-top: 6px; }
+
+    .meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .chip {
+        font-family: var(--mono); font-size: 0.72rem;
+        color: var(--text2);
+        border: 1px solid rgba(var(--tone), 0.25);
+        border-radius: 999px; padding: 1px 10px;
+    }
+    .chip.lang { border-color: rgba(var(--tone2), 0.35); color: #7fd8ff; }
+
+    .filename {
+        display: block; margin-top: 12px;
+        font-family: var(--mono); font-size: 0.74rem;
+        color: var(--text2); opacity: 0.75;
+        word-break: break-all;
+    }
+
+    footer {
+        margin-top: 48px; padding-top: 20px;
+        border-top: 1px solid rgba(var(--tone), 0.16);
+        font-size: 0.78rem; color: var(--text2);
+        display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    footer a { color: var(--text2); text-decoration: none; border-bottom: 1px solid rgba(var(--tone), 0.35); }
+    footer a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+    footer a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+    @media (max-width: 560px) {
+        body { padding: 36px 16px 48px; }
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+    <nav class="crumbs" aria-label="面包屑导航">
+        <a href="../../">DevKit</a><span class="sep">/</span><a href="../">code</a><span class="sep">/</span><span class="here">A1_V_Φ8_Fix_Fix</span>
+    </nav>
+
+    <h1>A1_V_Φ8_Fix_Fix</h1>
+    <p class="sub">A1 分支 · Φ8_Fix_Fix 层。在 <code style="font-family:var(--mono);color:var(--text)">A1_V_Φ8_Fix</code> 之上的缺陷修复与打磨版本（第四层英文标识叠加 Fix，Φ 数字不递增）——集中修复 16 项：导出配置包含当前编辑区、模态框背景点击关闭、预览渲染防抖、追加导入项目 id 冲突重生成、前往AI 可重复选择、theme-1 独立配色、getActive 越界取值、无障碍属性补齐、行号栏自适应等。图标字体（Material Symbols Outlined）改为本地内嵌——32 个连字子集化为 4.8KB woff2，离线亦正常渲染、不再退化为英文单词；正文设计字体仍按各皮肤外链加载。九款皮肤共用同一功能层，仅皮肤层不同。另：关闭任意项目触发当前项目按存档全新加载属既定设计（不持久化哲学），已在版本历史与本目录说明中固化，非缺陷。</p>
+
+    <h2>版本列表</h2>
+
+    <a class="card" href="deepseek_A1_V_%CE%A68_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Fix_Fix_CN<span class="latest">最新</span></span>
+            <span class="card-go">打开 →</span>
+        </span>
+        <span class="card-desc">基准皮肤（原 theme 数字主题体系）。本版（Fix_Fix）在 Fix 层之上集中修复 16 项缺陷与打磨项：导出配置包含当前编辑区、模态框背景点击关闭修复、预览渲染防抖、追加导入项目 id 冲突重生成、前往AI 可重复选择、getActive 越界修正、无障碍属性补齐、行号栏自适应等；图标字体改为本地内嵌（32 个连字，4.8KB woff2），离线不再退化为英文单词。</span>
+        <span class="meta">
+            <span class="chip">2026-10-05</span>
+            <span class="chip">约 264 KB</span>
+            <span class="chip lang">中文版 _CN</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Fix_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_V_%CE%A68_Glass_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Glass_Fix_Fix_CN<span class="latest">最新</span></span>
+            <span class="card-go">打开 →</span>
+        </span>
+        <span class="card-desc">毛玻璃皮肤（半透明叠层 + 背景模糊 + 发光描边，玻璃主题：暗色玻璃 / 亮色玻璃 / 跟随系统）。本版（Fix_Fix）在 Fix 层之上集中修复 16 项缺陷与打磨项：导出配置包含当前编辑区、模态框背景点击关闭修复、预览渲染防抖、追加导入项目 id 冲突重生成、前往AI 可重复选择、getActive 越界修正、无障碍属性补齐、行号栏自适应等；图标字体改为本地内嵌（32 个连字，4.8KB woff2），离线不再退化为英文单词。</span>
+        <span class="meta">
+            <span class="chip">2026-10-05</span>
+            <span class="chip">约 276 KB</span>
+            <span class="chip lang">中文版 _CN</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Glass_Fix_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_V_%CE%A68_Neon_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Neon_Fix_Fix_CN<span class="latest">最新</span></span>
+            <span class="card-go">打开 →</span>
+        </span>
+        <span class="card-desc">电光霓虹皮肤（近实心面板 + 彩色描边 + 多层外发光，无背景模糊）。本版（Fix_Fix）在 Fix 层之上集中修复 16 项缺陷与打磨项：导出配置包含当前编辑区、模态框背景点击关闭修复、预览渲染防抖、追加导入项目 id 冲突重生成、前往AI 可重复选择、getActive 越界修正、无障碍属性补齐、行号栏自适应等；图标字体改为本地内嵌（32 个连字，4.8KB woff2），离线不再退化为英文单词。</span>
+        <span class="meta">
+            <span class="chip">2026-10-05</span>
+            <span class="chip">约 278 KB</span>
+            <span class="chip lang">中文版 _CN</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Neon_Fix_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_V_%CE%A68_Mono_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Mono_Fix_Fix_CN<span class="latest">最新</span></span>
+            <span class="card-go">打开 →</span>
+        </span>
+        <span class="card-desc">全等宽皮肤（Space Mono + JetBrains Mono，1px 硬描边，主题为「明暗 × 强调色」两轴六配色）。本版（Fix_Fix）在 Fix 层之上集中修复 16 项缺陷与打磨项：导出配置包含当前编辑区、模态框背景点击关闭修复、预览渲染防抖、追加导入项目 id 冲突重生成、前往AI 可重复选择、getActive 越界修正、无障碍属性补齐、行号栏自适应等；图标字体改为本地内嵌（32 个连字，4.8KB woff2），离线不再退化为英文单词。</span>
+        <span class="meta">
+            <span class="chip">2026-10-05</span>
+            <span class="chip">约 286 KB</span>
+            <span class="chip lang">中文版 _CN</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Mono_Fix_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_V_%CE%A68_Clean_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Clean_Fix_Fix_CN<span class="latest">最新</span></span>
+            <span class="card-go">打开 →</span>
+        </span>
+        <span class="card-desc">简约皮肤（Roboto / Poppins / Inconsolata，8pt 基线网格，主色 #3B82F6，圆角 6/8px，克制的柔和阴影与 0.15s ease-out 动效）。本版（Fix_Fix）在 Fix 层之上集中修复 16 项缺陷与打磨项：导出配置包含当前编辑区、模态框背景点击关闭修复、预览渲染防抖、追加导入项目 id 冲突重生成、前往AI 可重复选择、getActive 越界修正、无障碍属性补齐、行号栏自适应等；图标字体改为本地内嵌（32 个连字，4.8KB woff2），离线不再退化为英文单词。</span>
+        <span class="meta">
+            <span class="chip">2026-10-05</span>
+            <span class="chip">约 269 KB</span>
+            <span class="chip lang">中文版 _CN</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Clean_Fix_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_V_%CE%A68_Material_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Material_Fix_Fix_CN<span class="latest">最新</span></span>
+            <span class="card-go">打开 →</span>
+        </span>
+        <span class="card-desc">材料设计皮肤（MD3：Roboto + Fira Code，五级分层表面、色调调色板、状态层叠加、elev-1~5 高程、圆角 4/8/12/28px）。本版（Fix_Fix）在 Fix 层之上集中修复 16 项缺陷与打磨项：导出配置包含当前编辑区、模态框背景点击关闭修复、预览渲染防抖、追加导入项目 id 冲突重生成、前往AI 可重复选择、getActive 越界修正、无障碍属性补齐、行号栏自适应等；图标字体改为本地内嵌（32 个连字，4.8KB woff2），离线不再退化为英文单词。</span>
+        <span class="meta">
+            <span class="chip">2026-10-05</span>
+            <span class="chip">约 273 KB</span>
+            <span class="chip lang">中文版 _CN</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Material_Fix_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_V_%CE%A68_Minimal_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Minimal_Fix_Fix_CN<span class="latest">最新</span></span>
+            <span class="card-go">打开 →</span>
+        </span>
+        <span class="card-desc">极简皮肤（Open Sans / Inter / Inconsolata，暖灰白与近黑近乎单色，唯一靛蓝强调色 #312C85，2/4px 小圆角，无投影）。本版（Fix_Fix）在 Fix 层之上集中修复 16 项缺陷与打磨项：导出配置包含当前编辑区、模态框背景点击关闭修复、预览渲染防抖、追加导入项目 id 冲突重生成、前往AI 可重复选择、getActive 越界修正、无障碍属性补齐、行号栏自适应等；图标字体改为本地内嵌（32 个连字，4.8KB woff2），离线不再退化为英文单词。</span>
+        <span class="meta">
+            <span class="chip">2026-10-05</span>
+            <span class="chip">约 266 KB</span>
+            <span class="chip lang">中文版 _CN</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Minimal_Fix_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_V_%CE%A68_Premium_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Premium_Fix_Fix_CN<span class="latest">最新</span></span>
+            <span class="card-go">打开 →</span>
+        </span>
+        <span class="card-desc">高级质感皮肤（Inter + JetBrains Mono，中性灰阶 + 品牌蓝 #3B82F6，精准间距节奏、柔和阴影层次，圆角 6/8/12px）。本版（Fix_Fix）在 Fix 层之上集中修复 16 项缺陷与打磨项：导出配置包含当前编辑区、模态框背景点击关闭修复、预览渲染防抖、追加导入项目 id 冲突重生成、前往AI 可重复选择、getActive 越界修正、无障碍属性补齐、行号栏自适应等；图标字体改为本地内嵌（32 个连字，4.8KB woff2），离线不再退化为英文单词。</span>
+        <span class="meta">
+            <span class="chip">2026-10-05</span>
+            <span class="chip">约 269 KB</span>
+            <span class="chip lang">中文版 _CN</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Premium_Fix_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_V_%CE%A68_Shadcn_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Shadcn_Fix_Fix_CN<span class="latest">最新</span></span>
+            <span class="card-go">打开 →</span>
+        </span>
+        <span class="card-desc">Shadcn 皮肤（Geist + Fira Code，黑白灰单色系 + hsl() 语义令牌，统一 8px 圆角，1px 边框分层、扁平无投影，2px 焦点环）。本版（Fix_Fix）在 Fix 层之上集中修复 16 项缺陷与打磨项：导出配置包含当前编辑区、模态框背景点击关闭修复、预览渲染防抖、追加导入项目 id 冲突重生成、前往AI 可重复选择、getActive 越界修正、无障碍属性补齐、行号栏自适应等；图标字体改为本地内嵌（32 个连字，4.8KB woff2），离线不再退化为英文单词。</span>
+        <span class="meta">
+            <span class="chip">2026-10-05</span>
+            <span class="chip">约 270 KB</span>
+            <span class="chip lang">中文版 _CN</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Shadcn_Fix_Fix_CN.html</span>
+    </a>
+
+    <footer>
+        <span>Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3</span>
+        <span><a href="../A1_V_%CE%A68/">← 上一代 A1_V_Φ8</a></span>
+    </footer>
+
+</div>
+</body>
+</html>

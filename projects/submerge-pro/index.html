@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SubMerge Pro · AI 开发快捷工具箱</title>
+<meta name="description" content="SubMerge Pro（AI 开发快捷工具箱）的静态版本分发入口：每个版本都是单个自包含 HTML 文件，下载即用。">
+<!--
+    ============================================================
+    项目名称：AI 开发快捷工具箱（SubMerge Pro）· 项目落地页
+    文件性质：GitHub Pages 页面（/projects/submerge-pro/）。不属于 SubMerge Pro 应用的
+              版本架构，不占用版本号；各版本 HTML 的版本代号见 code/ 下的
+              文件本身。
+    职责：列出可浏览的分支，并给出下载入口。
+
+    位置说明：本页原先在仓库根，2026-10-03 引入项目层后随 code/ 一起迁到
+              projects/devkit/。仓库根现在是“项目选择台”，列出本仓库托管
+              的全部项目；本页只负责 SubMerge Pro 一个项目。
+              因此从各主干目录页看，面包屑的 ../../ 仍正好落在本页，无需调整。
+
+    部署要求（重要）：GitHub Pages 的发布目录必须为 “/ (root)”。
+    原因：发布目录若设为 “/docs”，GitHub 只会发布 docs/ 目录内的文件，
+          本文件与 code/ 都不会上线，站点会 404。
+
+    日期：2026-10-03
+    版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+    许可证：GPLv3
+    ============================================================
+    维护提示：新增分支时，复制一个 <a class="card"> 块并改 href / 文案即可。
+              上方直达条指向的是 Releases 页而非某个具体文件——同一主干下九款
+              皮肤版本号相同，「最新版本」指哪一个都是武断的；指 Releases 则
+              每次自动发布都会自动更新，无需手工维护。
+    约定：href 中的 Φ 一律用百分号编码 %CE%A6，避免个别浏览器/服务器对
+          非 ASCII 路径处理不一致；页面显示文字仍写 Φ。
+    ============================================================
+-->
+<style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --tone: 187, 243, 81;      /* 电光柠檬绿 */
+        --tone2: 0, 188, 255;      /* 电光青 */
+        --tint: 10, 12, 17;        /* 面板底色 */
+        --text: #e9f2ec;
+        --text2: #8b9aa6;
+        --primary: #bbf351;
+        --primary-fg: #08090d;
+        --edge: 0.24;
+        --radius: 10px;
+    }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+        min-height: 100vh;
+        font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+        color: var(--text);
+        background:
+            radial-gradient(1100px 700px at 10% -14%, rgba(187,243,81,0.10), transparent 58%),
+            radial-gradient(900px 620px at 96% 2%, rgba(0,188,255,0.09), transparent 60%),
+            radial-gradient(760px 520px at 50% 116%, rgba(187,243,81,0.06), transparent 58%),
+            #08090d;
+        background-attachment: fixed;
+        line-height: 1.6;
+        padding: 56px 24px 72px;
+        display: flex;
+        justify-content: center;
+    }
+
+    .wrap { width: 100%; max-width: 880px; }
+
+    /* ---------- 页头 ---------- */
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .brand-mark {
+        width: 34px; height: 34px; flex-shrink: 0;
+        display: grid; place-items: center;
+        border: 1px solid rgba(var(--tone), 0.5);
+        border-radius: 8px;
+        color: var(--primary);
+        font-size: 18px; font-weight: 700;
+        box-shadow: 0 0 20px -6px rgba(var(--tone), 1), inset 0 0 18px -10px rgba(var(--tone), 1);
+        text-shadow: 0 0 14px rgba(var(--tone), 0.75);
+    }
+    h1 {
+        font-size: 1.5rem; font-weight: 600; letter-spacing: 0.01em;
+        text-shadow: 0 0 18px rgba(var(--tone), 0.45);
+    }
+    .tagline { color: var(--text2); font-size: 0.9rem; margin-bottom: 32px; }
+
+    /* ---------- 说明段 ---------- */
+    .lede {
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone), var(--edge)), 0 0 26px -16px rgba(var(--tone), 1);
+        font-size: 0.9rem;
+        color: var(--text2);
+        margin-bottom: 36px;
+    }
+    .lede strong { color: var(--text); font-weight: 600; }
+
+    /* ---------- 区块标题 ---------- */
+    h2 {
+        font-size: 0.78rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.12em;
+        color: var(--text2);
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 10px;
+    }
+    h2::after {
+        content: ''; flex: 1; height: 1px;
+        background: linear-gradient(90deg, rgba(var(--tone), 0.4), transparent);
+    }
+    section { margin-bottom: 36px; }
+
+    .note { font-size: 0.85rem; color: var(--text2); }
+    .note code {
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        font-size: 0.95em; color: var(--text);
+        background: rgba(var(--tone), 0.10);
+        border: 1px solid rgba(var(--tone), 0.22);
+        border-radius: 4px; padding: 1px 6px;
+    }
+
+    /* ---------- 分支卡片 ---------- */
+    .card {
+        display: block; text-decoration: none; color: inherit;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone), var(--edge)), 0 0 26px -16px rgba(var(--tone), 1);
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    .card + .card { margin-top: 12px; }
+    .card:hover {
+        border-color: rgba(var(--tone), 0.55);
+        box-shadow: 0 0 0 1px rgba(var(--tone), 0.55), 0 0 34px -12px rgba(var(--tone), 1);
+        transform: translateY(-2px);
+    }
+    .card:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
+    .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .card-name {
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        font-size: 1rem; font-weight: 600; color: var(--primary);
+        text-shadow: 0 0 14px rgba(var(--tone), 0.55);
+        word-break: break-all;
+    }
+    .card-go { font-size: 0.8rem; color: var(--text2); white-space: nowrap; }
+    .card:hover .card-go { color: var(--primary); }
+    /* 注意：这些是 span，必须显式转块级，否则垂直 margin 不生效 */
+    .card-desc { display: block; font-size: 0.85rem; color: var(--text2); margin-top: 6px; }
+
+    /* ---------- 版本直达条 ---------- */
+    .quick {
+        display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone2), 0.28);
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone2), 0.20), 0 0 30px -16px rgba(var(--tone2), 1);
+        text-decoration: none; color: inherit;
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    .quick:hover {
+        border-color: rgba(var(--tone2), 0.55);
+        box-shadow: 0 0 0 1px rgba(var(--tone2), 0.45), 0 0 36px -12px rgba(var(--tone2), 1);
+        transform: translateY(-2px);
+    }
+    .quick:focus-visible { outline: 2px solid var(--tone2); outline-offset: 3px; }
+    .quick-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .quick-name {
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        font-weight: 600; color: #7fd8ff; word-break: break-all;
+    }
+    .quick-meta { font-size: 0.8rem; color: var(--text2); }
+    .quick-cta {
+        font-size: 0.85rem; font-weight: 600; color: var(--primary-fg);
+        background: var(--primary); border-radius: 6px; padding: 7px 16px; white-space: nowrap;
+        box-shadow: 0 0 20px -6px rgba(var(--tone), 1);
+    }
+
+    /* ---------- 页脚 ---------- */
+    footer {
+        margin-top: 48px; padding-top: 20px;
+        border-top: 1px solid rgba(var(--tone), 0.16);
+        font-size: 0.78rem; color: var(--text2);
+        display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    footer a { color: var(--text2); text-decoration: none; border-bottom: 1px solid rgba(var(--tone), 0.35); }
+    footer a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+    footer a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+    @media (max-width: 560px) {
+        body { padding: 36px 16px 48px; }
+        h1 { font-size: 1.25rem; }
+        .quick-cta { width: 100%; text-align: center; }
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+    <div class="brand">
+        <div class="brand-mark" aria-hidden="true">S</div>
+        <h1>SubMerge Pro</h1>
+    </div>
+    <p class="tagline">双语字幕翻译拆分工具 · 单文件网页版</p>
+
+    <p class="lede">
+        这里存放 SubMerge Pro 的静态分发文件。<strong>每个版本都是单个自包含的 HTML 文件</strong>——
+        下载后在浏览器里直接打开即可使用，无需安装、无需后端、不依赖任何外部服务。
+        本项目与 DevKit 相互独立，共用一个仓库托管。
+    </p>
+
+    <section aria-labelledby="sec-branch">
+        <h2 id="sec-branch">按分支浏览</h2>
+        <a class="card" href="code/A1_II_%CE%A610/">
+            <span class="card-top">
+                <span class="card-name">A1_II_Φ10</span>
+                <span class="card-go">查看该分支全部版本 →</span>
+            </span>
+            <span class="card-desc">新增撤销功能；应用翻译后自动禁止智能拼装，以防语言不对齐。目前仅有此一代归档。</span>
+        </a>
+    </section>
+
+    <footer>
+        <span>Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3</span>
+        <span><a href="../">← 返回 projects 目录</a></span>
+    </footer>
+
+</div>
+</body>

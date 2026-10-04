@@ -52,6 +52,8 @@ DevKit 是一个**纯 HTML 单文件**的本地开发辅助工具，直接用浏
 
 上一代 `A1_V_Φ7` 与 Φ8 **并行可选**，保留在 `projects/devkit/code/A1_V_Φ7/`，含四套皮肤（基准 / 毛玻璃 / 霓虹 / 等宽）。更早的两代 `A1_V_Φ5`（两个版本）与 `A1_V_Φ4`（一个版本）也一并保留在 `projects/devkit/code/` 下供历史参照——它们尚无皮肤变体。
 
+**当前最新为 `A1_V_Φ8_Fix_Fix`**（`projects/devkit/code/A1_V_Φ8_Fix_Fix/`）：在 `A1_V_Φ8_Fix` 之上集中修复 16 项缺陷与打磨项，并把图标字体（Material Symbols Outlined）由 Google Fonts CDN 改为**本地内嵌**——32 个图标连字子集化为 4.8KB woff2，外网不通时不再把 `bolt` / `keyboard` 等图标名画成英文单词。正文设计字体仍按各皮肤外链加载，CSP 相应放开 `data:` 来源。
+
 ## 使用方式
 
 1. **最省事：直接下 Release。** 每次 `main` 更新都会自动发布一版，按主干打包附上该代全部皮肤，点一下就下载，不必逐层点进目录。入口见 https://github.com/bmdy1145/devkit/releases
@@ -101,7 +103,13 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │       ├── index.html               # 项目落地页（版本选择台 + 下载直达）
 │       └── code/
 │           ├── index.html                   # 分支目录索引
-│           ├── A1_V_Φ8/                     # 当前主干
+│           ├── A1_V_Φ8_Fix_Fix/             # 当前最新迭代层（第四层 Fix 之上再叠加 Fix）
+│           │   ├── index.html                              # 本分支版本列表
+│           │   ├── deepseek_A1_V_Φ8_Fix_Fix_CN.html        # 基准皮肤
+│           │   ├── deepseek_A1_V_Φ8_Glass_Fix_Fix_CN.html  # 毛玻璃
+│           │   ├── deepseek_A1_V_Φ8_Mono_Fix_Fix_CN.html   # 全等宽 + 双轴主题
+│           │   └── …（其余六款皮肤同名后缀 _Fix_Fix_CN）    # 霓虹/简约/材料设计/极简/高级质感/Shadcn
+│           ├── A1_V_Φ8/                     # Φ8 主干（含第四层 Fix 标识）
 │           │   ├── index.html                              # 本分支版本列表
 │           │   ├── deepseek_A1_V_Φ8_Clean_Fix_CN.html      # 简约
 │           │   ├── deepseek_A1_V_Φ8_Material_Fix_CN.html   # 材料设计（MD3）
@@ -125,6 +133,12 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │           └── A1_V_Φ4/                     # 早期主干（历史参照）
 │               ├── index.html
 │               └── deepseek_A1_V_Φ4_CN.html              # 全面修复 15 项缺陷
+│   └── submerge-pro/                # 项目：SubMerge Pro（双语字幕翻译拆分工具）
+│       ├── index.html               # 项目落地页
+│       └── code/
+│           └── A1_II_Φ10/
+│               ├── index.html
+│               └── deepseek_html_20260705_d1ca99.html   # 新增撤销；应用翻译后禁止智能拼装
 └── .claude/skills/devkit-spec/      # Claude Code 技能（版本与协作规范 + 版本相关模板）
 ```
 
@@ -137,7 +151,7 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 - 每个项目自带一个 `index.html` 作为该项目落地页；项目内部的目录结构与版本号规则**由该项目自定**，仓库不为它们设统一规范。
 - 仓库根 `index.html` 是**项目选择台**，只负责列出全部项目入口。
 - `docs/`（协作约定）与 `.github/`（自动化）是**跨项目通用**的；其中 `version_guard.py`、`size_guard.py`、`smoke_test.py`、`auto_release.py` 等脚本目前**只作用于 DevKit**，路径常量写死指向 `projects/devkit/code/`。新增项目若要复用这些检查，需相应改造。
-- 当前只有一个项目 `devkit`；未来的项目放 `projects/<名称>/` 即可，无需改动 DevKit 的结构。
+- 当前有两个项目：`devkit` 与 `submerge-pro`。未来的项目放 `projects/<名称>/` 即可，无需改动 DevKit 的结构。
 
 ### Pages 部署说明
 
