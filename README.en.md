@@ -34,28 +34,30 @@ The same functional code ships with nine skins. Each is an independent single-fi
 
 | Version | Skin | Theme dimensions |
 |---------|------|------------------|
-| `A1_V_Φ8_Clean_Fix_CN` (new) | Clean: Roboto / Poppins / Inconsolata, 8pt baseline grid, 6/8px corners, restrained soft shadows | Clean dark / Clean light / Follow system |
-| `A1_V_Φ8_Material_Fix_CN` (new) | Material Design (MD3): Roboto + Fira Code, five levels of tinted surfaces, tonal palette, state layers, elevation 1–5, corners 4/8/12/28px | Dark / Light / Follow system |
-| `A1_V_Φ8_Minimal_Fix_CN` (new) | Minimal: Open Sans / Inter / Inconsolata, near-monochrome with a single indigo accent, no shadows, whitespace and 1px dividers | Minimal dark / Minimal light / Follow system |
-| `A1_V_Φ8_Premium_Fix_CN` (new) | Premium: Inter + JetBrains Mono, precise spacing rhythm, soft layered shadows, refined letter-spacing and line-height | Premium dark / Premium light / Follow system |
-| `A1_V_Φ8_Shadcn_Fix_CN` (new) | Shadcn: Geist + Fira Code, monochrome greys with `hsl()` semantic tokens, 1px border layering, flat (no shadows) | Shadcn dark / Shadcn light / Follow system |
-| `A1_V_Φ8_Mono_Fix_CN` | Full-site monospace: Space Mono + JetBrains Mono, no glow, 1px hard borders, tight corners | Light/dark (dark / light / auto) × accent (matrix green / cold white / amber) — 6 palettes |
-| `A1_V_Φ8_Neon_Fix_CN` | Electric neon: near-opaque panels, coloured borders, layered outer glow, no backdrop blur | Dark neon / Light neon / Follow system |
-| `A1_V_Φ8_Glass_Fix_CN` | Glassmorphism: translucent layers, background blur, luminous borders | Dark glass / Light glass / Follow system |
-| `A1_V_Φ8_Fix_CN` | Baseline skin (no skin; numeric theme system) | Original `theme` system |
+| `A1_V_Φ9_Clean_CN` | Clean: Roboto / Poppins / Inconsolata, 8pt baseline grid, 6/8px corners, restrained soft shadows | Clean dark / Clean light / Follow system |
+| `A1_V_Φ9_Material_CN` | Material Design (MD3): Roboto + Fira Code, five levels of tinted surfaces, tonal palette, state layers, elevation 1–5, corners 4/8/12/28px | Dark / Light / Follow system |
+| `A1_V_Φ9_Minimal_CN` | Minimal: Open Sans / Inter / Inconsolata, near-monochrome with a single indigo accent, no shadows, whitespace and 1px dividers | Minimal dark / Minimal light / Follow system |
+| `A1_V_Φ9_Premium_CN` | Premium: Inter + JetBrains Mono, precise spacing rhythm, soft layered shadows, refined letter-spacing and line-height | Premium dark / Premium light / Follow system |
+| `A1_V_Φ9_Shadcn_CN` | Shadcn: Geist + Fira Code, monochrome greys with `hsl()` semantic tokens, 1px border layering, flat (no shadows) | Shadcn dark / Shadcn light / Follow system |
+| `A1_V_Φ9_Mono_CN` | Full-site monospace: Space Mono + JetBrains Mono, no glow, 1px hard borders, tight corners | Light/dark (dark / light / auto) × accent (matrix green / cold white / amber) — 6 palettes |
+| `A1_V_Φ9_Neon_CN` | Electric neon: near-opaque panels, coloured borders, layered outer glow, no backdrop blur | Dark neon / Light neon / Follow system |
+| `A1_V_Φ9_Glass_CN` | Glassmorphism: translucent layers, background blur, luminous borders | Dark glass / Light glass / Follow system |
+| `A1_V_Φ9_CN` | Baseline skin (no skin; numeric theme system) | Original `theme` system |
 
-All nine belong to main line `A1_V_Φ8`. The incremental change in Φ8 is **full-site responsive, multi-ratio and touch adaptation**: `viewport-fit=cover`, `100dvh` height with `env(safe-area-inset-*)` safe areas, width breakpoints at ≥1800 / ≤1024 / ≤820 / ≤560 plus a ≤520 height breakpoint, vertical stacking and horizontally scrolling step lists on narrow screens, enlarged touch targets on coarse pointers, and drag handles switched from mouse to pointer events. All nine skins share the same adaptation layer.
+All nine belong to main line `A1_V_Φ9`. The incremental change in Φ9 is a **Pages site-home link added to the “About DevKit” dialog** (opened by clicking the DevKit wordmark in the top-left corner), plus a site change on the project page: a new “nine skins — open directly” section at the top brings opening the app from the site home page down from three clicks to two. Functional logic, prompts and template text are identical to Φ8's Fix_Fix.
+
+The incremental change in Φ8 was **full-site responsive, multi-ratio and touch adaptation**: `viewport-fit=cover`, `100dvh` height with `env(safe-area-inset-*)` safe areas, width breakpoints at ≥1800 / ≤1024 / ≤820 / ≤560 plus a ≤520 height breakpoint, vertical stacking and horizontally scrolling step lists on narrow screens, enlarged touch targets on coarse pointers, and drag handles switched from mouse to pointer events. All nine skins share the same adaptation layer.
 
 Eight of the nine skins (all but the baseline) unify on a three-state `themePref` — dark / light / follow system — chosen once in the first-run guide and remembered in `devkit_theme_pref`, with `auto` tracking the system colour scheme live. The baseline skin keeps the original numeric `theme` system.
 
-In the version string, `Glass` / `Neon` / `Mono` / `Clean` / `Material` / `Minimal` / `Premium` / `Shadcn` are **variant markers** (they occupy no layer) while `Fix` is the actual 4th-layer English tag — the Fix layer is a cross-skin synchronised defect fix.
+In the version string, `Glass` / `Neon` / `Mono` / `Clean` / `Material` / `Minimal` / `Premium` / `Shadcn` are **variant markers** (they occupy no layer).
 
-The previous generation `A1_V_Φ7` is available **in parallel** with Φ8 under `projects/devkit/code/A1_V_Φ7/`, with four skins (baseline / glass / neon / monospace). Two earlier generations, `A1_V_Φ5` (two versions) and `A1_V_Φ4` (one version), are also kept under `projects/devkit/code/` for historical reference — neither has skin variants.
+The previous generation `A1_V_Φ8` is available **in parallel** with Φ9 under `projects/devkit/code/A1_V_Φ8/`, with nine skins at the `Fix_Fix` iteration layer. The earlier `A1_V_Φ7` (four skins), `A1_V_Φ5` (two versions) and `A1_V_Φ4` (one version) are also kept under `projects/devkit/code/` for historical reference — skins only arrived with Φ7, so Φ5 and Φ4 have none.
 
 ## Usage
 
 1. **Easiest: grab a Release.** Every update to `main` is published automatically, packaged per main line with all of that generation's skins attached — one click, no browsing. See https://github.com/bmdy1145/devkit/releases
-2. Or pick a skin from the site home page, or download `projects/devkit/code/A1_V_Φ8/deepseek_A1_V_Φ8_Clean_Fix_CN.html` directly
+2. **Read online:** open https://bmdy1145.github.io/devkit/projects/devkit/ and click any skin under “nine skins — open directly”; or download `projects/devkit/code/A1_V_Φ9/deepseek_A1_V_Φ9_Clean_CN.html` directly
 3. Double-click to open it in a browser (Chrome / Edge or any modern browser)
 4. Pick a step under "Workflow Steps" → fill in the inspiration and paste your code → click "Copy" → paste into your AI chat tool
 
@@ -74,7 +76,7 @@ The project uses a "four base layers + cyclic extension" version scheme:
 
 Beyond the 4th layer the scheme cycles as `B1 → I → Ψ1 → English tag → C1 …`, e.g. `A1_I_Φ1_Fix_B1_I_Ψ1_Fix_C1`.
 
-**Variant markers occupy no layer**: skin names (Glass / Neon / Mono / Clean / Material / Minimal / Premium / Shadcn) denote "parallel skins of the same version". They are variant markers rather than iteration layers, and sit after the Φ layer and before the language suffix. So in `A1_V_Φ8_Glass_Fix_CN`, `Glass` is the variant marker and `Fix` is the actual 4th-layer English tag — the version string is valid. Variant markers must not be used to express iteration (e.g. `Glass2`).
+**Variant markers occupy no layer**: skin names (Glass / Neon / Mono / Clean / Material / Minimal / Premium / Shadcn) denote "parallel skins of the same version". They are variant markers rather than iteration layers, and sit after the Φ layer and before the language suffix. So in `A1_V_Φ8_Glass_Fix_CN`, `Glass` is the variant marker and `Fix` is the actual 4th-layer English tag — the version string is valid; `A1_V_Φ9_Glass_CN` is valid for the same reason. Variant markers must not be used to express iteration (e.g. `Glass2`).
 
 The project maintains two language variants in parallel. They share the same main-line version number and differ only by a trailing suffix: `_CN` (Chinese edition) and `_GLOBAL` (multilingual edition). This repository is the **Chinese edition**.
 
@@ -98,21 +100,34 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 ├── projects/                        # One directory per project, each with its own landing page
 │   ├── index.html                   # Index for /projects/
 │   ├── devkit/                      # Project: AI 开发快捷工具箱
-│   │   ├── index.html               # Project landing page (version picker + download shortcut)
+│   │   ├── index.html               # Project landing page (skin shortcuts + download + branches)
 │   │   └── code/
 │   │       ├── index.html                   # Index for the branch directory
-│   │       ├── A1_V_Φ8/                     # Current main line
+│   │       ├── A1_V_Φ9/                     # Current main line
 │   │       │   ├── index.html                              # Version list for this branch
-│   │       │   ├── deepseek_A1_V_Φ8_Clean_Fix_CN.html      # Clean
-│   │       │   ├── deepseek_A1_V_Φ8_Material_Fix_CN.html   # Material Design (MD3)
-│   │       │   ├── deepseek_A1_V_Φ8_Minimal_Fix_CN.html    # Minimal
-│   │       │   ├── deepseek_A1_V_Φ8_Premium_Fix_CN.html    # Premium
-│   │       │   ├── deepseek_A1_V_Φ8_Shadcn_Fix_CN.html     # Shadcn
-│   │       │   ├── deepseek_A1_V_Φ8_Mono_Fix_CN.html       # Monospace + two-axis themes
-│   │       │   ├── deepseek_A1_V_Φ8_Neon_Fix_CN.html       # Electric neon
-│   │       │   ├── deepseek_A1_V_Φ8_Glass_Fix_CN.html      # Glassmorphism
-│   │       │   └── deepseek_A1_V_Φ8_Fix_CN.html            # Baseline skin
-│   │       ├── A1_V_Φ7/                     # Previous main line (parallel with Φ8)
+│   │       │   ├── deepseek_A1_V_Φ9_Clean_CN.html          # Clean
+│   │       │   ├── deepseek_A1_V_Φ9_Material_CN.html       # Material Design (MD3)
+│   │       │   ├── deepseek_A1_V_Φ9_Minimal_CN.html        # Minimal
+│   │       │   ├── deepseek_A1_V_Φ9_Premium_CN.html        # Premium
+│   │       │   ├── deepseek_A1_V_Φ9_Shadcn_CN.html         # Shadcn
+│   │       │   ├── deepseek_A1_V_Φ9_Mono_CN.html           # Monospace + two-axis themes
+│   │       │   ├── deepseek_A1_V_Φ9_Neon_CN.html           # Electric neon
+│   │       │   ├── deepseek_A1_V_Φ9_Glass_CN.html          # Glassmorphism
+│   │       │   └── deepseek_A1_V_Φ9_CN.html                # Baseline skin
+│   │       ├── A1_V_Φ8/                     # Previous main line (parallel with Φ9)
+│   │       │   ├── index.html                              # Version list for this branch
+│   │       │   ├── deepseek_A1_V_Φ8_Clean_Fix_Fix_CN.html      # Clean
+│   │       │   ├── deepseek_A1_V_Φ8_Material_Fix_Fix_CN.html   # Material Design (MD3)
+│   │       │   ├── deepseek_A1_V_Φ8_Minimal_Fix_Fix_CN.html    # Minimal
+│   │       │   ├── deepseek_A1_V_Φ8_Premium_Fix_Fix_CN.html    # Premium
+│   │       │   ├── deepseek_A1_V_Φ8_Shadcn_Fix_Fix_CN.html     # Shadcn
+│   │       │   ├── deepseek_A1_V_Φ8_Mono_Fix_Fix_CN.html       # Monospace + two-axis themes
+│   │       │   ├── deepseek_A1_V_Φ8_Neon_Fix_Fix_CN.html       # Electric neon
+│   │       │   ├── deepseek_A1_V_Φ8_Glass_Fix_Fix_CN.html      # Glassmorphism
+│   │       │   └── deepseek_A1_V_Φ8_Fix_Fix_CN.html            # Baseline skin
+│   │       ├── A1_V_Φ8_fix-archive/         # Historical archive of Φ8's Fix layer
+│   │       │   └── index.html                              # Archive page (nine Fix builds)
+│   │       ├── A1_V_Φ7/                     # Earlier historical main line
 │   │       │   ├── index.html
 │   │       │   ├── deepseek_A1_V_Φ7_Mono_CN.html
 │   │       │   ├── deepseek_A1_V_Φ7_Neon_CN.html
@@ -162,10 +177,12 @@ The site entry is the **root-level** `index.html`, a **project picker**; each pr
 |------|---------|
 | `/` | Project picker: every project hosted in this repository |
 | `/projects/` | Index for the projects directory |
-| `/projects/devkit/` | DevKit landing page: download shortcut + branch cards |
-| `/projects/devkit/code/` | DevKit branch index (Φ8 / Φ7 / Φ5 / Φ4) |
-| `/projects/devkit/code/A1_V_Φ8/` | Version list for the current main line (nine skins) |
-| `/projects/devkit/code/A1_V_Φ7/` | Version list for the previous main line (four skins, parallel with Φ8) |
+| `/projects/devkit/` | DevKit landing page: nine-skin shortcuts + download + branch cards |
+| `/projects/devkit/code/` | DevKit branch index (Φ9 / Φ8 / Φ7 / Φ5 / Φ4) |
+| `/projects/devkit/code/A1_V_Φ9/` | Version list for the current main line (nine skins) |
+| `/projects/devkit/code/A1_V_Φ8/` | Version list for the previous main line (nine skins, Fix_Fix, parallel with Φ9) |
+| `/projects/devkit/code/A1_V_Φ8_fix-archive/` | Historical archive of Φ8's Fix layer (nine builds) |
+| `/projects/devkit/code/A1_V_Φ7/` | Version list for the earlier main line (four skins) |
 | `/projects/devkit/code/A1_V_Φ5/` | Early main line (two versions, historical reference) |
 | `/projects/devkit/code/A1_V_Φ4/` | Early main line (one version, historical reference) |
 | `/projects/submerge-pro/` | SubMerge Pro project page |

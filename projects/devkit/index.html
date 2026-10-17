@@ -22,12 +22,15 @@
     原因：发布目录若设为 “/docs”，GitHub 只会发布 docs/ 目录内的文件，
           本文件与 code/ 都不会上线，站点会 404。
 
-    日期：2026-10-03
+    日期：2026-10-03（2026-10-17 新增「九款皮肤 · 直接打开」区块）
     版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
     许可证：GPLv3
     ============================================================
     维护提示：新增分支时，复制一个 <a class="card"> 块并改 href / 文案即可。
-              上方直达条指向的是 Releases 页而非某个具体文件——同一主干下九款
+              顶部的「九款皮肤 · 直接打开」区块把进入应用压缩为两次点击
+              （站点首页 → 本页 → 皮肤文件），每次主干升级时需同步更新该区块
+              里的路径与版本号。
+              下载直达条指向的是 Releases 页而非某个具体文件——同一主干下九款
               皮肤版本号相同，「最新版本」指哪一个都是武断的；指 Releases 则
               每次自动发布都会自动更新，无需手工维护。
     约定：href 中的 Φ 一律用百分号编码 %CE%A6，避免个别浏览器/服务器对
@@ -154,6 +157,36 @@
     /* 注意：这些是 span，必须显式转块级，否则垂直 margin 不生效 */
     .card-desc { display: block; font-size: 0.85rem; color: var(--text2); margin-top: 6px; }
 
+    /* ---------- 皮肤直达网格 ---------- */
+    .skin-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 10px;
+        margin-bottom: 36px;
+    }
+    .skin {
+        display: flex; flex-direction: column; gap: 2px;
+        text-decoration: none; color: inherit;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 12px 14px;
+        box-shadow: 0 0 0 1px rgba(var(--tone), var(--edge)), 0 0 26px -16px rgba(var(--tone), 1);
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    .skin:hover {
+        border-color: rgba(var(--tone), 0.55);
+        box-shadow: 0 0 0 1px rgba(var(--tone), 0.55), 0 0 34px -12px rgba(var(--tone), 1);
+        transform: translateY(-2px);
+    }
+    .skin:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+    .skin-name {
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        font-size: 0.86rem; font-weight: 600; color: var(--primary);
+        word-break: break-all;
+    }
+    .skin-desc { font-size: 0.78rem; color: var(--text2); }
+
     /* ---------- 版本直达条 ---------- */
     .quick {
         display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
@@ -216,7 +249,50 @@
     <p class="lede">
         这里存放 DevKit 各版本的静态分发文件。<strong>每个版本都是单个自包含的 HTML 文件</strong>——
         下载后在浏览器里直接打开即可使用，无需安装、无需后端、不依赖任何外部服务。
+        不想下载的话，直接在下方挑一款皮肤点开就能用。
     </p>
+
+    <section aria-labelledby="sec-skins">
+        <h2 id="sec-skins">九款皮肤 · 直接打开</h2>
+        <div class="skin-grid">
+            <a class="skin" href="code/A1_V_%CE%A69/deepseek_A1_V_%CE%A69_CN.html">
+                <span class="skin-name">基准皮肤</span>
+                <span class="skin-desc">A1_V_Φ9_CN · 原 theme 数字主题体系</span>
+            </a>
+            <a class="skin" href="code/A1_V_%CE%A69/deepseek_A1_V_%CE%A69_Glass_CN.html">
+                <span class="skin-name">毛玻璃</span>
+                <span class="skin-desc">A1_V_Φ9_Glass_CN · 半透明 + 背景模糊</span>
+            </a>
+            <a class="skin" href="code/A1_V_%CE%A69/deepseek_A1_V_%CE%A69_Neon_CN.html">
+                <span class="skin-name">电光霓虹</span>
+                <span class="skin-desc">A1_V_Φ9_Neon_CN · 彩色描边 + 多层外发光</span>
+            </a>
+            <a class="skin" href="code/A1_V_%CE%A69/deepseek_A1_V_%CE%A69_Mono_CN.html">
+                <span class="skin-name">全等宽</span>
+                <span class="skin-desc">A1_V_Φ9_Mono_CN · 1px 硬描边 + 双轴六配色</span>
+            </a>
+            <a class="skin" href="code/A1_V_%CE%A69/deepseek_A1_V_%CE%A69_Clean_CN.html">
+                <span class="skin-name">简约</span>
+                <span class="skin-desc">A1_V_Φ9_Clean_CN · 8pt 基线网格</span>
+            </a>
+            <a class="skin" href="code/A1_V_%CE%A69/deepseek_A1_V_%CE%A69_Material_CN.html">
+                <span class="skin-name">材料设计</span>
+                <span class="skin-desc">A1_V_Φ9_Material_CN · MD3 五级层次</span>
+            </a>
+            <a class="skin" href="code/A1_V_%CE%A69/deepseek_A1_V_%CE%A69_Minimal_CN.html">
+                <span class="skin-name">极简</span>
+                <span class="skin-desc">A1_V_Φ9_Minimal_CN · 近乎单色 + 留白分区</span>
+            </a>
+            <a class="skin" href="code/A1_V_%CE%A69/deepseek_A1_V_%CE%A69_Premium_CN.html">
+                <span class="skin-name">高级质感</span>
+                <span class="skin-desc">A1_V_Φ9_Premium_CN · 精准间距与柔和阴影</span>
+            </a>
+            <a class="skin" href="code/A1_V_%CE%A69/deepseek_A1_V_%CE%A69_Shadcn_CN.html">
+                <span class="skin-name">Shadcn</span>
+                <span class="skin-desc">A1_V_Φ9_Shadcn_CN · 黑白灰单色系 + hsl 令牌</span>
+            </a>
+        </div>
+    </section>
 
     <section aria-labelledby="sec-quick">
         <h2 id="sec-quick">下载</h2>
@@ -227,9 +303,9 @@
             </span>
             <span class="quick-cta">前往 Releases →</span>
         </a>
-        <a class="quick" href="code/A1_V_%CE%A68/">
+        <a class="quick" href="code/A1_V_%CE%A69/">
             <span class="quick-text">
-                <span class="quick-name">在线阅读 · A1_V_Φ8（当前主干，九款皮肤）</span>
+                <span class="quick-name">在线阅读 · A1_V_Φ9（当前主干，九款皮肤）</span>
                 <span class="quick-meta">不想下载就直接在浏览器里打开用</span>
             </span>
             <span class="quick-cta">进入目录 →</span>
@@ -238,19 +314,26 @@
 
     <section aria-labelledby="sec-branch">
         <h2 id="sec-branch">按分支浏览</h2>
+        <a class="card" href="code/A1_V_%CE%A69/">
+            <span class="card-top">
+                <span class="card-name">A1_V_Φ9</span>
+                <span class="card-go">查看该分支全部版本 →</span>
+            </span>
+            <span class="card-desc">最新主干。继承 Φ8 的全部修复；九款皮肤同步在「关于 DevKit」弹窗内新增 Pages 站点首页链接，站点项目页新增九款皮肤直达入口，从站点首页进入应用由三次点击降为两次。</span>
+        </a>
         <a class="card" href="code/A1_V_%CE%A68/">
             <span class="card-top">
                 <span class="card-name">A1_V_Φ8</span>
                 <span class="card-go">查看该分支全部版本 →</span>
             </span>
-            <span class="card-desc">最新主干。核心改动为全站响应式、多比例与触屏适配；九款皮肤（基准 / 毛玻璃 / 霓虹 / 等宽 / 简约 / 材料设计 / 极简 / 高级质感 / Shadcn）同批发布，均带第四层英文标识 Fix（跨风格同步缺陷修补）。</span>
+            <span class="card-desc">上一代主干，保留为历史代。核心改动为全站响应式、多比例与触屏适配；九款皮肤（基准 / 毛玻璃 / 霓虹 / 等宽 / 简约 / 材料设计 / 极简 / 高级质感 / Shadcn）同批发布，均带第四层英文标识 Fix_Fix（跨风格同步缺陷修补）。</span>
         </a>
         <a class="card" href="code/A1_V_%CE%A67/">
             <span class="card-top">
                 <span class="card-name">A1_V_Φ7</span>
                 <span class="card-go">查看该分支全部版本 →</span>
             </span>
-            <span class="card-desc">上一代主干，与 Φ8 并行可选。四套皮肤：基准 / 毛玻璃 / 霓虹 / 等宽。</span>
+            <span class="card-desc">更早的历史主干。四套皮肤：基准 / 毛玻璃 / 霓虹 / 等宽。</span>
         </a>
         <a class="card" href="code/A1_V_%CE%A65/">
             <span class="card-top">

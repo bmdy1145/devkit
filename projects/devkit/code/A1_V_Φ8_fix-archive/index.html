@@ -40,7 +40,19 @@
 
     html { -webkit-text-size-adjust: 100%; }
 
+    /* ========== 横向滚动布局 ==========
+     * 本页的浏览方向是左右而非上下：整页横向滚动，滚轮上下滚动由脚本
+     * 映射为横向滚动（见页尾 wheel 监听）。
+     * html/body 都设 overflow-x: auto，避免某一层被另一层裁剪。
+     */
+    html {
+        overflow-x: auto;
+        overflow-y: hidden;   /* 页面本身不再纵向滚动 */
+        -webkit-text-size-adjust: 100%;
+    }
+
     body {
+        min-width: max-content;   /* 让内容撑开宽度，而不是换行/收缩 */
         min-height: 100vh;
         font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
         color: var(--text);
@@ -51,11 +63,24 @@
             #08090d;
         background-attachment: fixed;
         line-height: 1.6;
-        padding: 56px 24px 72px;
-        display: flex; justify-content: center;
+        padding: 56px 40px 72px;
+        display: flex; align-items: flex-start;
     }
 
-    .wrap { width: 100%; max-width: 880px; }
+    /* 版心不再限宽：宽度由内容决定，多宽都能一列排开 */
+    .wrap { width: max-content; }
+
+    /* 卡片带：横向排列，间距用 gap，不再用 margin-top 叠放 */
+    .rail {
+        display: flex;
+        align-items: stretch;
+        gap: 16px;
+        padding-bottom: 12px;
+    }
+    .rail > .card { flex: 0 0 340px; width: 340px; }
+
+    /* 页头、面包屑、页脚保持正常宽度，不参与横向排列 */
+    nav.crumbs, h1, .sub-h, .sub { max-width: 340px; }
 
     /* ---------- 面包屑 ---------- */
     nav.crumbs {
@@ -94,6 +119,9 @@
         background: linear-gradient(90deg, rgba(var(--tone), 0.4), transparent);
     }
 
+    /* 横向布局下 h2 只是分组标签，宽度跟随卡片带即可 */
+    h2 { max-width: none; }
+
     /* ---------- 版本卡片 ---------- */
     .card {
         display: block; text-decoration: none; color: inherit;
@@ -104,7 +132,7 @@
         box-shadow: 0 0 0 1px rgba(var(--tone), var(--edge)), 0 0 26px -16px rgba(var(--tone), 1);
         transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
     }
-    .card + .card { margin-top: 12px; }
+    /* 横向排列时不再需要上下间距 */
     .card:hover {
         border-color: rgba(var(--tone), 0.55);
         box-shadow: 0 0 0 1px rgba(var(--tone), 0.55), 0 0 34px -12px rgba(var(--tone), 1);
@@ -155,23 +183,40 @@
     }
 
     footer {
-        margin-top: 48px; padding-top: 20px;
+        margin-top: 32px; padding-top: 20px;
         border-top: 1px solid rgba(var(--tone), 0.16);
         font-size: 0.78rem; color: var(--text2);
         display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+        width: 100%;
     }
     footer a { color: var(--text2); text-decoration: none; border-bottom: 1px solid rgba(var(--tone), 0.35); }
     footer a:hover { color: var(--primary); border-bottom-color: var(--primary); }
     footer a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+    /* ---------- 横向滚动提示 ---------- */
+    .scroll-hint {
+        position: fixed; right: 20px; bottom: 18px; z-index: 50;
+        font-family: var(--mono); font-size: 0.72rem;
+        color: var(--text2);
+        background: rgba(var(--tint), 0.92);
+        border: 1px solid rgba(var(--tone), 0.25);
+        border-radius: 999px; padding: 5px 14px;
+        pointer-events: none;
+        transition: opacity 0.3s;
+    }
 
     @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { transition-duration: 0.01ms !important; }
     }
     @media (max-width: 560px) {
         body { padding: 36px 16px 48px; }
+        .rail > .card { flex-basis: 280px; width: 280px; }
     }
 </style>
 </head>
+<body>
+<div class="wrap">
+
     <nav class="crumbs" aria-label="面包屑导航">
         <a href="../../">DevKit</a><span class="sep">/</span><a href="../">code</a><span class="sep">/</span><a href="../A1_V_%CE%A68/">A1_V_Φ8</a><span class="sep">/</span><span class="here">fix-archive</span>
     </nav>
@@ -181,6 +226,7 @@
 
     <h2>归档版本</h2>
 
+    <div class="rail">
     <a class="card" href="../A1_V_%CE%A68/deepseek_A1_V_%CE%A68_Fix_Fix_CN.html">
         <span class="card-top">
             <span class="ver">A1_V_Φ8_Fix_CN</span>
@@ -306,6 +352,7 @@
         </span>
         <span class="filename">deepseek_A1_V_Φ8_Shadcn_Fix_CN.html</span>
     </a>
+    </div>
 
     <footer>
         <span>Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3</span>
@@ -313,5 +360,51 @@
     </footer>
 
 </div>
+
+<!-- 横向滚动提示：页面本身不纵向滚动，避免访客误以为没有更多内容 -->
+<div class="scroll-hint" aria-hidden="true">滚轮 / 方向键 ← → 横向浏览</div>
+
+<script>
+/* ========== 滚轮上下 → 横向滚动 ==========
+ * 本页的浏览方向是左右。默认滚轮只产生纵向滚动，而页面纵向不可滚，
+ * 结果是滚轮"没反应"。这里把纵向滚轮量映射到横向。
+ * 细节：
+ *   - 横向滚轮（触控板/Shift+滚轮）保持原生行为，不拦截；
+ *   - 方向键 ← → 交给浏览器原生处理，这里不重复实现；
+ *   - passive: false 才允许 preventDefault。
+ */
+(function () {
+    'use strict';
+
+    var root = document.scrollingElement || document.documentElement;
+
+    function canScrollX() {
+        return root.scrollWidth > root.clientWidth + 1;
+    }
+
+    document.addEventListener('wheel', function (e) {
+        if (!canScrollX()) return;
+
+        // 横向滚轮（deltaX 明显大于 deltaY）走原生路径
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+
+        var before = root.scrollLeft;
+        root.scrollLeft += e.deltaY;
+        if (root.scrollLeft !== before) e.preventDefault();
+    }, { passive: false });
+
+    // 提示条：滚到末尾或没有可滚内容时淡出
+    var hint = document.querySelector('.scroll-hint');
+    if (hint) {
+        function syncHint() {
+            var atEnd = root.scrollLeft + root.clientWidth >= root.scrollWidth - 2;
+            hint.style.opacity = (!canScrollX() || atEnd) ? '0' : '1';
+        }
+        root.addEventListener('scroll', syncHint, { passive: true });
+        window.addEventListener('resize', syncHint);
+        syncHint();
+    }
+})();
+</script>
 </body>
 </html>
