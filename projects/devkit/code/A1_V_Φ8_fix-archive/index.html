@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A1_V_Φ8 Fix 归档 · DevKit</title>
+<meta name="description" content="DevKit A1_V_Φ8 分支的 Fix 层归档。">
+<!--
+    ============================================================
+    项目名称：AI 开发快捷工具箱（DevKit）· 站点外壳
+    文件性质：GitHub Pages 目录索引（/code/A1_V_Φ8/）。不属于 DevKit
+              应用的版本架构，不占用版本号。
+    职责：列出本主干下的全部版本文件，供逐层浏览。
+    日期：2026-10-03
+    版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+    许可证：GPLv3
+    ============================================================
+    维护提示：新增版本时，复制一个 <a class="card"> 块，改 href / 版本号 /
+              说明 / 日期 / 大小即可。若新版本成为最新，把 .latest 徽标
+              移到新卡片上，并同步更新首页「最新版本」直达条。
+    约定：href 中的 Φ 一律用百分号编码 %CE%A6（与仓库原 index.html 一致），
+          避免个别浏览器/服务器对非 ASCII 路径处理不一致；页面显示文字仍写 Φ。
+    ============================================================
+-->
+<style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --tone: 187, 243, 81;
+        --tone2: 0, 188, 255;
+        --tint: 10, 12, 17;
+        --text: #e9f2ec;
+        --text2: #8b9aa6;
+        --primary: #bbf351;
+        --primary-fg: #08090d;
+        --edge: 0.24;
+        --radius: 10px;
+        --mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+    }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+        min-height: 100vh;
+        font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+        color: var(--text);
+        background:
+            radial-gradient(1100px 700px at 10% -14%, rgba(187,243,81,0.10), transparent 58%),
+            radial-gradient(900px 620px at 96% 2%, rgba(0,188,255,0.09), transparent 60%),
+            radial-gradient(760px 520px at 50% 116%, rgba(187,243,81,0.06), transparent 58%),
+            #08090d;
+        background-attachment: fixed;
+        line-height: 1.6;
+        padding: 56px 24px 72px;
+        display: flex; justify-content: center;
+    }
+
+    .wrap { width: 100%; max-width: 880px; }
+
+    /* ---------- 面包屑 ---------- */
+    nav.crumbs {
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        color: var(--text2);
+        margin-bottom: 20px;
+        letter-spacing: 0.02em;
+    }
+    nav.crumbs a { color: var(--text2); text-decoration: none; }
+    nav.crumbs a:hover { color: var(--primary); }
+    nav.crumbs a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    nav.crumbs .sep { opacity: 0.45; margin: 0 6px; }
+    nav.crumbs .here { color: var(--primary); }
+
+    h1 {
+        font-family: var(--mono);
+        font-size: 1.35rem; font-weight: 600;
+        color: var(--primary);
+        text-shadow: 0 0 18px rgba(var(--tone), 0.55);
+        margin-bottom: 6px;
+        word-break: break-all;
+    }
+    .sub { color: var(--text2); font-size: 0.88rem; margin-bottom: 32px; }
+
+    h2 {
+        font-size: 0.78rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.12em;
+        color: var(--text2);
+        font-family: var(--mono);
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 10px;
+    }
+    h2::after {
+        content: ''; flex: 1; height: 1px;
+        background: linear-gradient(90deg, rgba(var(--tone), 0.4), transparent);
+    }
+
+    /* ---------- 版本卡片 ---------- */
+    .card {
+        display: block; text-decoration: none; color: inherit;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone), var(--edge)), 0 0 26px -16px rgba(var(--tone), 1);
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    .card + .card { margin-top: 12px; }
+    .card:hover {
+        border-color: rgba(var(--tone), 0.55);
+        box-shadow: 0 0 0 1px rgba(var(--tone), 0.55), 0 0 34px -12px rgba(var(--tone), 1);
+        transform: translateY(-2px);
+    }
+    .card:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
+    .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .ver {
+        font-family: var(--mono);
+        font-size: 1rem; font-weight: 600; color: var(--primary);
+        text-shadow: 0 0 14px rgba(var(--tone), 0.55);
+        word-break: break-all;
+    }
+    .latest {
+        font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
+        color: var(--primary-fg); background: var(--primary);
+        border-radius: 999px; padding: 1px 9px; margin-left: 8px;
+        vertical-align: middle; white-space: nowrap;
+        box-shadow: 0 0 16px -4px rgba(var(--tone), 1);
+    }
+    .new {
+        font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
+        color: var(--primary); background: transparent;
+        border: 1px solid var(--primary);
+        border-radius: 999px; padding: 0 8px; margin-left: 8px;
+        vertical-align: middle; white-space: nowrap;
+    }
+    .card-go { font-size: 0.8rem; color: var(--text2); white-space: nowrap; }
+    .card:hover .card-go { color: var(--primary); }
+    /* 注意：这是 span，必须显式转块级，否则垂直 margin 不生效 */
+    .card-desc { display: block; font-size: 0.85rem; color: var(--text2); margin-top: 6px; }
+
+    .meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .chip {
+        font-family: var(--mono); font-size: 0.72rem;
+        color: var(--text2);
+        border: 1px solid rgba(var(--tone), 0.25);
+        border-radius: 999px; padding: 1px 10px;
+    }
+    .chip.lang { border-color: rgba(var(--tone2), 0.35); color: #7fd8ff; }
+
+    .filename {
+        display: block; margin-top: 12px;
+        font-family: var(--mono); font-size: 0.74rem;
+        color: var(--text2); opacity: 0.75;
+        word-break: break-all;
+    }
+
+    footer {
+        margin-top: 48px; padding-top: 20px;
+        border-top: 1px solid rgba(var(--tone), 0.16);
+        font-size: 0.78rem; color: var(--text2);
+        display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    footer a { color: var(--text2); text-decoration: none; border-bottom: 1px solid rgba(var(--tone), 0.35); }
+    footer a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+    footer a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+    @media (max-width: 560px) {
+        body { padding: 36px 16px 48px; }
+    }
+</style>
+</head>
+    <nav class="crumbs" aria-label="面包屑导航">
+        <a href="../../">DevKit</a><span class="sep">/</span><a href="../">code</a><span class="sep">/</span><a href="../A1_V_%CE%A68/">A1_V_Φ8</a><span class="sep">/</span><span class="here">fix-archive</span>
+    </nav>
+
+    <h1>A1_V_Φ8 · Fix 归档</h1>
+    <p class="sub">本目录是 <code style="font-family:var(--mono);color:var(--text)">Fix</code> 层的历史归档。当前受支持的版本在 <a href="../A1_V_%CE%A68/">A1_V_Φ8</a>，迭代层为 <code style="font-family:var(--mono);color:var(--text)">Fix_Fix</code>。<br>同一主干在任一时刻只保留一个迭代层，故 Fix 层移出主干目录，此处仅作追溯保留。</p>
+
+    <h2>归档版本</h2>
+
+    <a class="card" href="../A1_V_%CE%A68/deepseek_A1_V_%CE%A68_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Fix_CN</span>
+            <span class="card-go">查看后继版本 →</span>
+        </span>
+        <span class="card-desc">基准皮肤的 Fix 层，已被 Fix_Fix 取代，仅作历史归档。</span>
+        <span class="meta">
+            <span class="chip">2026-10-03</span>
+            <span class="chip">约 246 KB</span>
+            <span class="chip lang">归档</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="../A1_V_%CE%A68/deepseek_A1_V_%CE%A68_Glass_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Glass_Fix_CN</span>
+            <span class="card-go">查看后继版本 →</span>
+        </span>
+        <span class="card-desc">毛玻璃皮肤的 Fix 层，已被 Fix_Fix 取代，仅作历史归档。</span>
+        <span class="meta">
+            <span class="chip">2026-10-03</span>
+            <span class="chip">约 260 KB</span>
+            <span class="chip lang">归档</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Glass_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="../A1_V_%CE%A68/deepseek_A1_V_%CE%A68_Neon_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Neon_Fix_CN</span>
+            <span class="card-go">查看后继版本 →</span>
+        </span>
+        <span class="card-desc">电光霓虹皮肤的 Fix 层，已被 Fix_Fix 取代，仅作历史归档。</span>
+        <span class="meta">
+            <span class="chip">2026-10-03</span>
+            <span class="chip">约 263 KB</span>
+            <span class="chip lang">归档</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Neon_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="../A1_V_%CE%A68/deepseek_A1_V_%CE%A68_Mono_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Mono_Fix_CN</span>
+            <span class="card-go">查看后继版本 →</span>
+        </span>
+        <span class="card-desc">全等宽皮肤的 Fix 层，已被 Fix_Fix 取代，仅作历史归档。</span>
+        <span class="meta">
+            <span class="chip">2026-10-03</span>
+            <span class="chip">约 273 KB</span>
+            <span class="chip lang">归档</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Mono_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="../A1_V_%CE%A68/deepseek_A1_V_%CE%A68_Clean_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Clean_Fix_CN</span>
+            <span class="card-go">查看后继版本 →</span>
+        </span>
+        <span class="card-desc">简约皮肤的 Fix 层，已被 Fix_Fix 取代，仅作历史归档。</span>
+        <span class="meta">
+            <span class="chip">2026-10-03</span>
+            <span class="chip">约 249 KB</span>
+            <span class="chip lang">归档</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Clean_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="../A1_V_%CE%A68/deepseek_A1_V_%CE%A68_Material_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Material_Fix_CN</span>
+            <span class="card-go">查看后继版本 →</span>
+        </span>
+        <span class="card-desc">材料设计皮肤的 Fix 层，已被 Fix_Fix 取代，仅作历史归档。</span>
+        <span class="meta">
+            <span class="chip">2026-10-03</span>
+            <span class="chip">约 257 KB</span>
+            <span class="chip lang">归档</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Material_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="../A1_V_%CE%A68/deepseek_A1_V_%CE%A68_Minimal_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Minimal_Fix_CN</span>
+            <span class="card-go">查看后继版本 →</span>
+        </span>
+        <span class="card-desc">极简皮肤的 Fix 层，已被 Fix_Fix 取代，仅作历史归档。</span>
+        <span class="meta">
+            <span class="chip">2026-10-03</span>
+            <span class="chip">约 246 KB</span>
+            <span class="chip lang">归档</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Minimal_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="../A1_V_%CE%A68/deepseek_A1_V_%CE%A68_Premium_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Premium_Fix_CN</span>
+            <span class="card-go">查看后继版本 →</span>
+        </span>
+        <span class="card-desc">高级质感皮肤的 Fix 层，已被 Fix_Fix 取代，仅作历史归档。</span>
+        <span class="meta">
+            <span class="chip">2026-10-03</span>
+            <span class="chip">约 250 KB</span>
+            <span class="chip lang">归档</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Premium_Fix_CN.html</span>
+    </a>
+
+    <a class="card" href="../A1_V_%CE%A68/deepseek_A1_V_%CE%A68_Shadcn_Fix_Fix_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ8_Shadcn_Fix_CN</span>
+            <span class="card-go">查看后继版本 →</span>
+        </span>
+        <span class="card-desc">Shadcn 皮肤的 Fix 层，已被 Fix_Fix 取代，仅作历史归档。</span>
+        <span class="meta">
+            <span class="chip">2026-10-03</span>
+            <span class="chip">约 253 KB</span>
+            <span class="chip lang">归档</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ8_Shadcn_Fix_CN.html</span>
+    </a>
+
+    <footer>
+        <span>Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3</span>
+        <span><a href="../A1_V_%CE%A68/">← 返回 A1_V_Φ8 主干</a></span>
+    </footer>
+
+</div>
+</body>
+</html>
