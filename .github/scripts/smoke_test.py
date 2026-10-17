@@ -12,6 +12,12 @@ version_guard.py 只做静态检查：版本号是否一致、脚本能否被解
   2. <body> 带上了类名（说明初始化脚本跑到了设置主题那一步）
   3. 页面有非空 <title>
 
+偶发卡死：页面会外链 Google Fonts，若请求挂住，`--virtual-time-budget`
+会一直等下去，单文件可卡满 120 秒的子进程超时。这在 CI 上实测出现过
+（同一文件重跑即过）。处理方式：超时后重跑一次，仍超时才判失败；
+并对 Chrome 加 `--disable-dev-shm-usage`——CI 容器 /dev/shm 只有 64MB，
+大页面下浏览器容易因共享内存不足而卡住。
+
 用法：
     本地： python3 .github/scripts/smoke_test.py
           浏览器不在 PATH 时用 CHROME_BIN 指定，例如：
@@ -42,6 +48,8 @@ TITLE_RE = re.compile(r"<title>(.*?)</title>", re.I | re.S)
 
 VIRTUAL_TIME_BUDGET = "6000"
 WAIT_FOR_OUTPUT_SECONDS = 30
+SUBPROCESS_TIMEOUT_SECONDS = 120
+MAX_ATTEMPTS = 2
 
 problems: list[str] = []
 warnings: list[str] = []
@@ -93,6 +101,8 @@ def run_one(browser: str, path: Path, rel: str) -> None:
                     "--headless=new",
                     "--disable-gpu",
                     "--no-sandbox",
+                    # CI 容器 /dev/shm 默认仅 64MB，大页面下 Chrome 会卡住
+                    "--disable-dev-shm-usage",
                     "--virtual-time-budget=" + VIRTUAL_TIME_BUDGET,
                     "--enable-logging=stderr",
                     "--dump-dom",
@@ -100,7 +110,7 @@ def run_one(browser: str, path: Path, rel: str) -> None:
                 ],
                 stdout=df,
                 stderr=ef,
-                timeout=120,
+                timeout=SUBPROCESS_TIMEOUT_SECONDS,
             )
         wait_for_output(dom_file, WAIT_FOR_OUTPUT_SECONDS)
         dom_text = dom_file.read_text(encoding="utf-8", errors="replace")
@@ -167,10 +177,26 @@ def main() -> int:
     print(f"使用浏览器：{browser}")
     for path in files:
         rel = path.relative_to(ROOT).as_posix()
-        try:
-            run_one(browser, path, rel)
-        except subprocess.TimeoutExpired:
-            problems.append(f"{rel}：打开超时（超过 120 秒）")
+        timeouts = 0
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            try:
+                run_one(browser, path, rel)
+                break
+            except subprocess.TimeoutExpired:
+                timeouts = attempt
+                if attempt < MAX_ATTEMPTS:
+                    # 偶发卡死：外链字体请求挂住时虚拟时间预算会一直等。
+                    # 重跑一次，成功即视为通过。
+                    continue
+                problems.append(
+                    f"{rel}：打开超时（连续 {MAX_ATTEMPTS} 次超过 "
+                    f"{SUBPROCESS_TIMEOUT_SECONDS} 秒）"
+                )
+                break
+        if timeouts and timeouts < MAX_ATTEMPTS:
+            warnings.append(
+                f"{rel}：第 {timeouts} 次打开超时、重跑通过（偶发，未计入失败）"
+            )
 
     for p in problems:
         print(f"[问题] {p}")
