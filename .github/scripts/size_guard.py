@@ -24,6 +24,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 # DevKit 交付物已迁入项目层；glob 仍只覆盖 DevKit 的主干目录，不做投机性泛化
 CODE_DIR = ROOT / "projects" / "devkit" / "code"
+# 其他项目的应用文件：显式登记，沿用同一套阈值。各项目的体积基线不同，
+# 泛化扫描会把小项目也套上 DevKit 的余量，失去告警意义。
+OTHER_APPS = (
+    ROOT / "projects" / "writer" / "code" / "A1_I_Φ1" / "deepseek_A1_I_Φ1_CN.html",
+)
 
 # 刻意留足余量：当前最大约 290 KB。产品若合理增长，应先调这两个数，
 # 而不是让它们长期处在被触发的边缘——长期告警等于没有告警。
@@ -39,6 +44,11 @@ def main() -> int:
         sys.stdout.reconfigure(encoding="utf-8")
 
     files = sorted(CODE_DIR.glob("*/deepseek_*.html"))
+    for app in OTHER_APPS:
+        if app.exists():
+            files.append(app)
+        else:
+            warnings.append(f"{app.relative_to(ROOT).as_posix()}：登记在 OTHER_APPS 中但文件不存在")
     if not files:
         print("[问题] code/ 下没有找到任何版本文件。")
         return 1

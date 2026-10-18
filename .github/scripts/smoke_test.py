@@ -41,6 +41,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 # DevKit 交付物已迁入项目层
 CODE_DIR = ROOT / "projects" / "devkit" / "code"
+# 其他项目的应用文件：显式登记，不泛化成「扫全部 projects/」——各项目的
+# 目录结构与版本号规则由项目自定，泛化会误扫或漏扫。新增项目时把它的
+# 应用 HTML 加在这里即可。
+OTHER_APPS = (
+    ROOT / "projects" / "writer" / "code" / "A1_I_Φ1" / "deepseek_A1_I_Φ1_CN.html",
+)
 
 ERROR_RE = re.compile(r"CONSOLE.*?(Uncaught|SyntaxError|TypeError|ReferenceError)")
 BODY_RE = re.compile(r'<body[^>]*\bclass="([^"]*)"', re.I)
@@ -129,7 +135,9 @@ def run_one(browser: str, path: Path, rel: str) -> None:
 
     # 版本文件要求 <body> 带上主题类名（说明初始化脚本跑到了设置主题那一步）；
     # 导航页是静态页，本来就没有类名，只要求 <body> 存在。
-    # 版本文件的命名固定为 deepseek_*.html，其余都是导航/站点页
+    # 版本文件的命名固定为 deepseek_*.html，其余都是导航/站点页。
+    # 注意：writer 的 body 类名是静态写死的，这一项对它只能算弱检查；
+    # 真正兜底的是上面的控制台报错检测。
     is_nav = not path.name.startswith("deepseek_")
     body = BODY_RE.search(dom_text)
     if is_nav:
@@ -170,6 +178,20 @@ def main() -> int:
     ):
         if nav.exists() and nav not in files:
             files.append(nav)
+    # 其他项目的应用文件与其索引页（目前为 writer）
+    for app in OTHER_APPS:
+        if not app.exists():
+            warnings.append(f"{app.relative_to(ROOT).as_posix()}：登记在 OTHER_APPS 中但文件不存在")
+            continue
+        if app not in files:
+            files.append(app)
+        for nav in (
+            app.parent / "index.html",
+            app.parent.parent / "index.html",
+            app.parent.parent.parent / "index.html",
+        ):
+            if nav.exists() and nav not in files:
+                files.append(nav)
     if not files:
         print("[问题] 没有找到任何可测的 HTML 文件。")
         return 1

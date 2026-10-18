@@ -148,13 +148,20 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │   │           ├── index.html
 │   │           ├── deepseek_html_20260705_d1ca99.html     # 原始归档
 │   │           └── deepseek_html_20261006_d1ca99_Fix.html # 文件名安全渲染修复
-│   └── dircleaner/                  # 项目：自动清空指定目录工具
-│       ├── index.html
+│   ├── dircleaner/                  # 项目：自动清空指定目录工具
+│   │   ├── index.html
+│   │   └── code/
+│   │       ├── index.html
+│   │       └── A1_II_Φ8/
+│   │           ├── index.html
+│   │           └── deepseek_html_20261005_ada08c.html
+│   └── writer/                      # 项目：小说编辑器
+│       ├── index.html               # 项目落地页（打开入口 + 数据安全提示）
 │       └── code/
-│           ├── index.html
-│           └── A1_II_Φ8/
+│           ├── index.html           # 代码 / 分支索引
+│           └── A1_I_Φ1/
 │               ├── index.html
-│               └── deepseek_html_20261005_ada08c.html
+│               └── deepseek_A1_I_Φ1_CN.html
 └── .claude/skills/devkit-spec/      # Claude Code 技能（版本与协作规范 + 版本相关模板）
 ```
 
@@ -167,7 +174,7 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 - 每个项目自带一个 `index.html` 作为该项目落地页；项目内部的目录结构与版本号规则**由该项目自定**，仓库不为它们设统一规范。
 - 仓库根 `index.html` 是**项目选择台**，只负责列出全部项目入口。
 - `docs/`（协作约定）与 `.github/`（自动化）是**跨项目通用**的；其中 `version_guard.py`、`size_guard.py`、`smoke_test.py`、`auto_release.py` 等脚本目前**只作用于 DevKit**，路径常量写死指向 `projects/devkit/code/`。新增项目若要复用这些检查，需相应改造。
-- 当前托管 `devkit`、`submerge-pro` 与 `dircleaner` 三个项目；新增项目放入 `projects/<名称>/`，并更新根目录项目选择台和 `projects/index.html`。
+- 当前托管 `devkit`、`submerge-pro`、`dircleaner` 与 `writer` 四个项目；新增项目放入 `projects/<名称>/`，并更新根目录项目选择台和 `projects/index.html`。
 
 ### Pages 部署说明
 
@@ -191,6 +198,9 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/dircleaner/` | DirCleaner 项目页 |
 | `/projects/dircleaner/code/` | DirCleaner 代码分支索引 |
 | `/projects/dircleaner/code/A1_II_Φ8/` | A1_II_Φ8 应用文件 |
+| `/projects/writer/` | Writer 小说编辑器项目页 |
+| `/projects/writer/code/` | Writer 代码分支索引 |
+| `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 应用文件 |
 
 Pages 之外还有一个**下载入口**：仓库的 Releases 页（`/releases`）由 `.github/workflows/release-on-main.yml` 自动维护——每次 `main` 更新就按主干打一个包，附上该代全部交付物。想拿文件下载走这里最省事，想在线阅读走 Pages。
 
