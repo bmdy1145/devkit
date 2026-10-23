@@ -41,13 +41,13 @@ ROOT = Path(__file__).resolve().parents[2]
 PROJECTS_DIR = ROOT / "projects"
 DEFAULT_PROJECT = "devkit"
 
-
-def code_dir(project: str) -> Path:
-    return PROJECTS_DIR / project / "code"
-
 MAX_NOTE_CHARS = 240
 BOILERPLATE = "中文版：同步应用主干版本号"
 CHECKSUM_PREFIX = 12
+
+
+def code_dir(project: str) -> Path:
+    return PROJECTS_DIR / project / "code"
 
 ENTRY_RE = re.compile(
     r"\{\s*version:\s*'((?:[^'\\]|\\.)*)',\s*note:\s*'((?:[^'\\]|\\.)*)'",

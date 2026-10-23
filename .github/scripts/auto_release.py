@@ -75,7 +75,13 @@ def code_dir(project: str) -> Path:
 
 
 def local_projects() -> list[str]:
-    """所有带 code/ 目录的项目（即真正有交付物的项目）。"""
+    """所有带 code/ 目录的项目（即真正有交付物的项目）。
+
+    projects/ 本身不存在时返回空列表而不是抛异常：手动触发路径会先调用它
+    拼提示信息，抛 FileNotFoundError 出去只会得到一个不带上下文的堆栈。
+    """
+    if not PROJECTS_DIR.is_dir():
+        return []
     return sorted(p.name for p in PROJECTS_DIR.iterdir() if p.is_dir() and code_dir(p.name).is_dir())
 
 
@@ -267,33 +273,37 @@ def release_trunk(
 
 def plan_dispatch(
     project: str, trunk: str, suffix: str
-) -> tuple[list[tuple[str, str]], dict[tuple[str, str], str], str | None, str]:
+) -> tuple[list[tuple[str, str, str]], str | None, str]:
     """手动触发：为指定项目的指定主干补发一个 Release。"""
     if not (code_dir(project) / trunk).is_dir():
         msg = f"[问题] 找不到目录 projects/{project}/code/{trunk}。"
         trunks = local_trunks(project)
         if trunks:
             msg += "现有主干：" + "、".join(trunks)
-        return [], {}, None, msg
+        return [], None, msg
     forced = f"{tag_base(project, trunk)}.{suffix}" if suffix else None
     reason = f"手动触发，补发 {project} 的主干 {trunk}"
     if suffix:
         reason += f"（指定标签后缀 {suffix}）"
-    targets = [(project, trunk)]
-    return targets, {targets[0]: "manual"}, forced, reason
+    return [(project, trunk, "manual")], forced, reason
 
 
 def plan_auto(
     files: list[dict] | None,
-) -> tuple[list[tuple[str, str]], dict[tuple[str, str], str], str]:
-    """自动触发：按改动文件决定发布哪些 (项目, 主干)，各自带发布模式。"""
+) -> tuple[list[tuple[str, str, str]], str]:
+    """自动触发：按改动文件决定发布哪些 (项目, 主干, 模式)。
+
+    目标是三元组而不是「目标 + 模式字典」：两者分开维护时，任何一条新增
+    分支只要漏写一处就会失步，最后在 main() 里 KeyError。
+    """
     if files is None:
-        targets = [(p, t) for p in local_projects() for t in local_trunks(p)]
-        return targets, {k: "changed" for k in targets}, "无法比较提交范围，退化为为全部项目的全部主干发布"
+        targets = [
+            (p, t, "changed") for p in local_projects() for t in local_trunks(p)
+        ]
+        return targets, "无法比较提交范围，退化为为全部项目的全部主干发布"
 
     changes = scan_changes(files)
-    targets: list[tuple[str, str]] = []
-    modes: dict[tuple[str, str], str] = {}
+    targets: list[tuple[str, str, str]] = []
     reasons: list[str] = []
 
     for project in sorted(changes):
@@ -302,21 +312,18 @@ def plan_auto(
         entry = changes[project]
         real = [t for t in entry["trunks"] if (code_dir(project) / t).is_dir()]
         if real:
-            for t in real:
-                targets.append((project, t))
-                modes[(project, t)] = "changed"
+            targets.extend((project, t, "changed") for t in real)
             reasons.append(f"{project}：" + "、".join(real))
         elif entry["project_touched"]:
             latest = latest_trunk(project)
             if latest:
-                targets.append((project, latest))
-                modes[(project, latest)] = "no_changes"
+                targets.append((project, latest, "no_changes"))
                 reasons.append(f"{project}：未动主干（给 {latest} 发「无功能更新」）")
 
     if not targets:
-        return [], {}, "本次推送未改动任何项目的交付物，不发布任何 Release"
+        return [], "本次推送未改动任何项目的交付物，不发布任何 Release"
 
-    return targets, modes, "；".join(reasons)
+    return targets, "；".join(reasons)
 
 
 def main() -> int:
@@ -337,14 +344,16 @@ def main() -> int:
 
     forced_tag: str | None = None
 
+    targets: list[tuple[str, str, str]]
+
     if dispatch_trunk:
         if dispatch_project not in local_projects():
             print(
                 f"[问题] 找不到项目 projects/{dispatch_project}/code/。现有项目："
-                + "、".join(local_projects())
+                + ("、".join(local_projects()) or "（无）")
             )
             return 1
-        targets, modes, forced_tag, reason = plan_dispatch(
+        targets, forced_tag, reason = plan_dispatch(
             dispatch_project, dispatch_trunk, dispatch_suffix
         )
         if not targets:
@@ -352,10 +361,10 @@ def main() -> int:
             return 1
     else:
         files = changed_paths(repo, token, before, after)
-        targets, modes, reason = plan_auto(files)
+        targets, reason = plan_auto(files)
 
     print(f"仓库 {repo} · {reason}")
-    print("将发布：" + ("、".join(f"{p}/{t}" for p, t in targets) if targets else "（无）"))
+    print("将发布：" + ("、".join(f"{p}/{t}" for p, t, _ in targets) if targets else "（无）"))
     print()
 
     if not targets:
@@ -363,13 +372,11 @@ def main() -> int:
         return 0
 
     ok = True
-    for project, trunk in targets:
+    for project, trunk, mode in targets:
         if not (code_dir(project) / trunk).is_dir():
             print(f"[告警] projects/{project}/code/{trunk} 不存在，跳过。")
             continue
-        if not release_trunk(
-            repo, token, project, trunk, after, modes[(project, trunk)], forced_tag
-        ):
+        if not release_trunk(repo, token, project, trunk, after, mode, forced_tag):
             ok = False
 
     print()

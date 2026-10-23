@@ -12,7 +12,8 @@
                  待写的正文保存取消掉，导致切章时丢字；拆成两个独立定时器；
               2) 缩进整理 / AI 追加 / AI 替换三处直接用 editor.value 赋值，
                  会清空浏览器原生撤销栈，文档里「可撤销」名不副实；改为
-                 setRangeText 走原生编辑路径，Ctrl+Z 仍可回退；
+                 execCommand('insertText') 走原生编辑路径，Ctrl+Z 可回退；
+                 （setRangeText 虽也走原生路径但实测不进撤销栈，未采用）
               3) 未填 API Key 时只弹提示却继续发请求，最后以 401 收场；
                  改为直接中止并引导去设置页；
               4) {prevChapter} 的上一章正文是异步预取的，模板合成没等它
@@ -20,7 +21,9 @@
               5) 跨卷移动章节后只重排了目标卷的 order，源卷留下空洞；
                  补上源卷重排；
               6) pagehide 只写正文不写字数元数据，下次打开章节树的字数
-                 对不上；改为连同 wordCount / updatedAt 一起写；
+                 对不上；改为连同 wordCount / updatedAt 一起写。守卫也不再
+                 只看 State.dirty——只改标题时它不置 dirty，会让标题连同
+                 定时器一起丢掉；
               7) 每次按键都跑全量正则统计并重渲染章节树，长章明显卡顿；
                  字数与树的刷新改为一帧内合并、树只在计数变化时重绘。
               另做几处收尾：
@@ -31,6 +34,11 @@
              10) 页签补 aria-controls / aria-labelledby，模态框补焦点陷阱
                  与关闭后焦点归还，键盘与读屏可用性对齐；
              11) 仓库的 version_guard 现在也校验 Writer 的版本号一致性。
+              复审补丁（同属 Φ3，未再递增版本号）：
+             12) 上一章正文预取失败时清掉缓存，避免后续调用永远拿到同
+                 一个已拒绝的 promise；
+             13) 异步预览吞掉预取异常，不再产生未处理的 rejection；
+             14) 焦点陷阱在焦点跑到弹窗外时先把焦点拉回首项。
               功能集、数据结构、索引库结构与 AI 协议均未变动。
     日期：2026-10-23
     版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
@@ -1298,11 +1306,25 @@
             this._lastFocus = null;
         },
 
-        closeTopmost() {
+        // 最上层弹窗 = 最近一次打开的那个，不是 DOM 里最靠后的那个。
+        // 首启的「关于」弹窗常驻打开时，DOM 顺序会把后打开的设置弹窗
+        // 挤到前面，导致 Esc / Tab 作用在错误的弹窗上。
+        _topmost() {
+            while (this._modalStack.length) {
+                const id = this._modalStack[this._modalStack.length - 1];
+                const el = document.getElementById(id);
+                if (el && el.classList.contains('open')) return el;
+                this._modalStack.pop();   // 已被别处关掉，清出栈
+            }
             const open = Utils.$$('.modal.open');
-            if (!open.length) return false;
-            open[open.length - 1].classList.remove('open');
-            this._modalStack.pop();
+            return open.length ? open[open.length - 1] : null;
+        },
+
+        closeTopmost() {
+            const box = this._topmost();
+            if (!box) return false;
+            box.classList.remove('open');
+            this._modalStack = this._modalStack.filter(function (m) { return m !== box.id; });
             if (this._lastFocus && document.contains(this._lastFocus)) {
                 try { this._lastFocus.focus(); } catch (e) {}
             }
@@ -1310,26 +1332,32 @@
             return true;
         },
 
-        // 模态框打开时把 Tab 圈在框内（Esc 由全局 keydown 处理）
+        // 模态框打开时把 Tab 圈在框内（Esc 由全局 keydown 处理）。
+        // 焦点可能跑到框外（例如点了遮罩、或某次 focus() 失败落到 body），
+        // 这时单纯比较 first/last 拦不住，要先把焦点拉回首项。
         trapFocus(ev) {
-            const open = Utils.$$('.modal.open');
-            if (!open.length) return false;
-            const box = open[open.length - 1];
+            if (ev.key !== 'Tab') return false;
+            const box = this._topmost();
+            if (!box) return false;
             const items = this._focusables(box);
             if (!items.length) return false;
             const first = items[0];
             const last = items[items.length - 1];
-            if (ev.key === 'Tab') {
-                if (ev.shiftKey && document.activeElement === first) {
-                    ev.preventDefault();
-                    last.focus();
-                    return true;
-                }
-                if (!ev.shiftKey && document.activeElement === last) {
-                    ev.preventDefault();
-                    first.focus();
-                    return true;
-                }
+
+            if (!box.contains(document.activeElement)) {
+                ev.preventDefault();
+                first.focus();
+                return true;
+            }
+            if (ev.shiftKey && document.activeElement === first) {
+                ev.preventDefault();
+                last.focus();
+                return true;
+            }
+            if (!ev.shiftKey && document.activeElement === last) {
+                ev.preventDefault();
+                first.focus();
+                return true;
             }
             return false;
         },
@@ -1700,6 +1728,11 @@
             State._prevText = text.slice(-500);
             prevCacheKey = key;
             prevLoading = null;
+        }, function (err) {
+            // 读失败时清掉缓存，否则后续对同一章的调用会一直拿到这个
+            // 已拒绝的 promise，直到用户切换章节改变 key 才恢复。
+            prevLoading = null;
+            throw err;
         });
         prevLoading = { key: key, promise: promise };
         return promise;
@@ -2028,19 +2061,33 @@
 
     // pagehide 里没法 await，只能把写入发出去就结束。这里把正文与章节
     // 元数据（字数 / 更新时间）一起写，否则下一次打开章节树显示的是旧字数。
+    //
+    // 守卫只看 chapterId，不看 State.dirty：标题改动只动 titleSaveTimer，
+    // 不置 dirty。若按 dirty 提前返回，用户只改标题后立刻关标签页，正文
+    // 确实没变，但标题会连同定时器一起丢掉。
     function flushSaveSync() {
-        if (!State.dirty || !State.chapterId) return;
+        if (!State.chapterId) return;
+        const hasTitlePending = !!titleSaveTimer;
+        const hasTextPending = State.dirty;
         clearTimeout(saveTimer);
         saveTimer = null;
         clearTimeout(titleSaveTimer);
         titleSaveTimer = null;
-        State.dirty = false;
         const now = Date.now();
         const id = State.chapterId;
-        Storage.bulkPut('chapterContents', [{ id: id, text: State.text, updatedAt: now }]);
         const ch = State.chapters.filter(function (c) { return c.id === id; })[0];
-        if (ch) {
-            ch.wordCount = countWords(State.text);
+
+        if (hasTextPending) {
+            State.dirty = false;
+            Storage.bulkPut('chapterContents', [{ id: id, text: State.text, updatedAt: now }]);
+            if (ch) {
+                ch.wordCount = countWords(State.text);
+                ch.updatedAt = now;
+                Storage.put('chapters', ch);
+                return;
+            }
+        }
+        if (hasTitlePending && ch) {
             ch.updatedAt = now;
             Storage.put('chapters', ch);
         }
@@ -2423,7 +2470,15 @@
 
     async function renderPreview() {
         const seq = ++previewSeq;
-        const text = await composePrompt();
+        let text;
+        try {
+            text = await composePrompt();
+        } catch (e) {
+            // 调用方（activatePane / debounce）都不接 promise，异常吞在里面
+            // 否则会变成未处理的 rejection。预览框保留上一次内容即可。
+            console.error('[preview]', e);
+            return;
+        }
         if (seq !== previewSeq) return;
         Utils.$('#previewBox').textContent = text;
         updatePreviewMeta();
@@ -2716,14 +2771,24 @@
         }
     }
 
-    // 用 setRangeText 走原生编辑路径：直接给 editor.value 赋值会清空浏览器
-    // 的撤销栈，Ctrl+Z 直接失效。selection 传 undefined 时表示整段替换。
+    // 用 execCommand('insertText') 而不是 setRangeText：直接给 editor.value
+    // 赋值会清空撤销栈，而 setRangeText 虽然走原生编辑路径，却**不产生撤销
+    // 记录**（实测 Ctrl+Z 无效），只有 insertText 会真正压栈。
+    // 若 execCommand 被禁用则退回 setRangeText，至少保证内容正确。
     function replaceEditorText(text, start, end) {
         const editor = Utils.$('#manuscript');
         const s = typeof start === 'number' ? start : 0;
         const e = typeof end === 'number' ? end : editor.value.length;
         editor.focus();
-        editor.setRangeText(text, s, e, 'end');
+        editor.setSelectionRange(s, e);
+        let ok = false;
+        try {
+            ok = document.execCommand('insertText', false, text);
+        } catch (err) {
+            ok = false;
+        }
+        // execCommand 成功后光标已落在插入内容末尾，无需再调整
+        if (!ok) editor.setRangeText(text, s, e, 'end');
         State.text = editor.value;
         updateCounts();
         setDirty();
