@@ -8,7 +8,7 @@ Security fixes are provided only for the latest version in this repository.
 
 | Version | Supported |
 |---------|-----------|
-| A1_V_Φ7_CN (current latest) | ✅ |
+| A1_V_Φ9_CN (current latest) | ✅ |
 | Earlier versions | ❌ |
 
 ## Reporting a Vulnerability

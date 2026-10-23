@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Writer · 小说编辑器</title>
+<meta name="description" content="Writer（小说编辑器）的静态版本分发入口：单文件 HTML，卷/章稿件树、人物设定库、写作提示词面板与 AI 流式续写。">
+<!--
+    ============================================================
+    项目名称：Writer（小说编辑器）· 项目落地页
+    文件性质：GitHub Pages 页面（/projects/writer/）。不属于 Writer 应用的
+              版本架构，不占用版本号。
+    职责：说明项目、给出打开入口与数据安全提示。
+    日期：2026-10-17
+    版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+    许可证：GPLv3
+    ============================================================
+    维护提示：新增主干时复制一个 <a class="card"> 块并改 href / 文案。
+    约定：href 中的 Φ 一律用百分号编码 %CE%A6，页面显示文字仍写 Φ。
+    ============================================================
+-->
+<style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --tone: 224, 164, 88;      /* 暖铜 */
+        --tone2: 0, 188, 255;      /* 电光青 */
+        --tint: 10, 12, 17;        /* 面板底色 */
+        --text: #eceff4;
+        --text2: #98a2b3;
+        --primary: #e0a458;
+        --primary-fg: #1a1208;
+        --warning: #ffd58a;
+        --edge: 0.24;
+        --radius: 10px;
+    }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+        min-height: 100vh;
+        font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+        color: var(--text);
+        background:
+            radial-gradient(1100px 700px at 10% -14%, rgba(224,164,88,0.10), transparent 58%),
+            radial-gradient(900px 620px at 96% 2%, rgba(0,188,255,0.07), transparent 60%),
+            #0f1115;
+        background-attachment: fixed;
+        line-height: 1.6;
+        padding: 56px 24px 72px;
+        display: flex;
+        justify-content: center;
+    }
+
+    .wrap { width: 100%; max-width: 880px; }
+
+    /* ---------- 页头 ---------- */
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .brand-mark {
+        width: 34px; height: 34px; flex-shrink: 0;
+        display: grid; place-items: center;
+        border: 1px solid rgba(var(--tone), 0.5);
+        border-radius: 8px;
+        color: var(--primary);
+        font-size: 18px; font-weight: 700;
+        box-shadow: 0 0 20px -6px rgba(var(--tone), 1), inset 0 0 18px -10px rgba(var(--tone), 1);
+        text-shadow: 0 0 14px rgba(var(--tone), 0.75);
+    }
+    h1 {
+        font-size: 1.5rem; font-weight: 600; letter-spacing: 0.01em;
+        text-shadow: 0 0 18px rgba(var(--tone), 0.45);
+    }
+    .tagline { color: var(--text2); font-size: 0.9rem; margin-bottom: 32px; }
+
+    /* ---------- 说明段 ---------- */
+    .lede {
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone), var(--edge)), 0 0 26px -16px rgba(var(--tone), 1);
+        font-size: 0.9rem;
+        color: var(--text2);
+        margin-bottom: 20px;
+    }
+    .lede strong { color: var(--text); font-weight: 600; }
+
+    .warning {
+        background: rgba(255, 213, 138, 0.07);
+        border: 1px solid rgba(255, 213, 138, 0.32);
+        border-radius: var(--radius);
+        padding: 14px 18px;
+        font-size: 0.85rem;
+        color: var(--warning);
+        margin-bottom: 36px;
+        line-height: 1.7;
+    }
+    .warning strong { color: #ffe7bb; }
+
+    /* ---------- 区块标题 ---------- */
+    h2 {
+        font-size: 0.78rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.12em;
+        color: var(--text2);
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 10px;
+    }
+    h2::after {
+        content: ''; flex: 1; height: 1px;
+        background: linear-gradient(90deg, rgba(var(--tone), 0.4), transparent);
+    }
+    section { margin-bottom: 36px; }
+
+    .note { font-size: 0.85rem; color: var(--text2); }
+    .note code {
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        font-size: 0.95em; color: var(--text);
+        background: rgba(var(--tone), 0.10);
+        border: 1px solid rgba(var(--tone), 0.22);
+        border-radius: 4px; padding: 1px 6px;
+    }
+
+    /* ---------- 分支卡片 ---------- */
+    .card {
+        display: block; text-decoration: none; color: inherit;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone), var(--edge)), 0 0 26px -16px rgba(var(--tone), 1);
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    .card + .card { margin-top: 12px; }
+    .card:hover {
+        border-color: rgba(var(--tone), 0.55);
+        box-shadow: 0 0 0 1px rgba(var(--tone), 0.55), 0 0 34px -12px rgba(var(--tone), 1);
+        transform: translateY(-2px);
+    }
+    .card:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
+    .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .card-name {
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        font-size: 1rem; font-weight: 600; color: var(--primary);
+        text-shadow: 0 0 14px rgba(var(--tone), 0.55);
+        word-break: break-all;
+    }
+    .card-go { font-size: 0.8rem; color: var(--text2); white-space: nowrap; }
+    .card:hover .card-go { color: var(--primary); }
+    /* 注意：这些是 span，必须显式转块级，否则垂直 margin 不生效 */
+    .card-desc { display: block; font-size: 0.85rem; color: var(--text2); margin-top: 6px; }
+
+    /* ---------- 直达条 ---------- */
+    .quick {
+        display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone2), 0.28);
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone2), 0.20), 0 0 30px -16px rgba(var(--tone2), 1);
+        text-decoration: none; color: inherit;
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    .quick:hover {
+        border-color: rgba(var(--tone2), 0.55);
+        box-shadow: 0 0 0 1px rgba(var(--tone2), 0.45), 0 0 36px -12px rgba(var(--tone2), 1);
+        transform: translateY(-2px);
+    }
+    .quick:focus-visible { outline: 2px solid rgb(var(--tone2)); outline-offset: 3px; }
+    .quick-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .quick-name {
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        font-weight: 600; color: #7fd8ff; word-break: break-all;
+    }
+    .quick-meta { font-size: 0.8rem; color: var(--text2); }
+    .quick-cta {
+        font-size: 0.85rem; font-weight: 600; color: var(--primary-fg);
+        background: var(--primary); border-radius: 6px; padding: 7px 16px; white-space: nowrap;
+        box-shadow: 0 0 20px -6px rgba(var(--tone), 1);
+    }
+
+    /* ---------- 功能列表 ---------- */
+    .features { list-style: none; }
+    .features li {
+        position: relative;
+        padding-left: 18px;
+        font-size: 0.88rem;
+        color: var(--text2);
+        margin-bottom: 8px;
+    }
+    .features li::before {
+        content: '';
+        position: absolute; left: 0; top: 0.65em;
+        width: 6px; height: 6px; border-radius: 50%;
+        background: var(--primary);
+        box-shadow: 0 0 10px -2px rgba(var(--tone), 1);
+    }
+    .features strong { color: var(--text); font-weight: 600; }
+
+    /* ---------- 页脚 ---------- */
+    footer {
+        margin-top: 48px; padding-top: 20px;
+        border-top: 1px solid rgba(var(--tone), 0.16);
+        font-size: 0.78rem; color: var(--text2);
+        display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    footer a { color: var(--text2); text-decoration: none; border-bottom: 1px solid rgba(var(--tone), 0.35); }
+    footer a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+    footer a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+    @media (max-width: 560px) {
+        body { padding: 36px 16px 48px; }
+        h1 { font-size: 1.25rem; }
+        .quick-cta { width: 100%; text-align: center; }
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+    <div class="brand">
+        <div class="brand-mark" aria-hidden="true">W</div>
+        <h1>Writer</h1>
+    </div>
+    <p class="tagline">小说编辑器 · 单文件网页版</p>
+
+    <p class="lede">
+        Writer 是一个<strong>纯 HTML 单文件</strong>的小说写作工具：卷 / 章稿件树、人物与世界观资料库、
+        写作提示词面板、专注模式与排版控制。章节、资料、提示词与 AI 四个面板<strong>统一收在左侧一列</strong>，
+        中间与右侧全部留给了正文。正文自动保存在浏览器里，也可以随时导出 JSON 备份或导出纯文本。
+        不联网也能完整使用编辑与提示词功能。
+    </p>
+
+    <p class="warning">
+        <strong>数据只保存在本机浏览器里。</strong>清除站点数据、切换浏览器或更换访问地址都会看不到旧稿。
+        请定期用「导出 JSON」备份。<br>
+        另外：<strong>用地址栏打开（Pages）与直接双击文件（file://）看到的是两份互不相通的数据</strong>，
+        因为浏览器按来源隔离存储；需要迁移时请用导出 / 导入。
+    </p>
+
+    <section aria-labelledby="sec-quick">
+        <h2 id="sec-quick">打开</h2>
+        <a class="quick" href="code/A1_I_%CE%A63/deepseek_A1_I_%CE%A63_CN.html">
+            <span class="quick-text">
+                <span class="quick-name">在线阅读 · A1_I_Φ3（当前版本）</span>
+                <span class="quick-meta">单文件应用 · 无需安装 · 左侧四页签 · 数据自动保存在本浏览器</span>
+            </span>
+            <span class="quick-cta">打开编辑器 →</span>
+        </a>
+    </section>
+
+    <section aria-labelledby="sec-features">
+        <h2 id="sec-features">功能</h2>
+        <ul class="features">
+            <li><strong>卷 / 章稿件树</strong>：新增、重命名、排序、跨卷移动与删除；单章、单卷与全书字数实时统计。</li>
+            <li><strong>人物 / 设定资料库</strong>：人物、地点、世界观卡片，可一键引用进提示词。</li>
+            <li><strong>写作提示词面板</strong>：大纲、人设、场景、对白、伏笔、节奏、润色、扩写等模板，组合预览后一键复制。</li>
+            <li><strong>AI 续写与润色</strong>：可接 DeepSeek 官方直连、本机代理或任意 OpenAI 兼容端点，也支持 Anthropic Messages 协议；流式输出，可随时停止。</li>
+            <li><strong>左侧单列布局</strong>：章节、资料、提示词、AI 四个面板共用左侧一列，正文独占其余宽度；窄屏下左栏收为抽屉。</li>
+            <li><strong>专注模式与排版</strong>：隐藏侧栏，字号、行高、字体与段首缩进可调。</li>
+            <li><strong>备份与导出</strong>：整包 JSON 导入导出、当前章或全书纯文本导出。</li>
+        </ul>
+    </section>
+
+    <section aria-labelledby="sec-branch">
+        <h2 id="sec-branch">按分支浏览</h2>
+        <a class="card" href="code/">
+            <span class="card-top">
+                <span class="card-name">A1_I_Φ3</span>
+                <span class="card-go">浏览版本分支 →</span>
+            </span>
+            <span class="card-desc">当前版本：逻辑与健壮性修复，界面沿用 Φ2 的左侧单列四页签。历史版本 A1_I_Φ2、A1_I_Φ1 一并保留。</span>
+        </a>
+    </section>
+
+    <section aria-labelledby="sec-about">
+        <h2 id="sec-about">关于版本号</h2>
+        <p class="note">
+            版本号采用四层基础 + 循环扩展：<code>分支代号 / 罗马数字 / Φ+数字 / 英文标识</code>。
+            末位 <code>_CN</code> 为中文版语言后缀。Writer 与仓库中的其他项目相互独立，各自维护版本。
+        </p>
+    </section>
+
+    <footer>
+        <span>Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3</span>
+        <span>
+            <a href="code/">浏览全部代码文件</a> &nbsp;·&nbsp;
+            <a href="../">← 所有项目</a>
+        </span>
+    </footer>
+
+</div>
+</body>
+</html>

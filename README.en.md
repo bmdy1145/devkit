@@ -152,13 +152,26 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │   │           ├── index.html
 │   │           ├── deepseek_html_20260705_d1ca99.html     # Original archive
 │   │           └── deepseek_html_20261006_d1ca99_Fix.html # Safe filename rendering fix
-│   └── dircleaner/                  # Project: empty a user-selected directory
-│       ├── index.html
+│   ├── dircleaner/                  # Project: empty a user-selected directory
+│   │   ├── index.html
+│   │   └── code/
+│   │       ├── index.html
+│   │       └── A1_II_Φ8/
+│   │           ├── index.html
+│   │           └── deepseek_html_20261005_ada08c.html
+│   └── writer/                      # Project: novel editor
+│       ├── index.html               # Landing page (open link + data-safety notice)
 │       └── code/
-│           ├── index.html
-│           └── A1_II_Φ8/
+│           ├── index.html           # Code / branch index
+│           ├── A1_I_Φ3/             # Current version (logic & robustness fixes)
+│           │   ├── index.html
+│           │   └── deepseek_A1_I_Φ3_CN.html
+│           ├── A1_I_Φ2/             # Layout rework (single left column, four tabs)
+│           │   ├── index.html
+│           │   └── deepseek_A1_I_Φ2_CN.html
+│           └── A1_I_Φ1/             # First release (historical reference)
 │               ├── index.html
-│               └── deepseek_html_20261005_ada08c.html
+│               └── deepseek_A1_I_Φ1_CN.html
 └── .claude/skills/devkit-spec/      # Claude Code skill (version & collaboration spec + version templates)
 ```
 
@@ -171,7 +184,7 @@ This repository is organised as `projects/<name>/`, one directory per project:
 - Each project ships its own `index.html` as its landing page. The internal directory structure and version-numbering rules are **up to each project** — the repo imposes no shared convention on them.
 - The root `index.html` is a **project picker**; it only lists entries to the projects.
 - `docs/` (conventions) and `.github/` (automation) are **shared across projects**. Note that `version_guard.py`, `size_guard.py`, `smoke_test.py` and `auto_release.py` currently **apply to DevKit only** — their path constants are hard-wired to `projects/devkit/code/`. A new project that wants the same checks needs those scripts adapted.
-- The repository currently hosts three projects: `devkit`, `submerge-pro` and `dircleaner`. Add future projects under `projects/<name>/` and update the root project picker and `projects/index.html`.
+- The repository currently hosts four projects: `devkit`, `submerge-pro`, `dircleaner` and `writer`. Add future projects under `projects/<name>/` and update the root project picker and `projects/index.html`.
 
 ### Pages deployment note
 
@@ -196,6 +209,11 @@ The site entry is the **root-level** `index.html`, a **project picker**; each pr
 | `/projects/dircleaner/` | DirCleaner project page |
 | `/projects/dircleaner/code/` | DirCleaner branch index |
 | `/projects/dircleaner/code/A1_II_Φ8/` | A1_II_Φ8 application file |
+| `/projects/writer/` | Writer novel-editor project page |
+| `/projects/writer/code/` | Writer code/branch index |
+| `/projects/writer/code/A1_I_Φ3/` | A1_I_Φ3 application file (current) |
+| `/projects/writer/code/A1_I_Φ2/` | A1_I_Φ2 application file (layout rework) |
+| `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 application file (historical reference) |
 
 Beyond Pages there is a **download entry point**: the repository's Releases page (`/releases`), maintained automatically by `.github/workflows/release-on-main.yml` — every update to `main` packages that main line's artifacts and attaches them. Downloading is easiest there; reading online is what Pages is for.
 

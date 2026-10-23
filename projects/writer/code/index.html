@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>code · Writer</title>
+<meta name="description" content="Writer 小说编辑器的代码与版本分支索引。">
+<!--
+    ============================================================
+    项目名称：Writer（小说编辑器）· 代码目录索引
+    文件性质：GitHub Pages 目录索引（/projects/writer/code/）。不属于 Writer
+              应用的版本架构，不占用版本号。
+    职责：列出可浏览的版本分支。
+    日期：2026-10-17
+    版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+    许可证：GPLv3
+    ============================================================
+    维护提示：新增主干时复制一个 <a class="card"> 块并改 href / 文案。
+    约定：href 中的 Φ 一律用百分号编码 %CE%A6，页面显示文字仍写 Φ。
+    ============================================================
+-->
+<style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+        color-scheme: dark;
+        --bg: #0f1115;
+        --surface: rgba(15, 17, 21, 0.92);
+        --text: #eceff4;
+        --muted: #98a2b3;
+        --accent: #e0a458;
+        --edge: rgba(224, 164, 88, 0.28);
+        --mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+    }
+    body {
+        min-height: 100vh; margin: 0; padding: 48px 20px;
+        color: var(--text);
+        background: radial-gradient(900px 600px at 10% 0%, rgba(224,164,88,.09), transparent 60%), var(--bg);
+        font: 16px/1.65 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+    }
+    main { width: min(100%, 820px); margin: auto; }
+    nav { color: var(--muted); font-size: .85rem; margin-bottom: 28px; font-family: var(--mono); }
+    nav a { color: var(--muted); text-decoration: none; }
+    nav a:hover, nav a:focus-visible { color: var(--accent); }
+    h1 { margin: 0; color: var(--accent); font-size: clamp(1.7rem, 5vw, 2.6rem); font-family: var(--mono); }
+    .sub { color: var(--muted); margin: 6px 0 24px; }
+    .card {
+        display: block; padding: 20px 22px; border: 1px solid var(--edge); border-radius: 12px;
+        background: var(--surface); color: inherit; text-decoration: none;
+        box-shadow: 0 0 26px -16px rgba(224,164,88,.8);
+        transition: border-color .2s, transform .2s;
+    }
+    .card:hover, .card:focus-visible { border-color: var(--accent); outline: none; transform: translateY(-2px); }
+    .card strong { color: var(--accent); font-family: var(--mono); }
+    .card p { color: var(--muted); margin: 6px 0 0; }
+    footer {
+        margin-top: 40px; padding-top: 16px; border-top: 1px solid rgba(224,164,88,.16);
+        color: var(--muted); font-size: .78rem; text-align: center;
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }
+    .card + .card { margin-top: 10px; }
+    @media (max-width: 560px) { body { padding: 32px 16px; } .card { padding: 17px; } }
+</style>
+</head>
+<body>
+<main>
+    <nav aria-label="面包屑导航"><a href="../">Writer</a> <span aria-hidden="true">/</span> <span>code</span></nav>
+    <h1>代码与版本分支</h1>
+    <p class="sub">选择要浏览的版本分支。</p>
+
+    <a class="card" href="A1_I_%CE%A63/">
+        <strong>A1_I_Φ3</strong>
+        <p>当前版本：逻辑与健壮性修复（保存定时器拆分、撤销栈保留、AI 缺 Key 早退、上一章正文预取等），界面沿用 Φ2。</p>
+    </a>
+
+    <a class="card" href="A1_I_%CE%A62/">
+        <strong>A1_I_Φ2</strong>
+        <p>界面布局重构：章节 / 资料 / 提示词 / AI 四个面板合并到左侧一列，右栏移除，窄屏统一抽屉。</p>
+    </a>
+
+    <a class="card" href="A1_I_%CE%A61/">
+        <strong>A1_I_Φ1</strong>
+        <p>首个版本：卷 / 章稿件树、人物设定库、写作提示词面板、双协议流式 AI、IndexedDB 自动保存。</p>
+    </a>
+
+    <footer>
+        Writer  Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3<br>
+        本程序是自由软件，基于 GPLv3 发布，无任何担保。
+    </footer>
+</main>
+</body>
+</html>

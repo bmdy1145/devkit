@@ -12,6 +12,12 @@ version_guard.py 只做静态检查：版本号是否一致、脚本能否被解
   2. <body> 带上了类名（说明初始化脚本跑到了设置主题那一步）
   3. 页面有非空 <title>
 
+偶发卡死：页面会外链 Google Fonts，若请求挂住，`--virtual-time-budget`
+会一直等下去，单文件可卡满 120 秒的子进程超时。这在 CI 上实测出现过
+（同一文件重跑即过）。处理方式：超时后重跑一次，仍超时才判失败；
+并对 Chrome 加 `--disable-dev-shm-usage`——CI 容器 /dev/shm 只有 64MB，
+大页面下浏览器容易因共享内存不足而卡住。
+
 用法：
     本地： python3 .github/scripts/smoke_test.py
           浏览器不在 PATH 时用 CHROME_BIN 指定，例如：
@@ -35,6 +41,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 # DevKit 交付物已迁入项目层
 CODE_DIR = ROOT / "projects" / "devkit" / "code"
+# 其他项目的应用文件：显式登记，不泛化成「扫全部 projects/」——各项目的
+# 目录结构与版本号规则由项目自定，泛化会误扫或漏扫。新增项目时把它的
+# 应用 HTML 加在这里即可。
+OTHER_APPS = (
+    ROOT / "projects" / "writer" / "code" / "A1_I_Φ1" / "deepseek_A1_I_Φ1_CN.html",
+    ROOT / "projects" / "writer" / "code" / "A1_I_Φ2" / "deepseek_A1_I_Φ2_CN.html",
+    ROOT / "projects" / "writer" / "code" / "A1_I_Φ3" / "deepseek_A1_I_Φ3_CN.html",
+)
 
 ERROR_RE = re.compile(r"CONSOLE.*?(Uncaught|SyntaxError|TypeError|ReferenceError)")
 BODY_RE = re.compile(r'<body[^>]*\bclass="([^"]*)"', re.I)
@@ -42,6 +56,8 @@ TITLE_RE = re.compile(r"<title>(.*?)</title>", re.I | re.S)
 
 VIRTUAL_TIME_BUDGET = "6000"
 WAIT_FOR_OUTPUT_SECONDS = 30
+SUBPROCESS_TIMEOUT_SECONDS = 120
+MAX_ATTEMPTS = 2
 
 problems: list[str] = []
 warnings: list[str] = []
@@ -93,6 +109,8 @@ def run_one(browser: str, path: Path, rel: str) -> None:
                     "--headless=new",
                     "--disable-gpu",
                     "--no-sandbox",
+                    # CI 容器 /dev/shm 默认仅 64MB，大页面下 Chrome 会卡住
+                    "--disable-dev-shm-usage",
                     "--virtual-time-budget=" + VIRTUAL_TIME_BUDGET,
                     "--enable-logging=stderr",
                     "--dump-dom",
@@ -100,7 +118,7 @@ def run_one(browser: str, path: Path, rel: str) -> None:
                 ],
                 stdout=df,
                 stderr=ef,
-                timeout=120,
+                timeout=SUBPROCESS_TIMEOUT_SECONDS,
             )
         wait_for_output(dom_file, WAIT_FOR_OUTPUT_SECONDS)
         dom_text = dom_file.read_text(encoding="utf-8", errors="replace")
@@ -119,7 +137,9 @@ def run_one(browser: str, path: Path, rel: str) -> None:
 
     # 版本文件要求 <body> 带上主题类名（说明初始化脚本跑到了设置主题那一步）；
     # 导航页是静态页，本来就没有类名，只要求 <body> 存在。
-    # 版本文件的命名固定为 deepseek_*.html，其余都是导航/站点页
+    # 版本文件的命名固定为 deepseek_*.html，其余都是导航/站点页。
+    # 注意：writer 的 body 类名是静态写死的，这一项对它只能算弱检查；
+    # 真正兜底的是上面的控制台报错检测。
     is_nav = not path.name.startswith("deepseek_")
     body = BODY_RE.search(dom_text)
     if is_nav:
@@ -160,6 +180,20 @@ def main() -> int:
     ):
         if nav.exists() and nav not in files:
             files.append(nav)
+    # 其他项目的应用文件与其索引页（目前为 writer）
+    for app in OTHER_APPS:
+        if not app.exists():
+            warnings.append(f"{app.relative_to(ROOT).as_posix()}：登记在 OTHER_APPS 中但文件不存在")
+            continue
+        if app not in files:
+            files.append(app)
+        for nav in (
+            app.parent / "index.html",
+            app.parent.parent / "index.html",
+            app.parent.parent.parent / "index.html",
+        ):
+            if nav.exists() and nav not in files:
+                files.append(nav)
     if not files:
         print("[问题] 没有找到任何可测的 HTML 文件。")
         return 1
@@ -167,10 +201,26 @@ def main() -> int:
     print(f"使用浏览器：{browser}")
     for path in files:
         rel = path.relative_to(ROOT).as_posix()
-        try:
-            run_one(browser, path, rel)
-        except subprocess.TimeoutExpired:
-            problems.append(f"{rel}：打开超时（超过 120 秒）")
+        timeouts = 0
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            try:
+                run_one(browser, path, rel)
+                break
+            except subprocess.TimeoutExpired:
+                timeouts = attempt
+                if attempt < MAX_ATTEMPTS:
+                    # 偶发卡死：外链字体请求挂住时虚拟时间预算会一直等。
+                    # 重跑一次，成功即视为通过。
+                    continue
+                problems.append(
+                    f"{rel}：打开超时（连续 {MAX_ATTEMPTS} 次超过 "
+                    f"{SUBPROCESS_TIMEOUT_SECONDS} 秒）"
+                )
+                break
+        if timeouts and timeouts < MAX_ATTEMPTS:
+            warnings.append(
+                f"{rel}：第 {timeouts} 次打开超时、重跑通过（偶发，未计入失败）"
+            )
 
     for p in problems:
         print(f"[问题] {p}")

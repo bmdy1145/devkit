@@ -6,8 +6,11 @@
 本脚本把它解析出来，汇总成本次发布的说明，避免 Releases 页面只有一句
 「主干 X 下的全部版本文件」而看不出改了什么。
 
+发布按项目区分（projects/<项目>/code/<主干>/），本脚本同样接受项目名，
+避免把 Writer 的文件按 DevKit 的规则去解析。
+
 汇总规则：
-  · 扫描 code/<主干>/ 下所有版本文件，把各文件的 VERSION_HISTORY 合并
+  · 扫描 projects/<项目>/code/<主干>/ 下所有版本文件，把各文件的 VERSION_HISTORY 合并
   · 只保留版本号以该主干开头的条目
   · 按「说明内容」去重，而不是按版本号 —— 同一个主干下各皮肤会各自记一条
     改动，但内容往往是同一段话（例如「全站响应式适配」在四个旧皮肤里各记
@@ -19,9 +22,12 @@
   · 附件一律列出体积与 sha256 前 12 位，便于跨版本比对「文件是否一致」
 
 用法：
-    python3 .github/scripts/make_release_notes.py <主干名> [--no-changes]
+    python3 .github/scripts/make_release_notes.py <项目名> <主干名> [--no-changes]
 
 --no-changes 表示本次 main 更新没有改动交付物文件，说明里会写明「无功能更新」。
+
+为兼容旧调用，只给一个参数时按 DevKit 处理：
+    python3 .github/scripts/make_release_notes.py A1_V_Φ9
 """
 
 from __future__ import annotations
@@ -32,12 +38,16 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-# DevKit 已迁入项目层；与 auto_release.py 的常量保持一致
-CODE_DIR = ROOT / "projects" / "devkit" / "code"
+PROJECTS_DIR = ROOT / "projects"
+DEFAULT_PROJECT = "devkit"
 
 MAX_NOTE_CHARS = 240
 BOILERPLATE = "中文版：同步应用主干版本号"
 CHECKSUM_PREFIX = 12
+
+
+def code_dir(project: str) -> Path:
+    return PROJECTS_DIR / project / "code"
 
 ENTRY_RE = re.compile(
     r"\{\s*version:\s*'((?:[^'\\]|\\.)*)',\s*note:\s*'((?:[^'\\]|\\.)*)'",
@@ -49,9 +59,9 @@ def unescape(text: str) -> str:
     return text.replace("\\'", "'").replace("\\\\", "\\")
 
 
-def collect(trunk: str) -> list[tuple[str, str]]:
+def collect(project: str, trunk: str) -> list[tuple[str, str]]:
     """返回 [(版本号, 说明)]，按说明内容去重且保持首次出现顺序。"""
-    files = sorted((CODE_DIR / trunk).glob("deepseek_*.html"))
+    files = sorted((code_dir(project) / trunk).glob("deepseek_*.html"))
     best: dict[str, str] = {}
     order: list[str] = []
 
@@ -95,15 +105,15 @@ def digest(path: Path) -> str:
     return h.hexdigest()[:CHECKSUM_PREFIX]
 
 
-def build_notes(trunk: str, mode: str = "changed") -> str:
+def build_notes(project: str, trunk: str, mode: str = "changed") -> str:
     """mode 取 changed / no_changes / manual 三者之一。"""
-    trunk_dir = CODE_DIR / trunk
+    trunk_dir = code_dir(project) / trunk
     files = sorted(trunk_dir.glob("deepseek_*.html"))
-    entries = collect(trunk)
+    entries = collect(project, trunk)
 
     lines: list[str] = []
     lines.append(
-        f"主干 `{trunk}`，本 Release 附带 {len(files)} 个版本文件"
+        f"项目 `{project}` · 主干 `{trunk}`，本 Release 附带 {len(files)} 个版本文件"
         "（每个都是自包含的单文件应用，下载后可直接用浏览器打开）。"
     )
     lines.append("")
@@ -150,8 +160,16 @@ def main() -> int:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     flags = set(sys.argv[1:])
 
-    if len(args) != 1:
-        print("用法：make_release_notes.py <主干名> [--no-changes|--manual]", file=sys.stderr)
+    # 一个参数 = 只给主干名，按 DevKit 处理（兼容旧用法）
+    if len(args) == 1:
+        project, trunk = DEFAULT_PROJECT, args[0]
+    elif len(args) == 2:
+        project, trunk = args
+    else:
+        print(
+            "用法：make_release_notes.py [<项目名>] <主干名> [--no-changes|--manual]",
+            file=sys.stderr,
+        )
         return 1
 
     if "--no-changes" in flags:
@@ -161,12 +179,11 @@ def main() -> int:
     else:
         mode = "changed"
 
-    trunk = args[0]
-    if not (CODE_DIR / trunk).is_dir():
-        print(f"找不到目录 projects/devkit/code/{trunk}", file=sys.stderr)
+    if not (code_dir(project) / trunk).is_dir():
+        print(f"找不到目录 projects/{project}/code/{trunk}", file=sys.stderr)
         return 1
 
-    print(build_notes(trunk, mode))
+    print(build_notes(project, trunk, mode))
     return 0
 
 
