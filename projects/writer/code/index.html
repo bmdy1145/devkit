@@ -57,6 +57,7 @@
         color: var(--muted); font-size: .78rem; text-align: center;
     }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }
+    .card + .card { margin-top: 10px; }
     @media (max-width: 560px) { body { padding: 32px 16px; } .card { padding: 17px; } }
 </style>
 </head>
@@ -65,6 +66,11 @@
     <nav aria-label="面包屑导航"><a href="../">Writer</a> <span aria-hidden="true">/</span> <span>code</span></nav>
     <h1>代码与版本分支</h1>
     <p class="sub">选择要浏览的版本分支。</p>
+
+    <a class="card" href="A1_I_%CE%A62/">
+        <strong>A1_I_Φ2</strong>
+        <p>当前版本：章节 / 资料 / 提示词 / AI 四个面板合并到左侧一列，右栏移除，窄屏统一抽屉。</p>
+    </a>
 
     <a class="card" href="A1_I_%CE%A61/">
         <strong>A1_I_Φ1</strong>

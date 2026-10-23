@@ -159,7 +159,10 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │       ├── index.html               # Landing page (open link + data-safety notice)
 │       └── code/
 │           ├── index.html           # Code / branch index
-│           └── A1_I_Φ1/
+│           ├── A1_I_Φ2/             # Current version (single left column, four tabs)
+│           │   ├── index.html
+│           │   └── deepseek_A1_I_Φ2_CN.html
+│           └── A1_I_Φ1/             # First release (historical reference)
 │               ├── index.html
 │               └── deepseek_A1_I_Φ1_CN.html
 └── .claude/skills/devkit-spec/      # Claude Code skill (version & collaboration spec + version templates)
@@ -200,7 +203,8 @@ The site entry is the **root-level** `index.html`, a **project picker**; each pr
 | `/projects/dircleaner/code/A1_II_Φ8/` | A1_II_Φ8 application file |
 | `/projects/writer/` | Writer novel-editor project page |
 | `/projects/writer/code/` | Writer code/branch index |
-| `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 application file |
+| `/projects/writer/code/A1_I_Φ2/` | A1_I_Φ2 application file (current) |
+| `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 application file (historical reference) |
 
 Beyond Pages there is a **download entry point**: the repository's Releases page (`/releases`), maintained automatically by `.github/workflows/release-on-main.yml` — every update to `main` packages that main line's artifacts and attaches them. Downloading is easiest there; reading online is what Pages is for.
 

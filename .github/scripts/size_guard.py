@@ -28,6 +28,7 @@ CODE_DIR = ROOT / "projects" / "devkit" / "code"
 # 泛化扫描会把小项目也套上 DevKit 的余量，失去告警意义。
 OTHER_APPS = (
     ROOT / "projects" / "writer" / "code" / "A1_I_Φ1" / "deepseek_A1_I_Φ1_CN.html",
+    ROOT / "projects" / "writer" / "code" / "A1_I_Φ2" / "deepseek_A1_I_Φ2_CN.html",
 )
 
 # 刻意留足余量：当前最大约 290 KB。产品若合理增长，应先调这两个数，

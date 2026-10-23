@@ -159,7 +159,10 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │       ├── index.html               # 项目落地页（打开入口 + 数据安全提示）
 │       └── code/
 │           ├── index.html           # 代码 / 分支索引
-│           └── A1_I_Φ1/
+│           ├── A1_I_Φ2/             # 当前版本（左侧单列四页签）
+│           │   ├── index.html
+│           │   └── deepseek_A1_I_Φ2_CN.html
+│           └── A1_I_Φ1/             # 首版（历史参照）
 │               ├── index.html
 │               └── deepseek_A1_I_Φ1_CN.html
 └── .claude/skills/devkit-spec/      # Claude Code 技能（版本与协作规范 + 版本相关模板）
@@ -200,7 +203,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/dircleaner/code/A1_II_Φ8/` | A1_II_Φ8 应用文件 |
 | `/projects/writer/` | Writer 小说编辑器项目页 |
 | `/projects/writer/code/` | Writer 代码分支索引 |
-| `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 应用文件 |
+| `/projects/writer/code/A1_I_Φ2/` | A1_I_Φ2 应用文件（当前版本） |
+| `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 应用文件（历史参照） |
 
 Pages 之外还有一个**下载入口**：仓库的 Releases 页（`/releases`）由 `.github/workflows/release-on-main.yml` 自动维护——每次 `main` 更新就按主干打一个包，附上该代全部交付物。想拿文件下载走这里最省事，想在线阅读走 Pages。
 
