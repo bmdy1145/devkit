@@ -1,12 +1,14 @@
-# main 一更新就自动发布
+# main 一更新就自动发布（按项目分别发布）
 #
-# 每次推送到 main 都产生 Release：
-#   · 本次推送改动了哪些主干（code/<主干>/ 下的文件），就给哪些主干各发一个
-#   · 一个主干都没改到（只改了文档或 CI 之类），只给**最新主干**发一个，
-#     说明里写明「无功能更新」，附上同一批文件与校验和供比对
-#   · 标签命名：首个用主干名（如 A1_V_Φ8），之后递增为 A1_V_Φ8.1、A1_V_Φ8.2……
+# 每次推送到 main 都产生 Release，且**按项目分别判定**：
+#   · 只给「本次推送真正改动到的项目 · 主干」发 Release
+#   · 某项目只改了 code/ 下的索引页、没动主干，才给它最新主干发一个
+#     「无功能更新」的 Release；DevKit 不会被 Writer 的提交牵连
+#   · 标签命名：DevKit 沿用裸主干名（A1_V_Φ8、A1_V_Φ8.1……）；
+#     其他项目加项目前缀（writer/A1_I_Φ2、writer/A1_I_Φ2.1……），避免
+#     不同项目的 Φ 号相撞（dircleaner 与 submerge-pro 都从 Φ 号命名）
 #
-# 另有手动触发入口（workflow_dispatch）：填主干名即可为该主干补发一个 Release，
+# 另有手动触发入口（workflow_dispatch）：填项目名 + 主干名即可补发一个 Release，
 # 用于自动发布覆盖不到的情况——已冻结的老主干不会再被推送碰到，等不到自动发布。
 #
 # 编排逻辑在 .github/scripts/auto_release.py，发布说明在
@@ -25,8 +27,13 @@ on:
   # 老主干（例如 A1_V_Φ7）永远等不到发布。这里给一个手动入口补这个缺口。
   workflow_dispatch:
     inputs:
+      project:
+        description: '项目名（projects/ 下的目录名，例如 devkit、writer）'
+        required: false
+        default: 'devkit'
+        type: string
       trunk:
-        description: '主干名（须与 code/ 下的目录同名，例如 A1_V_Φ7）'
+        description: '主干名（须与 projects/<项目>/code/ 下的目录同名，例如 A1_V_Φ7）'
         required: true
         type: string
       suffix:
@@ -54,7 +61,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.sha }}
-          # 手动触发时才有值；推送触发时为空，走「自动识别改动主干」那条路
+          # 手动触发时才有值；推送触发时为空，走「自动识别改动项目与主干」那条路
+          DISPATCH_PROJECT: ${{ inputs.project }}
           DISPATCH_TRUNK: ${{ inputs.trunk }}
           DISPATCH_SUFFIX: ${{ inputs.suffix }}
         run: python3 .github/scripts/auto_release.py

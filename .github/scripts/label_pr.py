@@ -26,8 +26,18 @@ import urllib.request
 API = "https://api.github.com"
 
 # (路径前缀或精确路径, 标签)
+#
+# 注意：交付物已迁入项目层（PR #16），路径从 code/ 变成了
+# projects/<项目>/code/。旧规则还写着裸的 "code/"，迁移后**所有** PR 都匹配
+# 不上，一律落进 area:other，标签等于失效。
+#
+# 顺序有意义：先匹配更具体的前缀，命中即停。
 RULES: list[tuple[str, str]] = [
-    ("code/", "area:code"),
+    ("projects/devkit/code/", "area:devkit"),
+    ("projects/writer/code/", "area:writer"),
+    ("projects/dircleaner/code/", "area:dircleaner"),
+    ("projects/submerge-pro/code/", "area:submerge-pro"),
+    ("projects/", "area:projects"),
     (".github/", "area:ci"),
     ("docs/", "area:docs"),
     ("README.md", "area:docs"),
@@ -39,7 +49,11 @@ RULES: list[tuple[str, str]] = [
 ]
 
 LABEL_META = {
-    "area:code": ("1f77b4", "版本产物（code/ 下的 HTML）"),
+    "area:devkit": ("1f77b4", "DevKit 交付物"),
+    "area:writer": ("e0a458", "Writer（小说编辑器）交付物"),
+    "area:dircleaner": ("0e8a8a", "DirCleaner 交付物"),
+    "area:submerge-pro": ("8250df", "SubMerge Pro 交付物"),
+    "area:projects": ("bfd4f2", "项目层页面（projects/ 下的索引与落地页）"),
     "area:ci": ("6f42c1", "仓库自动化与配置"),
     "area:docs": ("0e8a16", "文档与约定"),
     "area:other": ("808080", "未归类路径，出现时说明有新目录需要纳入规则"),

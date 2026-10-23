@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""DevKit 版本结构校验。
+"""版本结构校验（DevKit 与 Writer）。
 
-检查 code/ 下每个版本 HTML 的版本号结构、四处版本号一致性、脚本可解析性、
-结构块与目录内容的相互覆盖，以及同一主干下各皮肤的迭代层是否一致。
+检查各项目 code/ 下每个版本 HTML 的版本号结构、四处版本号一致性、脚本可
+解析性、结构块与目录内容的相互覆盖，以及同一主干下各皮肤的迭代层是否一致。
 
 用法：
     本地： python3 .github/scripts/version_guard.py
@@ -22,8 +22,18 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-# DevKit 交付物已迁入项目层
-CODE_DIR = ROOT / "projects" / "devkit" / "code"
+
+# 参与校验的项目：交付物已迁入项目层，各项目独立维护版本。
+#
+# 只收录「符合本套版本规范」的项目：文件名是 deepseek_<版本号>.html，
+# 且文件内带 CURRENT_VERSION / 版本代号 / 结构块。dircleaner 与 submerge-pro
+# 的产物文件名是 deepseek_html_<日期>_<随机>.html、也没有 CURRENT_VERSION，
+# 硬套会全是误报，等它们的版本规范对齐再纳入。
+CHECKED_PROJECTS = ("devkit", "writer")
+
+
+def code_dir(project: str) -> Path:
+    return ROOT / "projects" / project / "code"
 
 BRANCH_RE = re.compile(r"^A\d+$")
 ROMAN_RE = re.compile(r"^[IVX]+$")
@@ -199,12 +209,18 @@ def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
-    if not CODE_DIR.is_dir():
-        print(f"找不到目录：{CODE_DIR}", file=sys.stderr)
+    found_any = False
+    for project in CHECKED_PROJECTS:
+        d = code_dir(project)
+        if not d.is_dir():
+            print(f"[告警] 找不到目录：{d}", file=sys.stderr)
+            continue
+        found_any = True
+        for trunk in sorted(p for p in d.iterdir() if p.is_dir()):
+            check_trunk(trunk)
+    if not found_any:
+        print("没有任何可校验的项目目录。", file=sys.stderr)
         return 1
-
-    for trunk in sorted(p for p in CODE_DIR.iterdir() if p.is_dir()):
-        check_trunk(trunk)
 
     for p in problems:
         print(f"[问题] {p}")

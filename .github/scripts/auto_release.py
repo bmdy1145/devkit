@@ -1,21 +1,29 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""main 一更新就自动发布。
+"""main 一更新就自动发布（多项目）。
 
-每次推送到 main 都产生一个 Release：
+每次推送到 main，按项目分别判定、分别发布：
 
-  · 本次推送改动了哪些主干（code/<主干>/ 下的文件），就给哪些主干各发一个
-  · 一个主干都没改到（例如只改了文档或 CI），则只给**最新的主干**发一个，
-    说明里写明「无功能更新」，并附上同一批文件与校验和，供比对确认一致
-  · 标签命名：一个主干的第一个 Release 用主干名本身（如 A1_V_Φ8），
-    之后递增为 A1_V_Φ8.1、A1_V_Φ8.2……
+  · 仓库里每个 projects/<项目>/code/ 都是一个独立的交付项目
+  · 本次推送改动了哪个项目的哪个主干（code/<主干>/ 下的文件），就给
+    「该项目 · 该主干」发一个 Release
+  · 某项目的 code/ 有改动但没动到任何主干目录（例如只改了索引页），
+    只给**该项目的最新主干**发一个「无功能更新」的 Release
+  · 哪个项目都没动到（纯文档 / CI 改动），不发任何 Release，只打印说明
+  · 标签命名：DevKit 沿用裸主干名（A1_V_Φ8、A1_V_Φ8.1……）；
+    其他项目加项目前缀避免撞名（writer/A1_I_Φ2、writer/A1_I_Φ2.1……）。
+    DevKit 用裸名是为了不打乱已有标签的历史。
 
-发布说明由 make_release_notes.build_notes() 生成；附件是该主干下的全部
-版本 HTML。
+为什么必须按项目区分：发布脚本原本写死 projects/devkit，于是改 Writer 时
+被判定为「没动交付物」，退化成给最新的 DevKit 主干发一个「无功能更新」的
+Release——标签名是 DevKit 的，内容却是 Writer 的提交。
 
 用法（由 .github/workflows/release-on-main.yml 调用）：
     GITHUB_REPOSITORY=... GITHUB_TOKEN=... BEFORE_SHA=... AFTER_SHA=... \\
         python3 .github/scripts/auto_release.py
+
+手动补发：
+    DISPATCH_PROJECT=writer DISPATCH_TRUNK=A1_I_Φ2 DISPATCH_SUFFIX=1 ...
 
 退出码：0 = 成功；1 = 出错。
 """
@@ -39,11 +47,9 @@ UPLOAD_API = "https://uploads.github.com"
 ZERO_SHA = "0" * 40
 
 ROOT = Path(__file__).resolve().parents[2]
-# DevKit 已迁入项目层。发布仍只作用于 DevKit 一个项目；路径收敛为常量，
-# 日后真要泛化到多项目时，改动点集中在这里与 changed_trunks 的前缀判断。
-PROJECT = "devkit"
-CODE_PREFIX = ("projects", PROJECT, "code")
-CODE_DIR = ROOT.joinpath(*CODE_PREFIX)
+PROJECTS_DIR = ROOT / "projects"
+# DevKit 是仓库的主项目，标签历史上一直是裸主干名，不加前缀
+DEVKIT = "devkit"
 PHI_RE = re.compile(r"Φ(\d+)")
 
 
@@ -64,13 +70,25 @@ def api(method: str, url: str, token: str, payload: dict | None = None):
         return e.code, None
 
 
-def local_trunks() -> list[str]:
-    return sorted(p.name for p in CODE_DIR.iterdir() if p.is_dir())
+def code_dir(project: str) -> Path:
+    return PROJECTS_DIR / project / "code"
 
 
-def latest_trunk() -> str | None:
+def local_projects() -> list[str]:
+    """所有带 code/ 目录的项目（即真正有交付物的项目）。"""
+    return sorted(p.name for p in PROJECTS_DIR.iterdir() if p.is_dir() and code_dir(p.name).is_dir())
+
+
+def local_trunks(project: str) -> list[str]:
+    d = code_dir(project)
+    if not d.is_dir():
+        return []
+    return sorted(p.name for p in d.iterdir() if p.is_dir())
+
+
+def latest_trunk(project: str) -> str | None:
     """按 Φ 数字取最大的主干；没有 Φ 时退化为字典序最大的那个。"""
-    trunks = local_trunks()
+    trunks = local_trunks(project)
     if not trunks:
         return None
     with_phi = [(int(m.group(1)), t) for t in trunks if (m := PHI_RE.search(t))]
@@ -79,50 +97,74 @@ def latest_trunk() -> str | None:
     return max(trunks)
 
 
-def next_tag(trunk: str, existing: set[str]) -> str:
+def tag_prefix(project: str) -> str:
+    """DevKit 用裸主干名，其他项目加 `项目/` 前缀避免不同项目的 Φ 号相撞。"""
+    return "" if project == DEVKIT else project + "/"
+
+
+def tag_base(project: str, trunk: str) -> str:
+    return tag_prefix(project) + trunk
+
+
+def next_tag(project: str, trunk: str, existing: set[str]) -> str:
     """给定已存在的标签集合，算出该主干的下一个标签名。"""
-    if trunk not in existing:
-        return trunk
+    base = tag_base(project, trunk)
+    if base not in existing:
+        return base
     nums = [
         int(m.group(1))
         for name in existing
-        if (m := re.fullmatch(re.escape(trunk) + r"\.(\d+)", name))
+        if (m := re.fullmatch(re.escape(base) + r"\.(\d+)", name))
     ]
-    return f"{trunk}.{(max(nums) + 1) if nums else 1}"
+    return f"{base}.{(max(nums) + 1) if nums else 1}"
 
 
-def changed_trunks(repo: str, token: str, before: str, after: str) -> list[str] | None:
-    """返回本次推送改动的主干列表；无法比较时返回 None（表示退化为全部）。"""
+def changed_paths(repo: str, token: str, before: str, after: str) -> list[dict] | None:
+    """返回本次推送的改动文件列表；无法比较时返回 None（表示退化为全部）。"""
     if not before or before == ZERO_SHA:
         return None
     status, data = api("GET", f"{API}/repos/{repo}/compare/{before}...{after}", token)
     if status != 200 or not data:
         return None
-    found: list[str] = []
-    for f in data.get("files", []):
+    return data.get("files", [])
+
+
+def scan_changes(files: list[dict]) -> dict[str, dict]:
+    """把改动文件按项目归拢。
+
+    返回 {项目: {"trunks": [...], "project_touched": bool}}。
+    project_touched 表示该项目 code/ 下有改动（含未落到具体主干的情况）。
+    """
+    result: dict[str, dict] = {}
+    for f in files:
         # 跳过纯重命名：整棵 code/ 搬进项目层的那次提交，每个文件都只是换了
-        # 路径，若按「路径首段」判定会被认成四个主干都改了，一次发出四个
-        # Release。跳过之后该提交落到「无功能更新」分支，只发最新主干一个。
+        # 路径，若按路径首段判定会被认成所有主干都改了，一次发出多个 Release。
         if f.get("status") == "renamed":
             continue
-        name = f.get("filename", "")
-        parts = name.split("/")
-        # 路径形态：projects/devkit/code/<主干>/<文件>
-        if len(parts) >= 4 and tuple(parts[:3]) == CODE_PREFIX:
-            if parts[3] not in found:
-                found.append(parts[3])
-    return found
+        parts = f.get("filename", "").split("/")
+        # 路径形态：projects/<项目>/code/[<主干>/]<文件>
+        if len(parts) < 4 or parts[0] != "projects" or parts[2] != "code":
+            continue
+        project = parts[1]
+        entry = result.setdefault(project, {"trunks": [], "project_touched": False})
+        entry["project_touched"] = True
+        if len(parts) >= 5:
+            trunk = parts[3]
+            if trunk not in entry["trunks"]:
+                entry["trunks"].append(trunk)
+    return result
 
 
-def existing_tags(repo: str, token: str, trunk: str) -> set[str]:
-    url = f"{API}/repos/{repo}/git/matching-refs/tags/{urllib.parse.quote(trunk)}"
+def existing_tags(repo: str, token: str, project: str, trunk: str) -> set[str]:
+    base = tag_base(project, trunk)
+    url = f"{API}/repos/{repo}/git/matching-refs/tags/{urllib.parse.quote(base)}"
     status, data = api("GET", url, token)
     if status != 200 or not data:
         return set()
     names = set()
     for ref in data:
         name = ref.get("ref", "").removeprefix("refs/tags/")
-        if name == trunk or name.startswith(trunk + "."):
+        if name == base or name.startswith(base + "."):
             names.add(name)
     return names
 
@@ -166,23 +208,29 @@ def upload_asset(repo: str, token: str, release_id: int, path: Path) -> bool:
 
 
 def release_trunk(
-    repo: str, token: str, trunk: str, sha: str, mode: str, forced_tag: str | None = None
+    repo: str,
+    token: str,
+    project: str,
+    trunk: str,
+    sha: str,
+    mode: str,
+    forced_tag: str | None = None,
 ) -> bool:
-    trunk_dir = CODE_DIR / trunk
+    trunk_dir = code_dir(project) / trunk
     files = sorted(trunk_dir.glob("deepseek_*.html"))
     if not files:
-        print(f"[告警] {trunk} 下没有版本文件，跳过。")
+        print(f"[告警] {project}/{trunk} 下没有版本文件，跳过。")
         return True
 
-    existing = existing_tags(repo, token, trunk)
+    existing = existing_tags(repo, token, project, trunk)
     if forced_tag:
         if forced_tag in existing:
             print(f"[问题] 标签 {forced_tag} 已存在。换一个后缀，或删掉旧标签后重试。")
             return False
         tag = forced_tag
     else:
-        tag = next_tag(trunk, existing)
-    print(f"—— 主干 {trunk} → 标签 {tag}（{len(files)} 个附件）")
+        tag = next_tag(project, trunk, existing)
+    print(f"—— {project} · 主干 {trunk} → 标签 {tag}（{len(files)} 个附件）")
 
     if not create_tag(repo, token, tag, sha):
         print(f"[问题] 创建标签 {tag} 失败。")
@@ -195,7 +243,7 @@ def release_trunk(
         {
             "tag_name": tag,
             "name": tag,
-            "body": build_notes(trunk, mode),
+            "body": build_notes(project, trunk, mode),
             "draft": False,
             "prerelease": False,
         },
@@ -217,6 +265,60 @@ def release_trunk(
     return True
 
 
+def plan_dispatch(
+    project: str, trunk: str, suffix: str
+) -> tuple[list[tuple[str, str]], dict[tuple[str, str], str], str | None, str]:
+    """手动触发：为指定项目的指定主干补发一个 Release。"""
+    if not (code_dir(project) / trunk).is_dir():
+        msg = f"[问题] 找不到目录 projects/{project}/code/{trunk}。"
+        trunks = local_trunks(project)
+        if trunks:
+            msg += "现有主干：" + "、".join(trunks)
+        return [], {}, None, msg
+    forced = f"{tag_base(project, trunk)}.{suffix}" if suffix else None
+    reason = f"手动触发，补发 {project} 的主干 {trunk}"
+    if suffix:
+        reason += f"（指定标签后缀 {suffix}）"
+    targets = [(project, trunk)]
+    return targets, {targets[0]: "manual"}, forced, reason
+
+
+def plan_auto(
+    files: list[dict] | None,
+) -> tuple[list[tuple[str, str]], dict[tuple[str, str], str], str]:
+    """自动触发：按改动文件决定发布哪些 (项目, 主干)，各自带发布模式。"""
+    if files is None:
+        targets = [(p, t) for p in local_projects() for t in local_trunks(p)]
+        return targets, {k: "changed" for k in targets}, "无法比较提交范围，退化为为全部项目的全部主干发布"
+
+    changes = scan_changes(files)
+    targets: list[tuple[str, str]] = []
+    modes: dict[tuple[str, str], str] = {}
+    reasons: list[str] = []
+
+    for project in sorted(changes):
+        if not code_dir(project).is_dir():
+            continue
+        entry = changes[project]
+        real = [t for t in entry["trunks"] if (code_dir(project) / t).is_dir()]
+        if real:
+            for t in real:
+                targets.append((project, t))
+                modes[(project, t)] = "changed"
+            reasons.append(f"{project}：" + "、".join(real))
+        elif entry["project_touched"]:
+            latest = latest_trunk(project)
+            if latest:
+                targets.append((project, latest))
+                modes[(project, latest)] = "no_changes"
+                reasons.append(f"{project}：未动主干（给 {latest} 发「无功能更新」）")
+
+    if not targets:
+        return [], {}, "本次推送未改动任何项目的交付物，不发布任何 Release"
+
+    return targets, modes, "；".join(reasons)
+
+
 def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -225,6 +327,7 @@ def main() -> int:
     token = os.environ.get("GITHUB_TOKEN", "")
     before = os.environ.get("BEFORE_SHA", "").strip()
     after = os.environ.get("AFTER_SHA", "").strip()
+    dispatch_project = os.environ.get("DISPATCH_PROJECT", "").strip() or DEVKIT
     dispatch_trunk = os.environ.get("DISPATCH_TRUNK", "").strip()
     dispatch_suffix = os.environ.get("DISPATCH_SUFFIX", "").strip()
 
@@ -235,50 +338,38 @@ def main() -> int:
     forced_tag: str | None = None
 
     if dispatch_trunk:
-        # 手动触发：为指定主干补发一个 Release。用于自动发布覆盖不到的情况，
-        # 例如为已冻结、不会再被推送碰到的老主干留一个固定的下载入口。
-        if not (CODE_DIR / dispatch_trunk).is_dir():
+        if dispatch_project not in local_projects():
             print(
-                f"[问题] 找不到目录 projects/{PROJECT}/code/{dispatch_trunk}。现有主干："
-                + "、".join(local_trunks())
+                f"[问题] 找不到项目 projects/{dispatch_project}/code/。现有项目："
+                + "、".join(local_projects())
             )
             return 1
-        targets = [dispatch_trunk]
-        mode = "manual"
-        if dispatch_suffix:
-            forced_tag = f"{dispatch_trunk}.{dispatch_suffix}"
-        reason = f"手动触发，补发主干 {dispatch_trunk}"
-        if dispatch_suffix:
-            reason += f"（指定标签后缀 {dispatch_suffix}）"
+        targets, modes, forced_tag, reason = plan_dispatch(
+            dispatch_project, dispatch_trunk, dispatch_suffix
+        )
+        if not targets:
+            print(reason)
+            return 1
     else:
-        changed = changed_trunks(repo, token, before, after)
-        if changed is None:
-            targets = local_trunks()
-            mode = "changed"
-            reason = "无法比较提交范围，退化为为全部主干发布"
-        elif changed:
-            targets = changed
-            mode = "changed"
-            reason = "本次推送改动了：" + "、".join(changed)
-        else:
-            latest = latest_trunk()
-            if latest is None:
-                print("[问题] code/ 下没有任何主干目录。")
-                return 1
-            targets = [latest]
-            mode = "no_changes"
-            reason = "本次推送未改动交付物文件，只给最新主干发一个「无功能更新」的 Release"
+        files = changed_paths(repo, token, before, after)
+        targets, modes, reason = plan_auto(files)
 
     print(f"仓库 {repo} · {reason}")
-    print(f"将发布：{'、'.join(targets) if targets else '（无）'}")
+    print("将发布：" + ("、".join(f"{p}/{t}" for p, t in targets) if targets else "（无）"))
     print()
 
+    if not targets:
+        print("发布完成（无需发布）。")
+        return 0
+
     ok = True
-    for trunk in targets:
-        if not (CODE_DIR / trunk).is_dir():
-            print(f"[告警] projects/{PROJECT}/code/{trunk} 不存在，跳过。")
+    for project, trunk in targets:
+        if not (code_dir(project) / trunk).is_dir():
+            print(f"[告警] projects/{project}/code/{trunk} 不存在，跳过。")
             continue
-        if not release_trunk(repo, token, trunk, after, mode, forced_tag):
+        if not release_trunk(
+            repo, token, project, trunk, after, modes[(project, trunk)], forced_tag
+        ):
             ok = False
 
     print()
