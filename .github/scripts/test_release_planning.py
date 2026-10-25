@@ -164,6 +164,88 @@ class TestPlanDispatch(unittest.TestCase):
         self.assertIn("找不到目录", reason)
 
 
+class TestArchiveDirsAreNotTrunks(unittest.TestCase):
+    """归档目录（*_fix-archive/）不是主干，不参与发布。
+
+    code/ 下除了主干活目录，还有冻结的归档层。若把归档当主干：
+      · latest_trunk() 可能选中归档（它的 Φ 号与真主干并列），
+        「只改索引页」那次推送就会给归档发 Release；
+      · 改动归档文件本身会被判成「动了该主干」，同样发 Release。
+    """
+
+    def test_is_trunk_dir_rejects_archive(self):
+        code = ar.code_dir("devkit")
+        archives = [p for p in code.iterdir() if p.name.endswith("_fix-archive")]
+        if not archives:
+            self.skipTest("当前仓库没有归档目录")
+        for p in archives:
+            self.assertFalse(ar.is_trunk_dir(p), f"{p.name} 不应被当作主干")
+
+    def test_is_trunk_dir_accepts_real_trunk(self):
+        code = ar.code_dir("devkit")
+        real = [p for p in code.iterdir() if p.is_dir() and not p.name.endswith("_fix-archive")]
+        if not real:
+            self.skipTest("当前仓库没有主干目录")
+        for p in real:
+            self.assertTrue(ar.is_trunk_dir(p), f"{p.name} 应被当作主干")
+
+    def test_local_trunks_excludes_archives(self):
+        for project in ar.local_projects():
+            for trunk in ar.local_trunks(project):
+                self.assertFalse(trunk.endswith("_fix-archive"), f"{project}/{trunk}")
+
+    def test_latest_trunk_is_not_archive(self):
+        """回归：A1_V_Φ9_fix-archive 与 A1_V_Φ9 并列时，最新主干必须是后者。"""
+        original = ar.PROJECTS_DIR
+        try:
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp_root = Path(tmp)
+                code = tmp_root / "demo" / "code"
+                (code / "A1_V_Φ9").mkdir(parents=True)
+                (code / "A1_V_Φ9_fix-archive").mkdir()
+                ar.PROJECTS_DIR = tmp_root
+                self.assertEqual(ar.latest_trunk("demo"), "A1_V_Φ9")
+        finally:
+            ar.PROJECTS_DIR = original
+
+    def test_index_only_change_targets_real_trunk_not_archive(self):
+        original = ar.PROJECTS_DIR
+        try:
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp_root = Path(tmp)
+                code = tmp_root / "demo" / "code"
+                (code / "A1_V_Φ9").mkdir(parents=True)
+                (code / "A1_V_Φ9_fix-archive").mkdir()
+                ar.PROJECTS_DIR = tmp_root
+                targets, _ = ar.plan_auto([f("projects/demo/code/index.html")])
+                self.assertEqual(targets, [("demo", "A1_V_Φ9", "no_changes")])
+        finally:
+            ar.PROJECTS_DIR = original
+
+    def test_archive_file_change_does_not_release_archive(self):
+        original = ar.PROJECTS_DIR
+        try:
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp_root = Path(tmp)
+                code = tmp_root / "demo" / "code"
+                (code / "A1_V_Φ9").mkdir(parents=True)
+                (code / "A1_V_Φ9_fix-archive").mkdir()
+                ar.PROJECTS_DIR = tmp_root
+                targets, _ = ar.plan_auto(
+                    [f("projects/demo/code/A1_V_Φ9_fix-archive/deepseek_A1_V_Φ9_CN.html")]
+                )
+                # 归档不是主干 → 退化为「该项目未动主干」，给最新真主干发无功能更新
+                self.assertEqual(targets, [("demo", "A1_V_Φ9", "no_changes")])
+        finally:
+            ar.PROJECTS_DIR = original
+
+
 class TestLocalProjects(unittest.TestCase):
     def test_returns_projects_with_code_dir(self):
         projects = ar.local_projects()

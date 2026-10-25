@@ -85,11 +85,28 @@ def local_projects() -> list[str]:
     return sorted(p.name for p in PROJECTS_DIR.iterdir() if p.is_dir() and code_dir(p.name).is_dir())
 
 
+# 归档目录不算主干：它们是已冻结的历史层，只供对照与回退，不参与发布。
+#
+# code/ 下不只有主干，还有 *_fix-archive/ 这类归档目录。若把它们也算作主干，
+# 会出现两种错发：latest_trunk() 按 Φ 数字取最大时可能选中归档（例如
+# A1_V_Φ9_fix-archive 的 Φ9 与真主干 A1_V_Φ9 并列），于是「只改了索引页」
+# 的那次推送会给归档发一个 Release；改动归档文件本身时同理。
+#
+# 用后缀约定而不是版本号正则：意图更直接，也不必在发布脚本里重实现一遍
+# 版本号语法（新增循环扩展层时不会牵连到这里）。
+ARCHIVE_SUFFIX = "_fix-archive"
+
+
+def is_trunk_dir(path: Path) -> bool:
+    """目录是否是可发布的主干（归档目录不算）。"""
+    return path.is_dir() and not path.name.endswith(ARCHIVE_SUFFIX)
+
+
 def local_trunks(project: str) -> list[str]:
     d = code_dir(project)
     if not d.is_dir():
         return []
-    return sorted(p.name for p in d.iterdir() if p.is_dir())
+    return sorted(p.name for p in d.iterdir() if is_trunk_dir(p))
 
 
 def latest_trunk(project: str) -> str | None:
@@ -310,7 +327,9 @@ def plan_auto(
         if not code_dir(project).is_dir():
             continue
         entry = changes[project]
-        real = [t for t in entry["trunks"] if (code_dir(project) / t).is_dir()]
+        # 与 local_trunks 用同一判定：改了归档目录不算「动了主干」，
+        # 否则会给归档发一个 changed 模式的 Release。
+        real = [t for t in entry["trunks"] if is_trunk_dir(code_dir(project) / t)]
         if real:
             targets.extend((project, t, "changed") for t in real)
             reasons.append(f"{project}：" + "、".join(real))
