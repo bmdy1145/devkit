@@ -34,17 +34,19 @@ DevKit 是一个**纯 HTML 单文件**的本地开发辅助工具，直接用浏
 
 | 版本 | 皮肤 | 主题维度 |
 |------|------|----------|
-| `A1_V_Φ9_Clean_CN` | 简约：Roboto / Poppins / Inconsolata，8pt 基线网格，圆角 6/8px，克制的柔和阴影 | 暗色简约 / 亮色简约 / 跟随系统 |
-| `A1_V_Φ9_Material_CN` | 材料设计（MD3）：Roboto + Fira Code，五级分层表面、色调调色板、状态层叠加、elev-1~5 高程，圆角 4/8/12/28px | 暗色 / 亮色 / 跟随系统 |
-| `A1_V_Φ9_Minimal_CN` | 极简：Open Sans / Inter / Inconsolata，近乎单色 + 单一靛蓝强调，无投影，留白 + 1px 分隔线分区 | 暗色极简 / 亮色极简 / 跟随系统 |
-| `A1_V_Φ9_Premium_CN` | 高级质感：Inter + JetBrains Mono，精准间距节奏、柔和阴影层次、精细字距行高 | 暗色高级 / 亮色高级 / 跟随系统 |
-| `A1_V_Φ9_Shadcn_CN` | Shadcn：Geist + Fira Code，黑白灰单色系 + hsl() 语义令牌，1px 边框分层、扁平无投影 | Shadcn 暗色 / 亮色 / 跟随系统 |
-| `A1_V_Φ9_Mono_CN` | 全等宽：Space Mono + JetBrains Mono，去辉光、1px 硬描边、小圆角 | 明暗（dark / light / auto）× 强调色（matrix 矩阵绿 / cold 冷白 / amber 琥珀），共 6 套 |
-| `A1_V_Φ9_Neon_CN` | 电光霓虹：近实心面板 + 彩色描边 + 多层外发光，无背景模糊 | 暗色霓虹 / 亮色霓虹 / 跟随系统 |
-| `A1_V_Φ9_Glass_CN` | 毛玻璃：半透明叠层 + 背景模糊 + 发光描边 | 暗色玻璃 / 亮色玻璃 / 跟随系统 |
-| `A1_V_Φ9_CN` | 基准皮肤（无皮肤，数字主题体系） | 原 theme 主题体系 |
+| `A1_V_Φ9_Clean_Fix_CN` | 简约：Roboto / Poppins / Inconsolata，8pt 基线网格，圆角 6/8px，克制的柔和阴影 | 暗色简约 / 亮色简约 / 跟随系统 |
+| `A1_V_Φ9_Material_Fix_CN` | 材料设计（MD3）：Roboto + Fira Code，五级分层表面、色调调色板、状态层叠加、elev-1~5 高程，圆角 4/8/12/28px | 暗色 / 亮色 / 跟随系统 |
+| `A1_V_Φ9_Minimal_Fix_CN` | 极简：Open Sans / Inter / Inconsolata，近乎单色 + 单一靛蓝强调，无投影，留白 + 1px 分隔线分区 | 暗色极简 / 亮色极简 / 跟随系统 |
+| `A1_V_Φ9_Premium_Fix_CN` | 高级质感：Inter + JetBrains Mono，精准间距节奏、柔和阴影层次、精细字距行高 | 暗色高级 / 亮色高级 / 跟随系统 |
+| `A1_V_Φ9_Shadcn_Fix_CN` | Shadcn：Geist + Fira Code，黑白灰单色系 + hsl() 语义令牌，1px 边框分层、扁平无投影 | Shadcn 暗色 / 亮色 / 跟随系统 |
+| `A1_V_Φ9_Mono_Fix_CN` | 全等宽：Space Mono + JetBrains Mono，去辉光、1px 硬描边、小圆角 | 明暗（dark / light / auto）× 强调色（matrix 矩阵绿 / cold 冷白 / amber 琥珀），共 6 套 |
+| `A1_V_Φ9_Neon_Fix_CN` | 电光霓虹：近实心面板 + 彩色描边 + 多层外发光，无背景模糊 | 暗色霓虹 / 亮色霓虹 / 跟随系统 |
+| `A1_V_Φ9_Glass_Fix_CN` | 毛玻璃：半透明叠层 + 背景模糊 + 发光描边 | 暗色玻璃 / 亮色玻璃 / 跟随系统 |
+| `A1_V_Φ9_Fix_CN` | 基准皮肤（无皮肤，数字主题体系） | 原 theme 主题体系 |
 
-九者同属主干 `A1_V_Φ9`。Φ9 的增量改动是**「关于 DevKit」弹窗（点击左上角 DevKit 字样打开）新增 Pages 站点首页链接**，并同步改造站点项目页：顶部新增「九款皮肤 · 直接打开」区块，从站点首页进入应用由三次点击降为两次。功能逻辑、提示词与模板正文与 Φ8 的 Fix_Fix 完全一致。
+九者同属主干 `A1_V_Φ9`，当前迭代层为 **Fix**。Φ9 的增量改动是**「关于 DevKit」弹窗（点击左上角 DevKit 字样打开）新增 Pages 站点首页链接**，并同步改造站点项目页：顶部新增「九款皮肤 · 直接打开」区块，从站点首页进入应用由三次点击降为两次。
+
+Φ9_Fix 的改动是**集中修复 43 项缺陷**（在 Φ9 上追加第四层英文标识 `Fix`，Φ 数字不递增），九款皮肤同批产出：A 功能缺陷 12 项（首次运行主题按钮无绑定、全量导出缺 `version`、复制失败假成功、右键菜单不关闭且可能操作错项目、命名工具删不掉原文件、触屏误关项目、循环扩展层版本号误判、`window.open` 失去用户激活、导入 AI 站点不刷新、导入前不保存编辑区等）、B 视觉缺陷 8 项（Shadcn 主色前景色被二次 `hsl()` 包裹导致文字几乎不可见、激活态被 hover/隐藏文字规则覆盖、多处对比度不足等）、C 无障碍 5 项（键盘可达、焦点陷阱与焦点归还、aria 状态）、D 健壮性 18 项（导入字段类型与页签类型校验、异步回调竞态、导出指纹误报、菜单互斥、右键菜单视口收敛等）。未修复的 Φ9 原始版本移入 `projects/devkit/code/A1_V_Φ9_fix-archive/`。
 
 Φ8 的增量改动是**全站响应式、多比例与触屏适配**：viewport 增加 `viewport-fit=cover`，高度改用 `100dvh` 并接入 `env(safe-area-inset-*)` 安全区；新增宽度断点 ≥1800 / ≤1024 / ≤820 / ≤560 与高度断点 ≤520；窄屏改为纵向堆叠、步骤列表横滑、顶栏两行图标化；触屏下放大热区；分栏拖拽由 mouse 事件改为 pointer 事件。九款皮肤共用同一套适配层。
 
@@ -57,7 +59,7 @@ DevKit 是一个**纯 HTML 单文件**的本地开发辅助工具，直接用浏
 ## 使用方式
 
 1. **最省事：直接下 Release。** 每次 `main` 更新都会自动发布一版，按主干打包附上该代全部皮肤，点一下就下载，不必逐层点进目录。入口见 https://github.com/bmdy1145/devkit/releases
-2. **在线阅读：**从站点首页进入 https://bmdy1145.github.io/devkit/projects/devkit/ ，顶部「九款皮肤 · 直接打开」点一下即用；也可以直接下载 `projects/devkit/code/A1_V_Φ9/deepseek_A1_V_Φ9_Clean_CN.html`
+2. **在线阅读：**从站点首页进入 https://bmdy1145.github.io/devkit/projects/devkit/ ，顶部「九款皮肤 · 直接打开」点一下即用；也可以直接下载 `projects/devkit/code/A1_V_Φ9/deepseek_A1_V_Φ9_Clean_Fix_CN.html`
 3. 双击用浏览器打开（Chrome / Edge 等现代浏览器）
 4. 在「工作流步骤」中选择步骤 → 填写灵感、粘贴代码 → 点击「复制」→ 粘贴到 AI 对话工具
 
@@ -76,7 +78,7 @@ DevKit 是一个**纯 HTML 单文件**的本地开发辅助工具，直接用浏
 
 第 4 层之后按 `B1 → I → Ψ1 → 英文标识 → C1 …` 循环扩展，例如 `A1_I_Φ1_Fix_B1_I_Ψ1_Fix_C1`。
 
-**变体标识不占层级**：皮肤名（Glass / Neon / Mono / Clean / Material / Minimal / Premium / Shadcn）表示"同一版本的并行皮肤"，属于变体标记而非迭代层，缀在 Φ 层之后、语言后缀之前。因此 `A1_V_Φ8_Glass_Fix_CN` 中 `Glass` 是变体标识、`Fix` 才是第四层英文标识，该版本号合规；`A1_V_Φ9_Glass_CN` 同理由此成立。变体标识不得用于表达迭代语义（如 `Glass2`）。
+**变体标识不占层级**：皮肤名（Glass / Neon / Mono / Clean / Material / Minimal / Premium / Shadcn）表示"同一版本的并行皮肤"，属于变体标记而非迭代层，缀在 Φ 层之后、语言后缀之前。因此 `A1_V_Φ8_Glass_Fix_CN` 中 `Glass` 是变体标识、`Fix` 才是第四层英文标识，该版本号合规；`A1_V_Φ9_Glass_Fix_CN` 同理由此成立。变体标识不得用于表达迭代语义（如 `Glass2`）。
 
 项目并行维护两个语言变体，共享同一主干版本号，仅末尾追加后缀区分：`_CN`（中文版）、`_GLOBAL`（多语言版）。本仓库为**中文版**。
 
@@ -103,17 +105,19 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │   │   ├── index.html               # 项目落地页（皮肤直达 + 下载直达 + 分支卡片）
 │   │   └── code/
 │   │       ├── index.html                   # 分支目录索引
-│   │       ├── A1_V_Φ9/                     # 当前主干
+│   │       ├── A1_V_Φ9/                     # 当前主干（Fix 层）
 │   │       │   ├── index.html                              # 本分支版本列表
-│   │       │   ├── deepseek_A1_V_Φ9_Clean_CN.html          # 简约
-│   │       │   ├── deepseek_A1_V_Φ9_Material_CN.html       # 材料设计（MD3）
-│   │       │   ├── deepseek_A1_V_Φ9_Minimal_CN.html        # 极简
-│   │       │   ├── deepseek_A1_V_Φ9_Premium_CN.html        # 高级质感
-│   │       │   ├── deepseek_A1_V_Φ9_Shadcn_CN.html         # Shadcn
-│   │       │   ├── deepseek_A1_V_Φ9_Mono_CN.html           # 全等宽 + 双轴主题
-│   │       │   ├── deepseek_A1_V_Φ9_Neon_CN.html           # 电光霓虹
-│   │       │   ├── deepseek_A1_V_Φ9_Glass_CN.html          # 毛玻璃
-│   │       │   └── deepseek_A1_V_Φ9_CN.html                # 基准皮肤
+│   │       │   ├── deepseek_A1_V_Φ9_Clean_Fix_CN.html          # 简约
+│   │       │   ├── deepseek_A1_V_Φ9_Material_Fix_CN.html       # 材料设计（MD3）
+│   │       │   ├── deepseek_A1_V_Φ9_Minimal_Fix_CN.html        # 极简
+│   │       │   ├── deepseek_A1_V_Φ9_Premium_Fix_CN.html        # 高级质感
+│   │       │   ├── deepseek_A1_V_Φ9_Shadcn_Fix_CN.html         # Shadcn
+│   │       │   ├── deepseek_A1_V_Φ9_Mono_Fix_CN.html           # 全等宽 + 双轴主题
+│   │       │   ├── deepseek_A1_V_Φ9_Neon_Fix_CN.html           # 电光霓虹
+│   │       │   ├── deepseek_A1_V_Φ9_Glass_Fix_CN.html          # 毛玻璃
+│   │       │   └── deepseek_A1_V_Φ9_Fix_CN.html                # 基准皮肤
+│   │       ├── A1_V_Φ9_fix-archive/         # Φ9 原始版本归档（九个未修复版本）
+│   │       │   └── index.html
 │   │       ├── A1_V_Φ8/                     # 上一代主干（与 Φ9 并行可选）
 │   │       │   ├── index.html                                    # 本分支版本列表
 │   │       │   ├── deepseek_A1_V_Φ8_Clean_Fix_Fix_CN.html        # 简约
@@ -192,7 +196,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/` | 项目目录索引 |
 | `/projects/devkit/` | DevKit 项目落地页：九款皮肤直达 + 下载直达 + 分支卡片 |
 | `/projects/devkit/code/` | DevKit 分支目录（Φ9 / Φ8 / Φ7 / Φ5 / Φ4） |
-| `/projects/devkit/code/A1_V_Φ9/` | 当前主干的版本列表（九套皮肤） |
+| `/projects/devkit/code/A1_V_Φ9/` | 当前主干的版本列表（九套皮肤，Fix 层） |
+| `/projects/devkit/code/A1_V_Φ9_fix-archive/` | Φ9 原始版本归档（九款未修复版本，供对照与回退） |
 | `/projects/devkit/code/A1_V_Φ8/` | 上一代主干的版本列表（九套皮肤，Fix_Fix，与 Φ9 并行可选） |
 | `/projects/devkit/code/A1_V_Φ8_fix-archive/` | Φ8 的 Fix 层历史归档（九款，追溯保留） |
 | `/projects/devkit/code/A1_V_Φ7/` | 更早的历史主干版本列表（四套皮肤） |
