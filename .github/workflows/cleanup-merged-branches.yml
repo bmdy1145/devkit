@@ -2,7 +2,7 @@
 #
 # 三种触发，跑的都是同一套全量扫描，行为完全一致：
 #   · PR 一合并（pull_request_target 的 closed 事件）—— 合并后立刻清一次
-#   · 每周一定时 —— 兜底
+#   · 每天定时 —— 兜底
 #   · 手动触发 —— 默认试运行，只打印不删
 #
 # 刻意不做「只处理刚合并那一个 PR」的定向模式：扫描本身是幂等的、只有几次
@@ -27,8 +27,8 @@ on:
   pull_request_target:
     types: [closed]
   schedule:
-    # 每周一 03:00 UTC（北京时间 11:00），兜底全量扫描
-    - cron: '0 3 * * 1'
+    # 每天 03:00 UTC（北京时间 11:00）全量扫描一次
+    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
