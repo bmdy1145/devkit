@@ -1,0 +1,258 @@
+# 构建多语言实现并上传到 Release
+#
+# 触发：
+#   · 推送 touches implementations/ 的提交到 main —— 自动构建并发布
+#   · 手动 workflow_dispatch —— 可指定标签后缀，便于重发
+#
+# 为什么用 windows-latest：Python 的 PyInstaller **不支持交叉编译**，
+# 只能在 Windows 上打包 Windows EXE。其余五种语言在 Windows 上也能构建，
+# 统一用同一个 runner 省去产物在 job 间传递的复杂度。
+#
+# 产物不进仓库：EXE 只作为 Release 附件存在，不占仓库容量。
+# 仓库里只有源码，由本工作流负责编译。
+
+name: 构建多语言实现
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'implementations/**'
+      - '.github/workflows/build-implementations.yml'
+  workflow_dispatch:
+    inputs:
+      suffix:
+        description: '可选标签后缀。留空则自动递增，例如填 2 得到 implementations.2'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+# 与发布工作流分开串行化，避免两次构建同时抢同一个标签号
+concurrency:
+  group: build-implementations
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: 构建并发布多语言产物
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+
+      # ---------- 工具链 ----------
+      # 版本与本地验证时一致，避免"本地能编译、CI 编不过"
+
+      - name: 安装 Rust（GNU 目标）
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - name: 缓存 Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            implementations/**/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('implementations/**/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: 安装 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache-dependency-path: implementations/**/go.sum
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 安装 .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装 PyInstaller
+        run: python -m pip install --upgrade pyinstaller
+
+      - name: 安装 MinGW（供 Rust GNU 目标与 C++ 使用）
+        shell: pwsh
+        run: |
+          # MSYS2 自带 mingw-w64，比 w64devkit 更适合 CI（无需自解压）
+          choco install mingw -y --no-progress
+          echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      # ---------- 构建 ----------
+      - name: 构建 Rust（core + full）
+        shell: pwsh
+        run: |
+          $env:RUSTFLAGS = "-C link-self-contained=yes"
+          Get-ChildItem implementations -Directory -Filter "rust-*" | ForEach-Object {
+            $dir = Join-Path $_.FullName "dircleaner"
+            if (Test-Path "$dir/Cargo.toml") {
+              Push-Location $dir
+              cargo build --release
+              Pop-Location
+            }
+          }
+
+      - name: 构建 Go（core + full）
+        shell: pwsh
+        run: |
+          $env:CGO_ENABLED = "1"
+          $env:GOPROXY = "https://proxy.golang.org,direct"
+          Get-ChildItem implementations -Directory -Filter "go-*" | ForEach-Object {
+            $dir = Join-Path $_.FullName "dircleaner"
+            if (Test-Path "$dir/go.mod") {
+              Push-Location $dir
+              go mod tidy
+              if ($_.Name -eq "go-full") {
+                go build -ldflags="-H windowsgui" -o dircleaner-gui.exe main.go
+              } else {
+                go build -o dircleaner.exe main.go
+              }
+              Pop-Location
+            }
+          }
+
+      - name: 构建 C++（core + full）
+        shell: pwsh
+        run: |
+          Get-ChildItem implementations -Directory -Filter "cpp-*" | ForEach-Object {
+            $dir = Join-Path $_.FullName "dircleaner"
+            if (Test-Path "$dir/main.cpp") {
+              Push-Location $dir
+              if ($_.Name -eq "cpp-full") {
+                g++ -std=c++17 -O2 -static -mwindows -o dircleaner-gui.exe main.cpp -lcomctl32 -lole32 -lshell32
+              } else {
+                g++ -std=c++17 -O2 -static -o dircleaner.exe main.cpp
+              }
+              Pop-Location
+            }
+          }
+
+      - name: 构建 C#（core + full）
+        shell: pwsh
+        run: |
+          Get-ChildItem implementations -Directory -Filter "csharp-*" | ForEach-Object {
+            $dir = Join-Path $_.FullName "dircleaner"
+            $proj = Get-ChildItem $dir -Filter "*.csproj" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($proj) {
+              Push-Location $dir
+              dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+              Pop-Location
+            }
+          }
+
+      - name: 构建 Python（core + full）
+        shell: pwsh
+        run: |
+          Get-ChildItem implementations -Directory -Filter "python-*" | ForEach-Object {
+            $dir = Join-Path $_.FullName "dircleaner"
+            if ($_.Name -eq "python-full") {
+              Push-Location $dir
+              python -m PyInstaller --onefile --windowed --noconfirm --name dircleaner-gui --distpath dist --workpath build --specpath spec dircleaner_gui.py
+              Pop-Location
+            } elseif (Test-Path "$dir/dircleaner.py") {
+              Push-Location $dir
+              python -m PyInstaller --onefile --console --noconfirm --name dircleaner --distpath dist --workpath build --specpath spec dircleaner.py
+              Pop-Location
+            }
+          }
+
+      - name: 构建 TypeScript（core + full）
+        shell: pwsh
+        run: |
+          # Node 无原生 EXE 打包，用 SEA（single executable application）
+          # 两种形态都先产出 .js，SEA 打包留待后续迭代
+          Get-ChildItem implementations -Directory -Filter "typescript-*" | ForEach-Object {
+            $dir = Join-Path $_.FullName "dircleaner"
+            if (Test-Path "$dir") {
+              Write-Host "TypeScript 版位于 $dir（当前交付 .js 源码，SEA 打包待做）"
+            }
+          }
+
+      # ---------- 汇总产物 ----------
+      - name: 收集产物
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          $patterns = @(
+            "implementations/rust-core/dircleaner/target/release/dircleaner.exe",
+            "implementations/rust-full/dircleaner/target/release/dircleaner-full.exe",
+            "implementations/go-core/dircleaner/dircleaner.exe",
+            "implementations/go-full/dircleaner/dircleaner-gui.exe",
+            "implementations/cpp-core/dircleaner/dircleaner.exe",
+            "implementations/cpp-full/dircleaner/dircleaner-gui.exe",
+            "implementations/csharp-core/dircleaner/publish/dircleaner.exe",
+            "implementations/csharp-full/dircleaner/publish/dircleaner-gui.exe",
+            "implementations/python-core/dircleaner/dist/dircleaner.exe",
+            "implementations/python-full/dircleaner/dist/dircleaner-gui.exe"
+          )
+          $i = 0
+          foreach ($p in $patterns) {
+            if (Test-Path $p) {
+              $lang = ($p -split '/')[1]
+              $name = Split-Path (Split-Path (Split-Path $p -Parent) -Parent) -Leaf
+              $dst = "artifacts/${lang}__${name}.exe"
+              Copy-Item $p $dst
+              Write-Host "收集: $dst"
+              $i++
+            }
+          }
+          Write-Host "共收集 $i 个产物"
+
+      - name: 上传构建产物（工作流回执）
+        uses: actions/upload-artifact@v4
+        with:
+          name: implementations-exe
+          path: artifacts/*.exe
+          if-no-files-found: warn
+
+      # ---------- 发布 Release ----------
+      - name: 计算标签并创建 Release
+        if: hashFiles('artifacts/*.exe') != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUFFIX: ${{ inputs.suffix }}
+        run: |
+          $tag = "implementations"
+          if ($env:SUFFIX) {
+            $tag = "implementations.$($env:SUFFIX)"
+          } else {
+            # 查已有标签，自动递增
+            $existing = gh release list --limit 100 --json tagName | ConvertFrom-Json | ForEach-Object { $_.tagName }
+            if ($existing -contains "implementations") {
+              $nums = $existing | Where-Object { $_ -match '^implementations\.(\d+)$' } | ForEach-Object { [int]($_ -replace '^implementations\.','') }
+              $next = if ($nums) { ($nums | Measure-Object -Maximum).Maximum + 1 } else { 1 }
+              $tag = "implementations.$next"
+            }
+          }
+          Write-Host "使用标签: $tag"
+          $body = @"
+          DevKit 多语言实现产物（自动构建）。
+
+          由 ``.github/workflows/build-implementations.yml`` 在 windows-latest 上编译，
+          源码位于仓库 ``implementations/``。EXE 不入库，仅作为本 Release 的附件。
+
+          命名规则：``<语言>-<层次>__dircleaner.exe``
+          · ``core`` = 纯逻辑内核（命令行）
+          · ``full`` = 全功能版（图形界面）
+          · 带 ``-gui`` 或 ``full`` 的是图形界面版
+          "@
+          gh release create $tag artifacts/*.exe --title $tag --notes $body

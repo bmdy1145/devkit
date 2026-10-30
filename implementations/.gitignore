@@ -1,0 +1,15 @@
+# 构建中间产物与本地测试目录
+target/
+obj/
+bin/
+out/
+dist/
+build/
+spec/
+__pycache__/
+*.pyc
+_t/
+node_modules/
+
+# 编译产物不入库：EXE 由 CI 构建后上传到 Release
+*.exe

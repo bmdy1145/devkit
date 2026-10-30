@@ -1,0 +1,8 @@
+[package]
+name = "dircleaner-core"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "dircleaner"
+path = "src/main.rs"
