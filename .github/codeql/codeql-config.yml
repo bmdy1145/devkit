@@ -1,0 +1,60 @@
+# CodeQL 扫描范围与规则排除
+#
+# 本仓库的 CodeQL 走 GitHub 仓库设置里的 **Default Setup**（不是仓库内的
+# workflow 文件）。Default Setup 支持读取 Repo 里这个位置的配置文件：
+#     .github/codeql/codeql-config.yml
+# 只要文件存在，Default Setup 的每次扫描都会应用这里的 paths / paths-ignore
+# 与 query-filters。
+#
+# ---------------------------------------------------------------------------
+# 一、为什么排除历史目录
+# ---------------------------------------------------------------------------
+# 交付物是自包含单文件 HTML，同一份应用代码被复制到每一代主干、每一款皮肤
+# 里（DevKit 有 9 款皮肤 × 6 代）。历史主干与 *_fix-archive 归档层是**冻结
+# 的历史版本**，按仓库惯例原样保留，不再修改：
+#   · 改了它们，已发布 Release 的附件就与仓库内容对不上；
+#   · 也无法再作为「当时那一版到底长什么样」的追溯依据。
+# 因此扫描只看**当前受支持的主干**，历史目录整体排除，不作为修复目标。
+#
+# 注意：排除只是不再扫描，并不是把已有告警「修好」。历史文件里的问题依然
+# 客观存在，只是不再出现在 Code Scanning 面板里。
+#
+# ---------------------------------------------------------------------------
+# 二、为什么排除 js/prototype-pollution-utility
+# ---------------------------------------------------------------------------
+# 该规则报的是导入配置时的 safeObjectAssign：
+#     for (const key of Object.keys(source)) {
+#         if (this.isSafeImportKey(key)) { ...此处才写入 target... }
+#     }
+# isSafeImportKey 已把 __proto__ / constructor / prototype 列入黑名单，写入
+# 前会先拦。CodeQL 不认识这是白名单校验，按「无守卫的键复制」报了出来。
+# 43 条全属此例，属误报。
+#
+# 若将来真有原型污染，这条规则也就不会报了 —— 替代保障是 isSafeImportKey
+# 本身仍需保持完整，改动该函数时务必复核黑名单。
+
+name: "DevKit CodeQL 配置"
+
+paths:
+  # 只扫项目产物；仓库级脚本与文档不涉及这段历史归档逻辑。
+  - projects
+
+paths-ignore:
+  # 历史归档层（冻结，不再修改）
+  - "projects/devkit/code/A1_V_Φ8_fix-archive"
+  - "projects/devkit/code/A1_V_Φ9_fix-archive"
+
+  # 已冻结的历史主干（当前受支持的是 A1_V_Φ9，见 projects/devkit/code/index.html）
+  - "projects/devkit/code/A1_V_Φ4"
+  - "projects/devkit/code/A1_V_Φ5"
+  - "projects/devkit/code/A1_V_Φ7"
+  - "projects/devkit/code/A1_V_Φ8"
+
+  # submerge-pro 的原始归档件：文件名与内容都按「导入时的原样」保留，
+  # 修它会破坏归档语义。其中 3 条 XSS 告警属此例，已知不做修改。
+  - "projects/submerge-pro/code/A1_II_Φ10/deepseek_html_20260705_d1ca99.html"
+
+query-filters:
+  # 见文件头「二」。43 条误报，代码里已有白名单守卫。
+  - exclude:
+      id: js/prototype-pollution-utility

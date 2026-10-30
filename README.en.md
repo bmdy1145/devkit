@@ -48,6 +48,8 @@ All nine belong to main line `A1_V_Φ9`; the current iteration layer is **Fix**.
 
 Φ9_Fix **fixes 43 defects** (a fourth-layer `Fix` tag on Φ9, with the Φ number unchanged), shipped across all nine skins: 12 functional (first-run theme buttons had no handler, full export omitted `version`, copy failures reported success, the context menu never closed and could act on the wrong project, the rename tool could never delete the original file, touch devices could accidentally close a project, cycle-extension version numbers were misjudged, `window.open` lost the user gesture, imported AI sites did not refresh, and the editor was not saved before import), 8 visual (Shadcn wrapped an already-complete `hsl()` foreground in `hsl()` again, making text nearly invisible; active states were overridden by hover/hidden-text rules; several contrast failures), 5 accessibility (keyboard reachability, focus trap and focus restoration, ARIA state), and 18 robustness items (import field and tab-type validation, async races, false-positive unsaved prompts, mutually exclusive menus, context-menu viewport clamping). The unfixed Φ9 originals are archived under `projects/devkit/code/A1_V_Φ9_fix-archive/`.
 
+Φ9_Fix_Fix **fixes a ReDoS in version parsing**: the old single-pattern regex backtracks exponentially on inputs like `A1` + many `_A` segments + an illegal trailing character (measured: 63 characters froze the page for 126 s). It now splits on `_` and validates each segment linearly. Behaviour is equivalent to the old regex (verified against 17 version strings), shipped across all nine skins.
+
 The incremental change in Φ8 was **full-site responsive, multi-ratio and touch adaptation**: `viewport-fit=cover`, `100dvh` height with `env(safe-area-inset-*)` safe areas, width breakpoints at ≥1800 / ≤1024 / ≤820 / ≤560 plus a ≤520 height breakpoint, vertical stacking and horizontally scrolling step lists on narrow screens, enlarged touch targets on coarse pointers, and drag handles switched from mouse to pointer events. All nine skins share the same adaptation layer.
 
 Eight of the nine skins (all but the baseline) unify on a three-state `themePref` — dark / light / follow system — chosen once in the first-run guide and remembered in `devkit_theme_pref`, with `auto` tracking the system colour scheme live. The baseline skin keeps the original numeric `theme` system.
@@ -59,7 +61,7 @@ The previous generation `A1_V_Φ8` is available **in parallel** with Φ9 under `
 ## Usage
 
 1. **Easiest: grab a Release.** Every update to `main` is published automatically, packaged per main line with all of that generation's skins attached — one click, no browsing. See https://github.com/bmdy1145/devkit/releases
-2. **Read online:** open https://bmdy1145.github.io/devkit/projects/devkit/ and click any skin under “nine skins — open directly”; or download `projects/devkit/code/A1_V_Φ9/deepseek_A1_V_Φ9_Clean_Fix_CN.html` directly
+2. **Read online:** open https://bmdy1145.github.io/devkit/projects/devkit/ and click any skin under “nine skins — open directly”; or download `projects/devkit/code/A1_V_Φ9_Fix_Fix/deepseek_A1_V_Φ9_Clean_Fix_Fix_CN.html` directly
 3. Double-click to open it in a browser (Chrome / Edge or any modern browser)
 4. Pick a step under "Workflow Steps" → fill in the inspiration and paste your code → click "Copy" → paste into your AI chat tool
 
@@ -105,7 +107,8 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │   │   ├── index.html               # Project landing page (skin shortcuts + download + branches)
 │   │   └── code/
 │   │       ├── index.html                   # Index for the branch directory
-│   │       ├── A1_V_Φ9/                     # Current main line (Fix layer)
+│   │       ├── A1_V_Φ9_Fix_Fix/             # Current main line (Fix_Fix layer, ReDoS fix)
+│   │       ├── A1_V_Φ9/                     # Previous iteration layer (Fix)
 │   │       │   ├── index.html                              # Version list for this branch
 │   │       │   ├── deepseek_A1_V_Φ9_Clean_Fix_CN.html          # Clean
 │   │       │   ├── deepseek_A1_V_Φ9_Material_Fix_CN.html       # Material Design (MD3)
