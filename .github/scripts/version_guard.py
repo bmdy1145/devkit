@@ -114,7 +114,10 @@ def check_js_syntax(path: Path, rel: str) -> None:
         warn(rel, "未找到 node，已跳过 <script> 语法检查（CI 环境中会执行）")
         return
     text = path.read_text(encoding="utf-8", errors="replace")
-    blocks = re.findall(r"<script\b[^>]*>(.*?)</script>", text, re.S)
+    # 大小写不敏感：HTML 中 <SCRIPT> 与 <script> 等价。原先只匹配小写，
+    # CodeQL 的 py/bad-tag-filter 会报「漏掉大写标签」；本仓库交付物一律
+    # 小写，但脚本不应依赖这一点。
+    blocks = re.findall(r"<script\b[^>]*>(.*?)</script\s*>", text, re.S | re.I)
     if not blocks:
         warn(rel, "未找到 <script> 块")
         return

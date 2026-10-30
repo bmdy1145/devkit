@@ -48,6 +48,8 @@ DevKit 是一个**纯 HTML 单文件**的本地开发辅助工具，直接用浏
 
 Φ9_Fix 的改动是**集中修复 43 项缺陷**（在 Φ9 上追加第四层英文标识 `Fix`，Φ 数字不递增），九款皮肤同批产出：A 功能缺陷 12 项（首次运行主题按钮无绑定、全量导出缺 `version`、复制失败假成功、右键菜单不关闭且可能操作错项目、命名工具删不掉原文件、触屏误关项目、循环扩展层版本号误判、`window.open` 失去用户激活、导入 AI 站点不刷新、导入前不保存编辑区等）、B 视觉缺陷 8 项（Shadcn 主色前景色被二次 `hsl()` 包裹导致文字几乎不可见、激活态被 hover/隐藏文字规则覆盖、多处对比度不足等）、C 无障碍 5 项（键盘可达、焦点陷阱与焦点归还、aria 状态）、D 健壮性 18 项（导入字段类型与页签类型校验、异步回调竞态、导出指纹误报、菜单互斥、右键菜单视口收敛等）。未修复的 Φ9 原始版本移入 `projects/devkit/code/A1_V_Φ9_fix-archive/`。
 
+Φ9_Fix_Fix 的改动是**修复版本号解析的 ReDoS**：旧的整串正则在 `A1` + 多个 `_A` + 非法尾字符这类输入上会指数回溯（实测 63 字符冻结 126 秒），改为按 `_` 切段后逐段线性校验。行为与原正则等价（17 个版本号用例逐一比对一致），九款皮肤同批产出。
+
 Φ8 的增量改动是**全站响应式、多比例与触屏适配**：viewport 增加 `viewport-fit=cover`，高度改用 `100dvh` 并接入 `env(safe-area-inset-*)` 安全区；新增宽度断点 ≥1800 / ≤1024 / ≤820 / ≤560 与高度断点 ≤520；窄屏改为纵向堆叠、步骤列表横滑、顶栏两行图标化；触屏下放大热区；分栏拖拽由 mouse 事件改为 pointer 事件。九款皮肤共用同一套适配层。
 
 其中八款皮肤（除基准皮肤）的主题维度统一为 `themePref` 三态——暗色 / 亮色 / 跟随系统，首次运行引导内选择一次并以 `devkit_theme_pref` 记住，`auto` 下实时跟随系统深浅色；基准皮肤仍保留原有的数字 `theme` 主题体系。
@@ -59,7 +61,7 @@ DevKit 是一个**纯 HTML 单文件**的本地开发辅助工具，直接用浏
 ## 使用方式
 
 1. **最省事：直接下 Release。** 每次 `main` 更新都会自动发布一版，按主干打包附上该代全部皮肤，点一下就下载，不必逐层点进目录。入口见 https://github.com/bmdy1145/devkit/releases
-2. **在线阅读：**从站点首页进入 https://bmdy1145.github.io/devkit/projects/devkit/ ，顶部「九款皮肤 · 直接打开」点一下即用；也可以直接下载 `projects/devkit/code/A1_V_Φ9/deepseek_A1_V_Φ9_Clean_Fix_CN.html`
+2. **在线阅读：**从站点首页进入 https://bmdy1145.github.io/devkit/projects/devkit/ ，顶部「九款皮肤 · 直接打开」点一下即用；也可以直接下载 `projects/devkit/code/A1_V_Φ9_Fix_Fix/deepseek_A1_V_Φ9_Clean_Fix_Fix_CN.html`
 3. 双击用浏览器打开（Chrome / Edge 等现代浏览器）
 4. 在「工作流步骤」中选择步骤 → 填写灵感、粘贴代码 → 点击「复制」→ 粘贴到 AI 对话工具
 
@@ -105,7 +107,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │   │   ├── index.html               # 项目落地页（皮肤直达 + 下载直达 + 分支卡片）
 │   │   └── code/
 │   │       ├── index.html                   # 分支目录索引
-│   │       ├── A1_V_Φ9/                     # 当前主干（Fix 层）
+│   │       ├── A1_V_Φ9_Fix_Fix/             # 当前主干（Fix_Fix 层，修 ReDoS）
+│   │       ├── A1_V_Φ9/                     # 上一迭代层（Fix）
 │   │       │   ├── index.html                              # 本分支版本列表
 │   │       │   ├── deepseek_A1_V_Φ9_Clean_Fix_CN.html          # 简约
 │   │       │   ├── deepseek_A1_V_Φ9_Material_Fix_CN.html       # 材料设计（MD3）
@@ -199,7 +202,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/` | 项目目录索引 |
 | `/projects/devkit/` | DevKit 项目落地页：九款皮肤直达 + 下载直达 + 分支卡片 |
 | `/projects/devkit/code/` | DevKit 分支目录（Φ9 / Φ8 / Φ7 / Φ5 / Φ4） |
-| `/projects/devkit/code/A1_V_Φ9/` | 当前主干的版本列表（九套皮肤，Fix 层） |
+| `/projects/devkit/code/A1_V_Φ9_Fix_Fix/` | 当前主干的版本列表（九套皮肤，Fix_Fix 层） |
+| `/projects/devkit/code/A1_V_Φ9/` | 上一迭代层（九套皮肤，Fix 层） |
 | `/projects/devkit/code/A1_V_Φ9_fix-archive/` | Φ9 原始版本归档（九款未修复版本，供对照与回退） |
 | `/projects/devkit/code/A1_V_Φ8/` | 上一代主干的版本列表（九套皮肤，Fix_Fix，与 Φ9 并行可选） |
 | `/projects/devkit/code/A1_V_Φ8_fix-archive/` | Φ8 的 Fix 层历史归档（九款，追溯保留） |
