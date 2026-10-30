@@ -1,0 +1,8 @@
+[package]
+name = "submerge-core"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "submerge"
+path = "src/main.rs"
