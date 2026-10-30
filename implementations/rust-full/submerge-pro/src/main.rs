@@ -39,9 +39,7 @@ fn tokenize(text: &str) -> Vec<String> {
         cjk.clear();
     }
     fn flush_latin(latin: &mut String, tokens: &mut Vec<String>) {
-        for w in latin.split_whitespace() {
-            if !w.is_empty() { tokens.push(w.to_string()); }
-        }
+        push_latin_tokens(latin, tokens);
         latin.clear();
     }
 
@@ -58,6 +56,36 @@ fn tokenize(text: &str) -> Vec<String> {
     flush_cjk(&mut cjk, &mut tokens);
     flush_latin(&mut latin, &mut tokens);
     tokens
+}
+
+fn is_ascii_alnum(c: char) -> bool { c.is_ascii_alphanumeric() }
+
+/// 与 HTML 参考实现一致：拉丁段按 [A-Za-z0-9]+(?:'[A-Za-z]+)?|\S 切分。
+/// 即 "world," 拆成 "world" 与 ","，而 "don't" 保持为一个 token。
+fn push_latin_tokens(run: &str, tokens: &mut Vec<String>) {
+    let chars: Vec<char> = run.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        if is_ascii_alnum(c) {
+            let mut j = i;
+            while j < chars.len() && is_ascii_alnum(chars[j]) { j += 1; }
+            // 允许词内一个撇号：don't → 仍是 1 个 token
+            if j < chars.len() && chars[j] == '\'' {
+                let a = j + 1;
+                let mut b = a;
+                while b < chars.len() && chars[b].is_ascii_alphabetic() { b += 1; }
+                if b > a { j = b; }
+            }
+            tokens.push(chars[i..j].iter().collect());
+            i = j;
+        } else if c.is_whitespace() {
+            i += 1;
+        } else {
+            tokens.push(c.to_string());
+            i += 1;
+        }
+    }
 }
 
 fn join_tokens(tokens: &[String]) -> String {
@@ -80,8 +108,7 @@ fn add_boundary(s: &str) -> String {
         if i > 0 {
             let p = chars[i - 1];
             let c = chars[i];
-            if (p.is_alphanumeric() && !is_cjk(p) && is_cjk(c))
-                || (is_cjk(p) && c.is_alphanumeric() && !is_cjk(c)) {
+            if (is_ascii_alnum(p) && is_cjk(c)) || (is_cjk(p) && is_ascii_alnum(c)) {
                 out.push(' ');
             }
         }

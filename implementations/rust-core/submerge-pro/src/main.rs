@@ -29,7 +29,8 @@ struct Chunk {
     trans: String,
 }
 
-/// 与浏览器版一致：中日韩字符按 2 个字符算 1 词，拉丁词按空格切分计数。
+/// 与浏览器版一致：中日韩字符按 2 个字符算 1 词；
+/// 拉丁段按 [A-Za-z0-9]+(?:'[A-Za-z]+)? 计数（"don't" 记 1，"A1_V_Φ10" 记 3）。
 fn count_words(text: &str) -> usize {
     let mut total = 0usize;
     let mut cjk_run = String::new();
@@ -43,7 +44,7 @@ fn count_words(text: &str) -> usize {
     };
     let flush_latin = |run: &mut String, total: &mut usize| {
         if !run.is_empty() {
-            *total += run.split_whitespace().filter(|w| w.chars().any(|c| c.is_alphanumeric())).count();
+            *total += count_latin_words(run);
             run.clear();
         }
     };
@@ -66,6 +67,57 @@ fn is_cjk(c: char) -> bool {
     matches!(c as u32, 0x4E00..=0x9FFF)
 }
 
+/// 统计拉丁段中的词数，规则与 HTML 参考实现相同：
+/// 连续 ASCII 字母数字为一个词，词内允许一个撇号（don't）。
+fn count_latin_words(run: &str) -> usize {
+    let chars: Vec<char> = run.chars().collect();
+    let mut total = 0usize;
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i].is_ascii_alphanumeric() {
+            let mut j = i;
+            while j < chars.len() && chars[j].is_ascii_alphanumeric() { j += 1; }
+            if j < chars.len() && chars[j] == '\'' {
+                let a = j + 1;
+                let mut b = a;
+                while b < chars.len() && chars[b].is_ascii_alphabetic() { b += 1; }
+                if b > a { j = b; }
+            }
+            total += 1;
+            i = j;
+        } else {
+            i += 1;
+        }
+    }
+    total
+}
+
+/// 与 HTML 参考实现一致：[A-Za-z0-9]+(?:'[A-Za-z]+)?|\S
+fn push_latin_tokens(run: &str, tokens: &mut Vec<String>) {
+    let chars: Vec<char> = run.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        if c.is_ascii_alphanumeric() {
+            let mut j = i;
+            while j < chars.len() && chars[j].is_ascii_alphanumeric() { j += 1; }
+            if j < chars.len() && chars[j] == '\'' {
+                let a = j + 1;
+                let mut b = a;
+                while b < chars.len() && chars[b].is_ascii_alphabetic() { b += 1; }
+                if b > a { j = b; }
+            }
+            tokens.push(chars[i..j].iter().collect());
+            i = j;
+        } else if c.is_whitespace() {
+            i += 1;
+        } else {
+            tokens.push(c.to_string());
+            i += 1;
+        }
+    }
+}
+
 /// 分词：CJK 每 2 字一组，其余按词/单字符切分。
 fn tokenize(text: &str) -> Vec<String> {
     let mut tokens = Vec::new();
@@ -84,9 +136,7 @@ fn tokenize(text: &str) -> Vec<String> {
     };
     let flush_latin = |run: &mut String, tokens: &mut Vec<String>| {
         if run.is_empty() { return; }
-        for w in run.split_whitespace() {
-            if !w.is_empty() { tokens.push(w.to_string()); }
-        }
+        push_latin_tokens(run, tokens);
         run.clear();
     };
 

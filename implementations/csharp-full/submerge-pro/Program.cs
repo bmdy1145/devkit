@@ -44,6 +44,7 @@ internal sealed class MainForm : Form
     private static readonly Regex CjkSplit = new(@"([\u4e00-\u9fff]+)", RegexOptions.Compiled);
     private static readonly Regex CjkTest = new(@"[\u4e00-\u9fff]", RegexOptions.Compiled);
     private static readonly Regex WordRe = new(@"[A-Za-z0-9]+(?:'[A-Za-z]+)?", RegexOptions.Compiled);
+    private static readonly Regex TokenRe = new(@"[A-Za-z0-9]+(?:'[A-Za-z]+)?|\S", RegexOptions.Compiled);
     private static readonly Regex TimeRe = new(
         @"^(\d{1,2}:\d{2}:\d{2}[,\.]\d{1,3})\s*-->\s*(\d{1,2}:\d{2}:\d{2}[,\.]\d{1,3})$",
         RegexOptions.Compiled);
@@ -148,6 +149,11 @@ internal sealed class MainForm : Form
 
     private static bool IsCjk(char c) => c >= '\u4e00' && c <= '\u9fff';
 
+    // 仅 ASCII 字母数字。不能直接用 char.IsLetterOrDigit：它把汉字也算作字母，
+    // 会让 AddBoundary 在「中中」之间也插空格。
+    private static bool IsAsciiAlnum(char c) =>
+        (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+
     private static List<string> Tokenize(string text)
     {
         var tokens = new List<string>();
@@ -161,9 +167,8 @@ internal sealed class MainForm : Form
             }
             else
             {
-                var matches = WordRe.Matches(seg);
-                if (matches.Count > 0) tokens.AddRange(matches.Select(m => m.Value));
-                else foreach (var ch in seg) if (!char.IsWhiteSpace(ch)) tokens.Add(ch.ToString());
+                // 与 HTML 参考实现一致：[A-Za-z0-9]+(?:'[A-Za-z]+)?|\S
+                tokens.AddRange(TokenRe.Matches(seg).Select(m => m.Value));
             }
         }
         return tokens;
@@ -189,7 +194,7 @@ internal sealed class MainForm : Form
             {
                 var p = s[i - 1];
                 var c = s[i];
-                if ((char.IsLetterOrDigit(p) && IsCjk(c)) || (IsCjk(p) && char.IsLetterOrDigit(c)))
+                if ((IsAsciiAlnum(p) && IsCjk(c)) || (IsCjk(p) && IsAsciiAlnum(c)))
                     sb.Append(' ');
             }
             sb.Append(s[i]);

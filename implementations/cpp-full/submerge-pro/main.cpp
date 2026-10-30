@@ -53,6 +53,15 @@ static HWND g_list, g_trans, g_out, g_status, g_lang, g_maxBox, g_mode;
 
 static bool isCjk(wchar_t c) { return c >= 0x4E00 && c <= 0x9FFF; }
 
+// 仅 ASCII 字母数字。不能用 iswalnum：它把汉字也算作字母，会让 addBoundary
+// 在「中中」之间也插空格。
+static bool isAsciiAlnum(wchar_t c) {
+    return (c >= L'0' && c <= L'9') || (c >= L'a' && c <= L'z') || (c >= L'A' && c <= L'Z');
+}
+static bool isAsciiAlpha(wchar_t c) {
+    return (c >= L'a' && c <= L'z') || (c >= L'A' && c <= L'Z');
+}
+
 static std::wstring trimW(const std::wstring& s) {
     size_t a = s.find_first_not_of(L" \t\r\n");
     if (a == std::wstring::npos) return L"";
@@ -89,9 +98,28 @@ static std::vector<std::wstring> tokenize(const std::wstring& text) {
         } else if (iswspace(text[i])) {
             ++i;
         } else {
+            // 与 HTML 参考实现一致：[A-Za-z0-9]+(?:'[A-Za-z]+)?|\S
+            // 字母数字连续段（可带 'xx）整体成一个 token，其余非空白字符各自成 token，
+            // 所以 "world," 拆成 "world" 与 ","。
             size_t j = i;
             while (j < text.size() && !isCjk(text[j]) && !iswspace(text[j])) ++j;
-            tokens.push_back(text.substr(i, j - i));
+            size_t k = i;
+            while (k < j) {
+                if (isAsciiAlnum(text[k])) {
+                    size_t m = k;
+                    while (m < j && isAsciiAlnum(text[m])) ++m;
+                    if (m < j && text[m] == L'\'') {
+                        size_t a = m + 1, b = a;
+                        while (b < j && isAsciiAlpha(text[b])) ++b;
+                        if (b > a) m = b;
+                    }
+                    tokens.push_back(text.substr(k, m - k));
+                    k = m;
+                } else {
+                    tokens.push_back(text.substr(k, 1));
+                    ++k;
+                }
+            }
             i = j;
         }
     }
@@ -112,7 +140,7 @@ static std::wstring addBoundary(const std::wstring& s) {
     for (size_t i = 0; i < s.size(); ++i) {
         if (i > 0) {
             wchar_t p = s[i - 1], c = s[i];
-            if ((iswalnum(p) && isCjk(c)) || (isCjk(p) && iswalnum(c))) out += L' ';
+            if ((isAsciiAlnum(p) && isCjk(c)) || (isCjk(p) && isAsciiAlnum(c))) out += L' ';
         }
         out += s[i];
     }

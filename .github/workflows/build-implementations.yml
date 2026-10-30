@@ -75,7 +75,9 @@ jobs:
       - name: 安装 Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          # go-full 的 go.mod 经 dependabot 升级后要求 go 1.25.0；
+          # core 层仍是 go 1.23，Go 向后兼容，统一用 1.25 即可。
+          go-version: '1.25'
           cache-dependency-path: implementations/**/go.sum
 
       - name: 安装 Node

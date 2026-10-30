@@ -36,6 +36,7 @@ type Entry struct {
 var reCjkSplit = regexp.MustCompile(`([\x{4e00}-\x{9fff}]+)`)
 var reCjkTest = regexp.MustCompile(`[\x{4e00}-\x{9fff}]`)
 var reWord = regexp.MustCompile(`[A-Za-z0-9]+(?:'[A-Za-z]+)?`)
+var reToken = regexp.MustCompile(`[A-Za-z0-9]+(?:'[A-Za-z]+)?|\S`)
 var reTime = regexp.MustCompile(`^(\d{1,2}:\d{2}:\d{2}[,.]\d{1,3})\s*-->\s*(\d{1,2}:\d{2}:\d{2}[,.]\d{1,3})$`)
 var reIdx = regexp.MustCompile(`^\[(\d+)\]\s*(.*)$`)
 
@@ -57,7 +58,8 @@ func tokenize(text string) []string {
 				tokens = append(tokens, string(r[i:end]))
 			}
 		} else {
-			tokens = append(tokens, reWord.FindAllString(seg, -1)...)
+			// 与 HTML 参考实现一致：[A-Za-z0-9]+(?:'[A-Za-z]+)?|\S
+			tokens = append(tokens, reToken.FindAllString(seg, -1)...)
 		}
 	}
 	return tokens
