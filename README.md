@@ -163,7 +163,10 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │       ├── index.html               # 项目落地页（打开入口 + 数据安全提示）
 │       └── code/
 │           ├── index.html           # 代码 / 分支索引
-│           ├── A1_I_Φ3/             # 当前版本（逻辑与健壮性修复）
+│           ├── A1_I_Φ4/             # 当前版本（数据安全与并发修复）
+│           │   ├── index.html
+│           │   └── deepseek_A1_I_Φ4_CN.html
+│           ├── A1_I_Φ3/             # 逻辑与健壮性修复
 │           │   ├── index.html
 │           │   └── deepseek_A1_I_Φ3_CN.html
 │           ├── A1_I_Φ2/             # 布局重构（左侧单列四页签）
@@ -183,7 +186,7 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 
 - 每个项目自带一个 `index.html` 作为该项目落地页；项目内部的目录结构与版本号规则**由该项目自定**，仓库不为它们设统一规范。
 - 仓库根 `index.html` 是**项目选择台**，只负责列出全部项目入口。
-- `docs/`（协作约定）与 `.github/`（自动化）是**跨项目通用**的。`auto_release.py` 与 `make_release_notes.py` 已按项目分别发布：DevKit 的标签沿用裸主干名（`A1_V_Φ9.4`），其他项目的标签加项目前缀（`writer/A1_I_Φ3`）避免 Φ 号相撞；`version_guard.py` 覆盖 DevKit 与 Writer，`size_guard.py` 与 `smoke_test.py` 通过 `OTHER_APPS` 显式登记各项目的应用文件。新增项目若要复用这些检查，按同样方式登记即可。
+- `docs/`（协作约定）与 `.github/`（自动化）是**跨项目通用**的。`auto_release.py` 与 `make_release_notes.py` 已按项目分别发布：DevKit 的标签沿用裸主干名（`A1_V_Φ9.4`），其他项目的标签加项目前缀（`writer/A1_I_Φ4`）避免 Φ 号相撞；`version_guard.py` 覆盖 DevKit 与 Writer，`size_guard.py` 与 `smoke_test.py` 通过 `OTHER_APPS` 显式登记各项目的应用文件。新增项目若要复用这些检查，按同样方式登记即可。
 - 当前托管 `devkit`、`submerge-pro`、`dircleaner` 与 `writer` 四个项目；新增项目放入 `projects/<名称>/`，并更新根目录项目选择台和 `projects/index.html`。
 
 ### Pages 部署说明
@@ -211,7 +214,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/dircleaner/code/A1_II_Φ8/` | A1_II_Φ8 应用文件 |
 | `/projects/writer/` | Writer 小说编辑器项目页 |
 | `/projects/writer/code/` | Writer 代码分支索引 |
-| `/projects/writer/code/A1_I_Φ3/` | A1_I_Φ3 应用文件（当前版本） |
+| `/projects/writer/code/A1_I_Φ4/` | A1_I_Φ4 应用文件（当前版本） |
+| `/projects/writer/code/A1_I_Φ3/` | A1_I_Φ3 应用文件（逻辑与健壮性修复） |
 | `/projects/writer/code/A1_I_Φ2/` | A1_I_Φ2 应用文件（布局重构） |
 | `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 应用文件（历史参照） |
 

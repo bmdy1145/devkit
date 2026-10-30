@@ -1,0 +1,3326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!--
+    ============================================================
+    项目名称：Writer（小说编辑器 · 中文版）
+    版本代号：A1_I_Φ4_CN
+    基于分支：A1 分支（初始开发主线）
+    父版本：A1_I_Φ3_CN
+    修改说明：数据安全与并发修复（Φ 层递增：Φ3 → Φ4）。界面、功能集与
+              数据结构沿用 Φ3，本版只修三处会导致数据损坏或错乱的缺陷：
+              1) 覆盖导入原本先 clearAll() 再逐表 bulkPut，中途任何一步失败
+                 都会留下「旧数据已删、新数据没写全」的状态。改为先对五个
+                 数组逐条做字段校验（id 非空字符串、order/wordCount 为数字、
+                 tags 为数组），全部通过后才清库写入；写入中途失败时用内存
+                 快照尽量回写原数据，并明确报错；
+              2) flushSave 在写入前就把 State.dirty 置为 false，写入失败时
+                 既不重试也不再标记脏，UI 却已显示「已保存」。改为写入成功后
+                 才清脏；失败时恢复脏标记并返回 false，工具栏保存按钮据此
+                 提示失败而非「已保存」；
+              3) selectChapter 无重入保护，快速连点两章时两次 await 可能乱序
+                 返回，把先点那章的内容写进后点那章。沿用本文件已有的
+                 previewSeq 模式：加 chapterSeq 序号，每个 await 之后比对，
+                 过期则直接放弃。
+              功能集、数据结构、索引库结构与 AI 协议均未变动。
+    日期：2026-10-30
+    版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+    许可证：GPLv3
+    ============================================================
+-->
+<!--
+    ============================================================
+    以下是当前项目的完整版本结构文字表述，供维护参考
+    当前最新版本：A1_I_Φ4_CN
+
+    Beta（基线版本，2026-10-17创建）
+    └── A1 分支（初始开发分支，2026-10-17创建）
+        └── A1_I（初始创建，2026-10-17创建，基于Beta）
+            └── A1_I_Φ1（首版：章节树、资料库、提示词面板、
+                          双协议流式 AI、自动保存与导入导出，
+                          2026-10-17创建，基于A1_I）
+                └── A1_I_Φ1_CN（中文版 · 默认皮肤）
+            └── A1_I_Φ2（界面布局重构：四个面板合并到左侧一列，
+                          右栏移除，窄屏统一抽屉并加遮罩，
+                          2026-10-23创建，基于A1_I_Φ1）
+                └── A1_I_Φ2_CN（中文版 · 默认皮肤）
+            └── A1_I_Φ3（逻辑与健壮性修复：保存定时器拆分、保撤销栈、
+                          缺 Key 早退、上一章正文预取、跨卷 order 重排、
+                          离页写字数、输入渲染合并，以及死代码清理与
+                          可访问性补全，
+                          2026-10-23创建，基于A1_I_Φ2）
+                └── A1_I_Φ3_CN（中文版 · 默认皮肤）
+            └── A1_I_Φ4（数据安全与并发修复：覆盖导入先校验后写入、
+                          保存失败恢复脏标记、切章加序号防竞态，
+                          2026-10-30创建，基于A1_I_Φ3）
+                └── A1_I_Φ4_CN（中文版 · 默认皮肤）
+    ============================================================
+-->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Writer · 小说编辑器</title>
+<meta name="description" content="Writer 小说编辑器：卷章稿件树、人物设定库、写作提示词与 AI 流式续写，单文件网页应用。">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src *; base-uri 'self'; object-src 'none'; form-action 'self';">
+<style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        color-scheme: dark;
+        --bg: #0f1115;
+        --surface: #151922;
+        --surface-2: #1b202b;
+        --surface-3: #222836;
+        --border: #2a3140;
+        --text: #e6e9ef;
+        --text-2: #98a2b3;
+        --text-3: #6f7a8c;
+        --accent: #e0a458;
+        --accent-soft: rgba(224, 164, 88, 0.14);
+        --accent-fg: #1a1208;
+        --danger: #ef6b6b;
+        --ok: #63c68a;
+        --radius: 10px;
+        --radius-sm: 6px;
+        --left-w: 340px;
+        --reading-w: 760px;
+        --font-ui: 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+        --font-serif: 'Songti SC', 'Noto Serif SC', 'Source Han Serif SC', SimSun, serif;
+        --font-sans: 'Heiti SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+        --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+        --ms-font: var(--font-serif);
+        --ms-size: 17px;
+        --ms-lh: 1.9;
+        --titlebar-h: 50px;
+        --shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.9);
+    }
+
+    html, body { height: 100%; }
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+        font-family: var(--font-ui);
+        color: var(--text);
+        background:
+            radial-gradient(1000px 600px at 12% -12%, rgba(224,164,88,0.08), transparent 60%),
+            radial-gradient(900px 600px at 94% 4%, rgba(0,188,255,0.05), transparent 62%),
+            var(--bg);
+        font-size: 14px;
+        line-height: 1.5;
+        overflow: hidden;
+    }
+
+    button, input, select, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* ================= 顶栏 ================= */
+    .app { display: flex; flex-direction: column; height: 100dvh; min-height: 0; }
+
+    .topbar {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 8px;
+        height: var(--titlebar-h);
+        padding: 0 12px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .topbar::-webkit-scrollbar { display: none; }
+
+    .brand {
+        display: flex; align-items: center; gap: 7px;
+        font-family: var(--font-mono); font-weight: 700;
+        color: var(--accent); white-space: nowrap;
+        padding: 4px 8px; border-radius: var(--radius-sm);
+        border: none; background: transparent;
+    }
+    .brand:hover { background: var(--surface-2); }
+    .brand-mark {
+        display: grid; place-items: center;
+        width: 24px; height: 24px; border-radius: 6px;
+        background: var(--accent); color: var(--accent-fg);
+        font-size: 13px; font-weight: 800;
+    }
+
+    .topbar .spacer { flex: 1 1 auto; min-width: 8px; }
+
+    .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+        min-height: 32px;
+        padding: 5px 11px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-2);
+        color: var(--text);
+        font-size: 0.82rem;
+        white-space: nowrap;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .btn:hover { background: var(--surface-3); border-color: #3a4355; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+    .btn.primary:hover { filter: brightness(1.06); }
+    .btn.danger { color: var(--danger); border-color: rgba(239,107,107,0.5); }
+    .btn.danger:hover { background: rgba(239,107,107,0.12); }
+    .btn.ghost { background: transparent; }
+    .btn.sm { min-height: 26px; padding: 2px 8px; font-size: 0.75rem; }
+
+    .book-select {
+        min-height: 32px; max-width: 190px;
+        padding: 4px 8px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 0.85rem;
+    }
+
+    .top-meta {
+        font-family: var(--font-mono); font-size: 0.74rem;
+        color: var(--text-3); white-space: nowrap;
+    }
+
+    /* ================= 警告条 ================= */
+    .warn-strip {
+        flex: 0 0 auto;
+        padding: 6px 14px;
+        font-size: 0.78rem;
+        color: #ffd58a;
+        background: rgba(255, 213, 138, 0.08);
+        border-bottom: 1px solid rgba(255, 213, 138, 0.25);
+    }
+
+    /* ================= 工作区 ================= */
+    .workspace {
+        flex: 1 1 auto;
+        display: flex;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .sidebar {
+        flex: 0 0 auto;
+        display: flex; flex-direction: column;
+        min-height: 0;
+        background: var(--surface);
+        width: var(--left-w);
+        border-right: 1px solid var(--border);
+    }
+    .sidebar.collapsed { display: none; }
+
+    .pane-tabs {
+        flex: 0 0 auto;
+        display: flex;
+        border-bottom: 1px solid var(--border);
+    }
+    .pane-tab {
+        flex: 1;
+        padding: 9px 4px;
+        border: none; border-bottom: 2px solid transparent;
+        background: transparent; color: var(--text-2);
+        font-size: 0.78rem;
+    }
+    .pane-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .pane-tab:hover { color: var(--text); }
+
+    .pane {
+        display: none;
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 10px;
+    }
+    .pane.active { display: flex; flex-direction: column; gap: 8px; }
+
+    .pane-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pane-actions .btn { flex: 1; }
+
+    /* ---------- 章节树 ---------- */
+    .tree { display: flex; flex-direction: column; gap: 4px; }
+
+    .vol { border: 1px solid transparent; border-radius: var(--radius-sm); }
+    .vol.active { border-color: rgba(224,164,88,0.35); background: rgba(224,164,88,0.05); }
+
+    .vol-head, .ch-row {
+        display: flex; align-items: center; gap: 6px;
+        padding: 6px 8px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        user-select: none;
+    }
+    .vol-head:hover, .ch-row:hover { background: var(--surface-2); }
+    .vol-head { color: var(--accent); font-weight: 600; font-size: 0.84rem; }
+    .ch-row { margin-left: 12px; color: var(--text-2); font-size: 0.82rem; }
+    .ch-row.active { background: var(--accent-soft); color: var(--text); }
+    .ch-row.active .ch-title { color: var(--accent); }
+
+    .row-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row-count { flex: 0 0 auto; font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-3); }
+    .row-tools { display: none; flex: 0 0 auto; gap: 2px; }
+    .vol-head:hover .row-tools, .ch-row:hover .row-tools, .ch-row:focus-within .row-tools { display: inline-flex; }
+    .mini {
+        width: 22px; height: 22px;
+        display: inline-grid; place-items: center;
+        border: none; border-radius: 4px;
+        background: transparent; color: var(--text-3);
+        font-size: 0.78rem; line-height: 1;
+    }
+    .mini:hover { background: var(--surface-3); color: var(--text); }
+    .mini.danger:hover { color: var(--danger); background: rgba(239,107,107,0.12); }
+
+    .empty {
+        padding: 20px 10px;
+        text-align: center;
+        color: var(--text-3);
+        font-size: 0.82rem;
+        line-height: 1.8;
+    }
+
+    /* ---------- 资料库 ---------- */
+    .entity-list { display: flex; flex-direction: column; gap: 6px; }
+    .entity {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-2);
+        padding: 8px 10px;
+    }
+    .entity.ref { border-color: rgba(224,164,88,0.55); background: var(--accent-soft); }
+    .entity-top { display: flex; align-items: center; gap: 6px; }
+    .entity-name { flex: 1; font-size: 0.84rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .entity-kind {
+        flex: 0 0 auto;
+        font-family: var(--font-mono); font-size: 0.66rem;
+        color: var(--text-2);
+        border: 1px solid var(--border);
+        border-radius: 999px; padding: 0 7px;
+    }
+    .entity-summary { margin-top: 4px; font-size: 0.76rem; color: var(--text-3); line-height: 1.6; }
+    .entity-actions { display: flex; gap: 4px; margin-top: 6px; }
+    .entity-actions .btn { flex: 1; }
+
+    /* ================= 正文区 ================= */
+    .manuscript {
+        flex: 1 1 auto;
+        display: flex; flex-direction: column;
+        min-width: 0; min-height: 0;
+        background: var(--bg);
+    }
+
+    .ms-head {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+    }
+    .ms-title {
+        flex: 1 1 auto; min-width: 0;
+        background: transparent; border: none;
+        font-size: 1.02rem; font-weight: 600;
+        color: var(--text);
+        padding: 4px 0;
+    }
+    .ms-title::placeholder { color: var(--text-3); }
+    .ms-meta { flex: 0 0 auto; font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-3); white-space: nowrap; }
+
+    .ms-wrap { flex: 1 1 auto; min-height: 0; display: flex; justify-content: center; padding: 0 16px; }
+
+    .ms-editor {
+        width: 100%; max-width: var(--reading-w);
+        height: 100%;
+        padding: 28px 8px 80px;
+        background: transparent;
+        border: none; outline: none;
+        resize: none;
+        color: var(--text);
+        font-family: var(--ms-font);
+        font-size: var(--ms-size);
+        line-height: var(--ms-lh);
+        letter-spacing: 0.02em;
+        tab-size: 4;
+    }
+    .ms-editor::placeholder { color: var(--text-3); opacity: 0.7; }
+
+    .statusbar {
+        flex: 0 0 auto;
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 5px 16px;
+        border-top: 1px solid var(--border);
+        background: var(--surface);
+        font-size: 0.72rem; color: var(--text-3);
+        font-family: var(--font-mono);
+    }
+    .statusbar .saved { color: var(--ok); }
+
+    /* ================= 侧栏遮罩（仅窄屏抽屉使用） ================= */
+    .sidebar-scrim { display: none; }
+
+    /* ================= 左侧面板内容（提示词 / AI） ================= */
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 0.74rem; color: var(--text-2); }
+    .field input[type="text"], .field input[type="password"], .field select, .field textarea {
+        width: 100%;
+        padding: 6px 8px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 0.82rem;
+        outline: none;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+    .field textarea { resize: vertical; min-height: 54px; line-height: 1.6; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .chip-btn {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 3px 10px;
+        background: var(--surface-2);
+        color: var(--text-2);
+        font-size: 0.74rem;
+    }
+    .chip-btn:hover { color: var(--text); border-color: #3a4355; }
+    .chip-btn.on { background: var(--accent-soft); border-color: rgba(224,164,88,0.6); color: var(--accent); }
+
+    .row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .row .btn { flex: 1 1 auto; }
+
+    .preview {
+        flex: 1 1 auto;
+        min-height: 120px;
+        max-height: 40vh;
+        overflow: auto;
+        padding: 10px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font-mono);
+        font-size: 0.74rem;
+        line-height: 1.65;
+        white-space: pre-wrap;
+        word-break: break-word;
+        color: var(--text-2);
+    }
+
+    .hint { font-size: 0.72rem; color: var(--text-3); line-height: 1.6; }
+    .hint strong { color: var(--text-2); }
+
+    .ai-status {
+        min-height: 18px;
+        font-size: 0.74rem;
+        color: var(--text-3);
+        word-break: break-word;
+    }
+    .ai-status.err { color: var(--danger); }
+    .ai-output {
+        flex: 1 1 auto;
+        min-height: 140px;
+        max-height: 46vh;
+        overflow: auto;
+        padding: 10px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font-mono);
+        font-size: 0.78rem;
+        line-height: 1.7;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .ai-output:empty::before { content: 'AI 输出会显示在这里'; color: var(--text-3); }
+
+    /* ================= 模态框 ================= */
+    .modal {
+        position: fixed; inset: 0; z-index: 100;
+        display: none;
+        align-items: center; justify-content: center;
+        padding: 20px;
+        background: rgba(0, 0, 0, 0.62);
+    }
+    .modal.open { display: flex; }
+    .modal-box {
+        width: min(100%, 520px);
+        max-height: 86vh;
+        overflow-y: auto;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        padding: 20px;
+    }
+    .modal-box.wide { width: min(100%, 720px); }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .modal-head h2 { font-size: 1rem; font-weight: 600; }
+    .modal-close {
+        width: 28px; height: 28px;
+        display: grid; place-items: center;
+        border: none; border-radius: 6px;
+        background: transparent; color: var(--text-2);
+        font-size: 1.1rem;
+    }
+    .modal-close:hover { background: var(--surface-2); color: var(--text); }
+    .modal-body { display: flex; flex-direction: column; gap: 12px; }
+    .modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+
+    .modal-body p { font-size: 0.84rem; color: var(--text-2); line-height: 1.75; }
+    .modal-body ul { margin: 0 0 0 18px; font-size: 0.84rem; color: var(--text-2); line-height: 1.8; }
+    .modal-body strong { color: var(--text); }
+    .modal-body .warn { color: #ffd58a; }
+    .modal-body code { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent); }
+
+    .check-row { display: flex; align-items: flex-start; gap: 8px; font-size: 0.82rem; color: var(--text-2); }
+    .check-row input { margin-top: 3px; accent-color: var(--accent); }
+
+    .range-row { display: grid; grid-template-columns: 64px 1fr 46px; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-2); }
+    .range-row input[type="range"] { width: 100%; accent-color: var(--accent); }
+    .range-row output { font-family: var(--font-mono); font-size: 0.74rem; text-align: right; color: var(--text-3); }
+
+    /* ================= Toast ================= */
+    .toast {
+        position: fixed; left: 50%; bottom: 28px; z-index: 200;
+        transform: translateX(-50%) translateY(12px);
+        padding: 9px 18px;
+        background: var(--surface-3);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        box-shadow: var(--shadow);
+        font-size: 0.8rem;
+        opacity: 0; pointer-events: none;
+        transition: opacity 0.2s, transform 0.2s;
+        max-width: min(90vw, 520px);
+        text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ================= 专注模式 ================= */
+    body.focus-mode .sidebar,
+    body.focus-mode .sidebar-scrim,
+    body.focus-mode .topbar .focus-hide,
+    body.focus-mode .top-meta,
+    body.focus-mode .statusbar { display: none !important; }
+    body.focus-mode .ms-editor { max-width: 760px; }
+    .focus-exit {
+        position: fixed; top: 12px; right: 14px; z-index: 90;
+        display: none;
+        opacity: 0.35;
+    }
+    body.focus-mode .focus-exit { display: inline-flex; }
+    .focus-exit:hover { opacity: 1; }
+
+    /* ================= 响应式 ================= */
+    @media (min-width: 1800px) {
+        :root { --left-w: 400px; --reading-w: 820px; --ms-size: 18px; }
+    }
+
+    @media (max-width: 1024px) {
+        :root { --left-w: 280px; }
+    }
+
+    @media (max-width: 820px) {
+        .sidebar {
+            position: fixed; top: var(--titlebar-h); left: 0; bottom: 0;
+            z-index: 60;
+            width: min(88vw, 360px);
+            box-shadow: var(--shadow);
+            transform: translateX(-102%);
+            transition: transform 0.2s;
+        }
+        body.sidebar-open .sidebar { transform: translateX(0); }
+        /* 抽屉模式下侧栏由 transform 控制显隐：桌面留下的 collapsed 若仍按
+           display:none 生效，会盖掉抽屉，表现为「点侧栏没反应」。
+           这里把它复位为可见，抽屉的开关只由 sidebar-open 决定。 */
+        .sidebar.collapsed { display: flex; }
+        .sidebar-scrim {
+            display: none;
+            position: fixed; inset: var(--titlebar-h) 0 0 0;
+            z-index: 55;
+            background: rgba(0, 0, 0, 0.45);
+        }
+        body.sidebar-open .sidebar-scrim { display: block; }
+        .topbar { height: auto; min-height: var(--titlebar-h); flex-wrap: wrap; padding: 6px 10px; }
+        .ms-wrap { padding: 0 10px; }
+        .ms-editor { padding: 18px 2px 60px; }
+        .btn, .book-select { min-height: 38px; }
+    }
+
+    @media (max-width: 560px) {
+        :root { --ms-size: 16px; }
+        .top-meta { display: none; }
+        .ms-head { padding: 6px 10px; }
+        .statusbar { padding: 4px 10px; }
+        .modal { padding: 10px; }
+        .modal-box { padding: 16px; }
+    }
+
+    @media (max-height: 520px) {
+        :root { --titlebar-h: 42px; }
+        .ms-editor { padding-top: 12px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+</style>
+</head>
+<body class="app-body">
+<div class="app">
+
+    <header class="topbar">
+        <button class="brand" id="brandBtn" type="button" title="关于 Writer">
+            <span class="brand-mark" aria-hidden="true">W</span><span>Writer</span>
+        </button>
+        <select class="book-select" id="bookSelect" aria-label="选择书籍"></select>
+        <button class="btn sm" id="newBookBtn" type="button">新建书</button>
+        <span class="spacer"></span>
+        <span class="top-meta" id="bookMeta"></span>
+        <button class="btn ghost focus-hide" id="sidebarBtn" type="button" aria-label="切换侧栏">侧栏</button>
+        <button class="btn" id="focusBtn" type="button">专注</button>
+        <button class="btn ghost focus-hide" id="typeBtn" type="button">排版</button>
+        <button class="btn ghost focus-hide" id="settingsBtn" type="button">设置</button>
+        <button class="btn ghost focus-hide" id="dataBtn" type="button">数据</button>
+    </header>
+
+    <div class="warn-strip" id="storageWarn" hidden>
+        当前浏览器无法使用 IndexedDB，已退回临时存储；请尽快用「数据 → 导出 JSON」备份。
+    </div>
+
+    <main class="workspace">
+
+        <div class="sidebar-scrim" id="sidebarScrim" aria-hidden="true"></div>
+
+        <aside class="sidebar" id="sidebar">
+            <div class="pane-tabs" role="tablist" aria-label="左侧面板">
+                <button class="pane-tab active" id="tabChapters" data-pane="chapters" role="tab" aria-selected="true" aria-controls="paneChapters" type="button">章节</button>
+                <button class="pane-tab" id="tabLibrary" data-pane="library" role="tab" aria-selected="false" aria-controls="paneLibrary" type="button">资料</button>
+                <button class="pane-tab" id="tabPrompt" data-pane="prompt" role="tab" aria-selected="false" aria-controls="panePrompt" type="button">提示词</button>
+                <button class="pane-tab" id="tabAI" data-pane="ai" role="tab" aria-selected="false" aria-controls="paneAI" type="button">AI</button>
+            </div>
+
+            <section class="pane active" id="paneChapters" role="tabpanel" aria-label="章节" aria-labelledby="tabChapters" tabindex="0">
+                <div class="pane-actions">
+                    <button class="btn sm" id="newVolumeBtn" type="button">新建卷</button>
+                    <button class="btn sm" id="newChapterBtn" type="button">新建章</button>
+                </div>
+                <div class="tree" id="chapterTree" role="tree" aria-label="章节树"></div>
+            </section>
+
+            <section class="pane" id="paneLibrary" role="tabpanel" aria-label="资料库" aria-labelledby="tabLibrary" tabindex="0">
+                <div class="pane-actions">
+                    <button class="btn sm" id="newEntityBtn" type="button">新建卡片</button>
+                    <select class="btn sm" id="entityFilter" aria-label="筛选资料类型" style="flex:1;">
+                        <option value="all">全部</option>
+                        <option value="character">人物</option>
+                        <option value="location">地点</option>
+                        <option value="world">世界观</option>
+                    </select>
+                </div>
+                <div class="entity-list" id="entityList"></div>
+            </section>
+
+            <section class="pane" id="panePrompt" role="tabpanel" aria-label="提示词" aria-labelledby="tabPrompt" tabindex="0">
+                <div class="chips" id="templateChips"></div>
+                <div class="field">
+                    <label for="inspiration">本次要求</label>
+                    <textarea id="inspiration" placeholder="例如：把这一章的开头改得更有画面感"></textarea>
+                </div>
+                <div class="field">
+                    <label>已引用资料 <span id="refCount" class="hint"></span></label>
+                    <div class="chips" id="refTray"></div>
+                </div>
+                <div class="field">
+                    <label>组合预览 <span id="previewMeta" class="hint"></span></label>
+                    <pre class="preview" id="previewBox" aria-live="polite"></pre>
+                </div>
+                <div class="row">
+                    <button class="btn primary" id="copyPromptBtn" type="button">复制</button>
+                    <button class="btn" id="sendToAiBtn" type="button">送入 AI</button>
+                </div>
+            </section>
+
+            <section class="pane" id="paneAI" role="tabpanel" aria-label="AI" aria-labelledby="tabAI" tabindex="0">
+                <div class="ai-status" id="aiConfigLine"></div>
+                <div class="field">
+                    <label for="aiInput">发送内容</label>
+                    <textarea id="aiInput" placeholder="点「载入提示词」把提示词面板的内容带过来，或直接在这里写"></textarea>
+                </div>
+                <div class="row">
+                    <button class="btn primary" id="aiSendBtn" type="button">发送</button>
+                    <button class="btn" id="aiStopBtn" type="button" disabled>停止</button>
+                    <button class="btn" id="loadPromptBtn" type="button">载入提示词</button>
+                </div>
+                <div class="ai-status" id="aiStatus" aria-live="polite"></div>
+                <pre class="ai-output" id="aiOutput" aria-live="polite"></pre>
+                <div class="row">
+                    <button class="btn sm" id="aiCopyBtn" type="button">复制结果</button>
+                    <button class="btn sm" id="aiInsertBtn" type="button">插入光标</button>
+                    <button class="btn sm" id="aiAppendBtn" type="button">追加到章末</button>
+                    <button class="btn sm" id="aiReplaceBtn" type="button">替换本章</button>
+                </div>
+            </section>
+        </aside>
+
+        <section class="manuscript" aria-label="正文编辑区">
+            <div class="ms-head">
+                <input class="ms-title" id="chapterTitle" type="text" placeholder="章节标题" aria-label="章节标题">
+                <span class="ms-meta" id="chapterMeta"></span>
+                <button class="btn sm" id="saveNowBtn" type="button">保存</button>
+            </div>
+            <div class="ms-wrap">
+                <textarea class="ms-editor" id="manuscript" placeholder="在这里开始写作……&#10;&#10;左侧可管理卷与章、资料，以及使用写作提示词或 AI 辅助。" spellcheck="false" aria-label="正文"></textarea>
+            </div>
+            <div class="statusbar">
+                <span id="saveStatus" aria-live="polite">就绪</span>
+                <span id="countStatus"></span>
+            </div>
+        </section>
+    </main>
+</div>
+
+<button class="btn focus-exit" id="focusExitBtn" type="button">退出专注</button>
+
+<!-- ========== 章节编辑 ========== -->
+<div class="modal" id="chapterModal" role="dialog" aria-modal="true" aria-label="编辑章节">
+    <div class="modal-box">
+        <div class="modal-head"><h2 id="chapterModalTitle">编辑章节</h2><button class="modal-close" type="button" data-close="chapterModal" aria-label="关闭">×</button></div>
+        <div class="modal-body">
+            <div class="field"><label for="chapterNameInput">标题</label><input type="text" id="chapterNameInput" maxlength="120"></div>
+            <div class="field"><label for="chapterVolumeSelect">所属卷</label><select id="chapterVolumeSelect"></select></div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" type="button" data-close="chapterModal">取消</button>
+            <button class="btn primary" id="chapterSaveBtn" type="button">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 卷编辑 ========== -->
+<div class="modal" id="volumeModal" role="dialog" aria-modal="true" aria-label="编辑卷">
+    <div class="modal-box">
+        <div class="modal-head"><h2 id="volumeModalTitle">编辑卷</h2><button class="modal-close" type="button" data-close="volumeModal" aria-label="关闭">×</button></div>
+        <div class="modal-body">
+            <div class="field"><label for="volumeNameInput">卷名</label><input type="text" id="volumeNameInput" maxlength="120"></div>
+            <div class="field"><label for="volumeSynopsisInput">本卷简介（用于提示词）</label><textarea id="volumeSynopsisInput" rows="3"></textarea></div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" type="button" data-close="volumeModal">取消</button>
+            <button class="btn primary" id="volumeSaveBtn" type="button">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 资料卡编辑 ========== -->
+<div class="modal" id="entityModal" role="dialog" aria-modal="true" aria-label="编辑资料卡">
+    <div class="modal-box">
+        <div class="modal-head"><h2 id="entityModalTitle">资料卡</h2><button class="modal-close" type="button" data-close="entityModal" aria-label="关闭">×</button></div>
+        <div class="modal-body">
+            <div class="field"><label for="entityKind">类型</label>
+                <select id="entityKind"><option value="character">人物</option><option value="location">地点</option><option value="world">世界观</option></select>
+            </div>
+            <div class="field"><label for="entityName">名称</label><input type="text" id="entityName" maxlength="80"></div>
+            <div class="field"><label for="entityRole">身份 / 别称</label><input type="text" id="entityRole" maxlength="120"></div>
+            <div class="field"><label for="entitySummary">简介</label><textarea id="entitySummary" rows="4"></textarea></div>
+            <div class="field"><label for="entityTags">标签（逗号分隔）</label><input type="text" id="entityTags" maxlength="200"></div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn danger" id="entityDeleteBtn" type="button" style="margin-right:auto;">删除</button>
+            <button class="btn" type="button" data-close="entityModal">取消</button>
+            <button class="btn primary" id="entitySaveBtn" type="button">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 设置 ========== -->
+<div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-label="设置">
+    <div class="modal-box wide">
+        <div class="modal-head"><h2>设置</h2><button class="modal-close" type="button" data-close="settingsModal" aria-label="关闭">×</button></div>
+        <div class="modal-body">
+            <div class="field"><label for="presetSelect">接口预设</label>
+                <select id="presetSelect">
+                    <option value="deepseek">DeepSeek 官方直连</option>
+                    <option value="proxy">本机代理（127.0.0.1:8788）</option>
+                    <option value="anthropic">Anthropic</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="custom">自定义</option>
+                </select>
+            </div>
+            <div class="field"><label for="protocolSelect">协议</label>
+                <select id="protocolSelect">
+                    <option value="openai">OpenAI 兼容（/chat/completions）</option>
+                    <option value="anthropic">Anthropic Messages（/v1/messages）</option>
+                </select>
+            </div>
+            <div class="field"><label for="baseUrlInput">Base URL</label><input type="text" id="baseUrlInput" placeholder="https://api.deepseek.com/v1"></div>
+            <div class="field"><label for="modelInput">模型</label><input type="text" id="modelInput" placeholder="deepseek-chat"></div>
+            <div class="field"><label for="apiKeyInput">API Key</label><input type="password" id="apiKeyInput" autocomplete="off" spellcheck="false"></div>
+            <label class="check-row"><input type="checkbox" id="rememberKey"><span>记住密钥（明文保存在本浏览器；关闭则只在本次会话有效）</span></label>
+            <div class="row">
+                <button class="btn sm" id="toggleKeyBtn" type="button">显示密钥</button>
+                <button class="btn sm danger" id="clearKeyBtn" type="button">清除密钥</button>
+            </div>
+            <p class="hint">直连第三方接口常受浏览器跨域（CORS）限制，失败时请改用本机代理或支持 CORS 的端点。</p>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" type="button" data-close="settingsModal">取消</button>
+            <button class="btn primary" id="settingsSaveBtn" type="button">保存设置</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 排版 ========== -->
+<div class="modal" id="typeModal" role="dialog" aria-modal="true" aria-label="排版设置">
+    <div class="modal-box">
+        <div class="modal-head"><h2>排版</h2><button class="modal-close" type="button" data-close="typeModal" aria-label="关闭">×</button></div>
+        <div class="modal-body">
+            <div class="field"><label for="fontSelect">字体</label>
+                <select id="fontSelect">
+                    <option value="serif">宋体 / 衬线</option>
+                    <option value="sans">黑体 / 无衬线</option>
+                    <option value="mono">等宽</option>
+                    <option value="system">系统默认</option>
+                </select>
+            </div>
+            <div class="range-row"><label for="sizeRange">字号</label><input type="range" id="sizeRange" min="14" max="28" step="1"><output id="sizeOut">17</output></div>
+            <div class="range-row"><label for="lhRange">行高</label><input type="range" id="lhRange" min="1.4" max="2.4" step="0.1"><output id="lhOut">1.9</output></div>
+            <div class="field"><label>段首缩进</label>
+                <button class="btn" id="indentBtn" type="button">整理段落缩进（每段首两个全角空格）</button>
+            </div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn primary" type="button" data-close="typeModal">完成</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 数据 ========== -->
+<div class="modal" id="dataModal" role="dialog" aria-modal="true" aria-label="数据与备份">
+    <div class="modal-box">
+        <div class="modal-head"><h2>数据与备份</h2><button class="modal-close" type="button" data-close="dataModal" aria-label="关闭">×</button></div>
+        <div class="modal-body">
+            <p>正文保存在本浏览器的 IndexedDB 中。清除站点数据、换浏览器或换访问地址都会看不到旧稿，请定期导出备份。</p>
+            <div class="row">
+                <button class="btn primary" id="exportJsonBtn" type="button">导出 JSON</button>
+                <button class="btn" id="importJsonBtn" type="button">导入 JSON</button>
+            </div>
+            <div class="row">
+                <button class="btn" id="exportChapterBtn" type="button">导出当前章 TXT</button>
+                <button class="btn" id="exportBookBtn" type="button">导出全书 TXT</button>
+            </div>
+            <input type="file" id="importFile" accept=".json,application/json" hidden>
+            <p class="hint">导入时若确认覆盖，将清空当前浏览器里的全部 Writer 数据；取消则按合并方式导入（冲突条目会重新编号）。</p>
+            <button class="btn danger" id="clearAllBtn" type="button">清空全部数据</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 首次运行 / 关于 ========== -->
+<div class="modal" id="aboutModal" role="dialog" aria-modal="true" aria-label="关于 Writer">
+    <div class="modal-box">
+        <div class="modal-head"><h2>关于 Writer</h2><button class="modal-close" type="button" data-close="aboutModal" aria-label="关闭">×</button></div>
+        <div class="modal-body">
+            <p><strong>Writer · 小说编辑器</strong>　版本 <code>A1_I_Φ4_CN</code></p>
+            <ul>
+                <li>卷 / 章稿件树与字数统计</li>
+                <li>人物、地点、世界观资料库</li>
+                <li>写作提示词面板与一键复制</li>
+                <li>OpenAI 兼容 / Anthropic Messages 流式 AI</li>
+                <li>自动保存、JSON 与纯文本导出</li>
+            </ul>
+            <p class="warn">数据只保存在本机浏览器。用地址栏打开（Pages）与直接双击文件（file://）看到的是两份互不相通的数据，迁移请用「数据 → 导出 / 导入」。</p>
+            <p>直连第三方接口可能受浏览器跨域限制；可用本机代理或支持 CORS 的端点。</p>
+            <p style="font-size:0.78rem;color:var(--text-3);">Writer  Copyright (C) 2026-至今 北冥的鱼, DeepSeek<br>本程序是自由软件，基于 GPLv3 发布，无任何担保。</p>
+        </div>
+        <div class="modal-foot"><button class="btn primary" type="button" data-close="aboutModal">知道了</button></div>
+    </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============================================================================
+ * Writer · 小说编辑器（A1_I_Φ4_CN）
+ * ----------------------------------------------------------------------------
+ * 分层：Utils / EventBus / StorageService / BookService / EntityService /
+ *       PrefsService / PromptService / AIClient / BackupService / UI
+ * 数据全部保存在浏览器 IndexedDB（不可用时降级 localStorage）。
+ * 所有用户数据一律通过 textContent 渲染，不拼 innerHTML。
+ * ========================================================================== */
+(function () {
+    'use strict';
+
+    /* ======================================================================
+     * 0. 常量
+     * ==================================================================== */
+    const APP_ID = 'writer';
+    const DB_NAME = 'writer_db';
+    const DB_VERSION = 1;
+    const CURRENT_VERSION = 'A1_I_Φ4_CN';
+    const LS_FALLBACK_KEY = 'writer_db_fallback';
+    const LS_FIRST_RUN = 'writer_first_run';
+    const MAX_IMPORT_BYTES = 20 * 1024 * 1024;
+
+    const STORES = {
+        meta: { keyPath: 'key', indexes: [] },
+        books: { keyPath: 'id', indexes: [] },
+        volumes: { keyPath: 'id', indexes: [{ name: 'byBook', keyPath: 'bookId' }] },
+        chapters: { keyPath: 'id', indexes: [
+            { name: 'byBook', keyPath: 'bookId' },
+            { name: 'byVolume', keyPath: 'volumeId' }
+        ] },
+        chapterContents: { keyPath: 'id', indexes: [] },
+        entities: { keyPath: 'id', indexes: [
+            { name: 'byBook', keyPath: 'bookId' },
+            { name: 'byKind', keyPath: 'kind' }
+        ] },
+        prefs: { keyPath: 'key', indexes: [] }
+    };
+
+    const KIND_LABEL = { character: '人物', location: '地点', world: '世界观' };
+
+    const AI_PRESETS = {
+        deepseek: { protocol: 'openai', baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+        proxy: { protocol: 'openai', baseUrl: 'http://127.0.0.1:8788/v1', model: 'workbuddy-agent' },
+        anthropic: { protocol: 'anthropic', baseUrl: 'https://api.anthropic.com', model: 'claude-sonnet-5-5' },
+        openai: { protocol: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' }
+    };
+
+    const DEFAULT_AI = Object.assign({ apiKey: '', rememberKey: false, temperature: 0.8 }, AI_PRESETS.deepseek);
+    const DEFAULT_UI = {
+        font: 'serif', size: 17, lh: 1.9,
+        sidebarCollapsed: false, templateId: 'polish'
+    };
+
+    const PROMPT_TEMPLATES = [
+        {
+            id: 'outline', group: '结构', label: '故事大纲',
+            template: '你是一位擅长结构的故事编辑。请基于以下信息整理故事大纲。\n\n【本次要求】{inspiration}\n\n【已有设定】\n{characters}\n\n【书籍与卷简介】\n{outline}\n\n【现有正文】\n{chapterText}\n\n【输出要求】按卷、章列出主线、支线与关键转折，标注已埋伏笔及其回收位置；保持与现有正文一致。'
+        },
+        {
+            id: 'character', group: '结构', label: '人物设定',
+            template: '你是一位人物塑造顾问。请根据以下材料补全或修订人物设定。\n\n【本次要求】{inspiration}\n\n【已有设定】\n{characters}\n\n【现有正文】\n{chapterText}\n\n【输出要求】每人给出：身份、外貌与语言特征、核心欲望、致命弱点、与主线的关系、可发展的矛盾点。'
+        },
+        {
+            id: 'scene', group: '描写', label: '场景描写',
+            template: '你是一位擅长画面的小说作者。请把下面这段内容中的关键场景扩写为有画面感的段落。\n\n【本次要求】{inspiration}\n\n【相关设定】\n{characters}\n\n【需要处理的正文】\n{chapterText}\n\n【输出要求】调动视觉、听觉、嗅觉与触觉；控制篇幅，不堆砌形容词；保持叙事人称与时态一致。'
+        },
+        {
+            id: 'dialogue', group: '描写', label: '对话打磨',
+            template: '你是一位对白编辑。请打磨下面这段对白，使其更符合人物身份并推动情节。\n\n【本次要求】{inspiration}\n\n【人物设定】\n{characters}\n\n【原文】\n{chapterText}\n\n【输出要求】删去无信息量的寒暄；让每个人说话方式可区分；用动作与停顿替代解释性台词；保留原有情节信息。'
+        },
+        {
+            id: 'foreshadow', group: '结构', label: '伏笔设计',
+            template: '你是一位结构编辑。请为下面的内容设计伏笔与回收方案。\n\n【本次要求】{inspiration}\n\n【设定】\n{characters}\n\n【正文】\n{chapterText}\n\n【输出要求】列出：埋设位置、表面含义、真实指向、计划回收的章节、回收时的效果。避免读者过早猜中。'
+        },
+        {
+            id: 'pacing', group: '诊断', label: '节奏诊断',
+            template: '你是一位节奏诊断师。请分析下面正文的节奏问题并给出可执行的修改方案。\n\n【本次要求】{inspiration}\n\n【正文】\n{chapterText}\n\n【输出要求】标注拖沓段、信息密度过高段、场景切换生硬处；给出具体的删改建议与调整后的段落顺序；说明修改后读者情绪曲线的变化。'
+        },
+        {
+            id: 'polish', group: '润色', label: '文笔润色',
+            template: '你是一位文字编辑。请润色下面的正文，不改变情节与人物。\n\n【本次要求】{inspiration}\n\n【原文】\n{chapterText}\n\n【输出要求】统一叙事语气；删除重复与口水句；修正搭配不当与标点；保留作者的个人语言风格；输出润色后的完整段落，并在末尾用简短列表说明主要改动。'
+        },
+        {
+            id: 'expand', group: '扩写', label: '片段扩写',
+            template: '你是一位小说作者。请扩写下面这段内容。\n\n【本次要求】{inspiration}\n\n【相关设定】\n{characters}\n\n【原文】\n{chapterText}\n\n【输出要求】补充环境、动作与心理细节；保持原有情节节点与人物口吻；扩写幅度控制在原文的两到三倍。'
+        },
+        {
+            id: 'continue', group: '续写', label: '章节续写',
+            template: '你是一位与作者合写的小说作者。请续写下一段情节。\n\n【本次要求】{inspiration}\n\n【设定】\n{characters}\n\n【上一章结尾】\n{prevChapter}\n\n【本章已有正文】\n{chapterText}\n\n【输出要求】紧接已有正文，保持人称、时态与语言风格；推进一个明确的情节目标；结尾留一个自然的悬念或转折。'
+        },
+        {
+            id: 'conflict', group: '诊断', label: '冲突升级',
+            template: '你是一位故事顾问。请分析并升级下面的冲突。\n\n【本次要求】{inspiration}\n\n【人物关系】\n{characters}\n\n【正文】\n{chapterText}\n\n【输出要求】指出当前冲突的层级（内心 / 人际 / 环境 / 命运）；给出三档升级方案（保守、加码、失控）；说明每档对后续情节的影响。'
+        }
+    ];
+
+    /* ======================================================================
+     * 1. Utils
+     * ==================================================================== */
+    const Utils = {
+        $(sel, root) { return (root || document).querySelector(sel); },
+        $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); },
+
+        uid(prefix) {
+            return (prefix || 'id') + '_' + Date.now().toString(36) + '_' +
+                Math.random().toString(36).slice(2, 8);
+        },
+
+        debounce(fn, wait) {
+            let t = null;
+            const wrapped = function () {
+                const args = arguments, ctx = this;
+                clearTimeout(t);
+                t = setTimeout(function () { fn.apply(ctx, args); }, wait);
+            };
+            wrapped.cancel = function () { clearTimeout(t); };
+            return wrapped;
+        },
+
+        sanitizeFilename(name, fallback) {
+            const cleaned = String(name || '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim();
+            return (cleaned || fallback || 'writer').slice(0, 80);
+        },
+
+        download(filename, text, mime) {
+            const blob = new Blob([text], { type: (mime || 'text/plain') + ';charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        },
+
+        async copyText(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (e) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+                document.body.removeChild(ta);
+                return ok;
+            }
+        },
+
+        nowTime() {
+            const d = new Date();
+            const pad = function (n) { return String(n).padStart(2, '0'); };
+            return pad(d.getHours()) + ':' + pad(d.getMinutes());
+        }
+    };
+
+    /* ======================================================================
+     * 2. EventBus
+     * ==================================================================== */
+    const EventBus = {
+        _map: Object.create(null),
+        on(name, fn) {
+            (this._map[name] || (this._map[name] = [])).push(fn);
+        },
+        emit(name, payload) {
+            const list = this._map[name];
+            if (!list) return;
+            list.slice().forEach(function (fn) {
+                try { fn(payload); } catch (e) { console.error('[EventBus]', name, e); }
+            });
+        }
+    };
+
+    /* ======================================================================
+     * 3. StorageService（IndexedDB，失败降级 localStorage）
+     * ==================================================================== */
+    const Storage = {
+        mode: 'idb',
+        db: null,
+        _mem: null,
+
+        async init() {
+            try {
+                this.db = await this._open();
+                this.mode = 'idb';
+            } catch (e) {
+                console.warn('[Storage] IndexedDB 不可用，降级 localStorage', e);
+                this.mode = 'ls';
+                let raw = null;
+                try { raw = localStorage.getItem(LS_FALLBACK_KEY); } catch (e2) { raw = null; }
+                this._mem = raw ? JSON.parse(raw) : {};
+                const names = Object.keys(STORES);
+                for (let i = 0; i < names.length; i++) {
+                    if (!this._mem[names[i]]) this._mem[names[i]] = {};
+                }
+            }
+            if (this.mode === 'idb') {
+                const schema = await this.get('meta', 'schema');
+                if (!schema) {
+                    await this.put('meta', { key: 'schema', value: DB_VERSION });
+                    await this.put('meta', { key: 'createdAt', value: Date.now() });
+                }
+            }
+            if (navigator.storage && navigator.storage.persist) {
+                try { await navigator.storage.persist(); } catch (e) { /* 忽略 */ }
+            }
+            return this.mode;
+        },
+
+        _open() {
+            return new Promise(function (resolve, reject) {
+                if (!window.indexedDB) { reject(new Error('no indexedDB')); return; }
+                let req;
+                try { req = indexedDB.open(DB_NAME, DB_VERSION); }
+                catch (e) { reject(e); return; }
+
+                req.onupgradeneeded = function (ev) {
+                    const db = req.result;
+                    const oldV = ev.oldVersion || 0;
+                    const names = Object.keys(STORES);
+                    for (let i = 0; i < names.length; i++) {
+                        const name = names[i];
+                        const spec = STORES[name];
+                        let store;
+                        if (!db.objectStoreNames.contains(name)) {
+                            store = db.createObjectStore(name, { keyPath: spec.keyPath });
+                        } else {
+                            store = req.transaction.objectStore(name);
+                        }
+                        for (let j = 0; j < spec.indexes.length; j++) {
+                            const idx = spec.indexes[j];
+                            if (!store.indexNames.contains(idx.name)) {
+                                store.createIndex(idx.name, idx.keyPath);
+                            }
+                        }
+                    }
+                    if (oldV < 1 && db.objectStoreNames.contains('meta')) {
+                        req.transaction.objectStore('meta').put({ key: 'schema', value: 1 });
+                    }
+                };
+                req.onsuccess = function () { resolve(req.result); };
+                req.onerror = function () { reject(req.error || new Error('idb open failed')); };
+                req.onblocked = function () { reject(new Error('idb blocked')); };
+            });
+        },
+
+        _tx(store, mode, fn) {
+            const db = this.db;
+            return new Promise(function (resolve, reject) {
+                let tx;
+                try { tx = db.transaction(store, mode); }
+                catch (e) { reject(e); return; }
+                const os = tx.objectStore(store);
+                let result;
+                try { result = fn(os); }
+                catch (e) { reject(e); return; }
+                tx.oncomplete = function () { resolve(result); };
+                tx.onerror = function () { reject(tx.error || new Error('tx error')); };
+                tx.onabort = function () { reject(tx.error || new Error('tx abort')); };
+            });
+        },
+
+        _lsPersist() {
+            try { localStorage.setItem(LS_FALLBACK_KEY, JSON.stringify(this._mem)); }
+            catch (e) { console.warn('[Storage] localStorage 写入失败', e); }
+        },
+
+        async get(store, key) {
+            if (this.mode === 'ls') return this._mem[store][key] || undefined;
+            // 在请求完成时再读取 req.result；oncomplete 保证事务已提交
+            return this._tx(store, 'readonly', function (os) { return os.get(key); })
+                .then(function (req) { return req ? req.result : undefined; });
+        },
+
+        async getAll(store) {
+            if (this.mode === 'ls') return Object.keys(this._mem[store]).map((k) => this._mem[store][k]);
+            return this._tx(store, 'readonly', function (os) { return os.getAll(); })
+                .then(function (req) { return req ? req.result : []; });
+        },
+
+        async getAllByIndex(store, index, value) {
+            if (this.mode === 'ls') {
+                const spec = STORES[store];
+                const idx = spec.indexes.filter(function (i) { return i.name === index; })[0];
+                if (!idx) return [];
+                const all = this._mem[store];
+                return Object.keys(all).map((k) => all[k]).filter(function (o) { return o[idx.keyPath] === value; });
+            }
+            return this._tx(store, 'readonly', function (os) { return os.index(index).getAll(value); })
+                .then(function (req) { return req ? req.result : []; });
+        },
+
+        async put(store, obj) {
+            if (this.mode === 'ls') {
+                this._mem[store][obj[STORES[store].keyPath]] = obj;
+                this._lsPersist();
+                return obj;
+            }
+            return this._tx(store, 'readwrite', function (os) { os.put(obj); return obj; });
+        },
+
+        async bulkPut(store, arr) {
+            if (!arr || !arr.length) return arr;
+            if (this.mode === 'ls') {
+                const kp = STORES[store].keyPath;
+                for (let i = 0; i < arr.length; i++) this._mem[store][arr[i][kp]] = arr[i];
+                this._lsPersist();
+                return arr;
+            }
+            return this._tx(store, 'readwrite', function (os) {
+                for (let i = 0; i < arr.length; i++) os.put(arr[i]);
+                return arr;
+            });
+        },
+
+        async del(store, key) {
+            if (this.mode === 'ls') {
+                delete this._mem[store][key];
+                this._lsPersist();
+                return true;
+            }
+            return this._tx(store, 'readwrite', function (os) { os.delete(key); return true; });
+        },
+
+        async clearStore(store) {
+            if (this.mode === 'ls') {
+                this._mem[store] = {};
+                this._lsPersist();
+                return true;
+            }
+            return this._tx(store, 'readwrite', function (os) { os.clear(); return true; });
+        },
+
+        async clearAll() {
+            const names = Object.keys(STORES);
+            if (this.mode === 'ls') {
+                this._mem = {};
+                for (let i = 0; i < names.length; i++) this._mem[names[i]] = {};
+                this._lsPersist();
+                return true;
+            }
+            for (let i = 0; i < names.length; i++) await this.clearStore(names[i]);
+            await this.put('meta', { key: 'schema', value: DB_VERSION });
+            await this.put('meta', { key: 'createdAt', value: Date.now() });
+            return true;
+        }
+    };
+
+    /* ======================================================================
+     * 4. 字数统计
+     * ==================================================================== */
+    const RE_CJK = /[\u3400-\u4DBF\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF\uF900-\uFAFF]/g;
+    const RE_WORD = /[A-Za-z0-9]+(?:['\u2019-][A-Za-z0-9]+)*/g;
+
+    function countWords(text) {
+        if (!text) return 0;
+        const cjk = text.match(RE_CJK);
+        const words = text.match(RE_WORD);
+        return (cjk ? cjk.length : 0) + (words ? words.length : 0);
+    }
+
+    function charCount(text) { return text ? text.length : 0; }
+
+    /* ======================================================================
+     * 5. 状态
+     * ==================================================================== */
+    const State = {
+        books: [],
+        volumes: [],
+        chapters: [],
+        entities: [],
+        bookId: null,
+        volumeId: null,
+        chapterId: null,
+        text: '',
+        dirty: false,
+        refs: Object.create(null),
+        templateId: null,
+        prefs: { ui: Object.assign({}, DEFAULT_UI), ai: Object.assign({}, DEFAULT_AI) },
+        sessionApiKey: '',
+        undo: null
+    };
+
+    /* ======================================================================
+     * 6. UI 基础：Toast / Modal
+     * ==================================================================== */
+    const UI = {
+        toastEl: null,
+        toastTimer: null,
+
+        toast(msg, actionLabel, actionFn, ms) {
+            const el = this.toastEl || (this.toastEl = Utils.$('#toast'));
+            el.textContent = '';
+            const span = document.createElement('span');
+            span.textContent = msg;
+            el.appendChild(span);
+            if (actionLabel && actionFn) {
+                const btn = document.createElement('button');
+                btn.className = 'btn sm';
+                btn.style.marginLeft = '10px';
+                btn.textContent = actionLabel;
+                btn.addEventListener('click', function () {
+                    hideToast();
+                    actionFn();
+                });
+                el.appendChild(btn);
+            }
+            el.classList.add('show');
+            clearTimeout(this.toastTimer);
+            const self = this;
+            function hideToast() {
+                el.classList.remove('show');
+                clearTimeout(self.toastTimer);
+            }
+            this.toastTimer = setTimeout(hideToast, ms || 2600);
+        },
+
+        // 焦点陷阱与焦点归还：打开时记住触发元素，关闭时把焦点还回去，
+        // 否则读屏与键盘用户关掉弹窗后会掉回文档开头。
+        _modalStack: [],
+        _lastFocus: null,
+
+        _focusables(el) {
+            return Array.prototype.filter.call(
+                el.querySelectorAll(
+                    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                ),
+                function (n) { return n.offsetParent !== null || n === document.activeElement; }
+            );
+        },
+
+        openModal(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            this._lastFocus = document.activeElement;
+            el.classList.add('open');
+            this._modalStack.push(id);
+            const focusable = this._focusables(el)[0];
+            if (focusable) setTimeout(function () { try { focusable.focus(); } catch (e) {} }, 30);
+        },
+
+        closeModal(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('open');
+            this._modalStack = this._modalStack.filter(function (m) { return m !== id; });
+            if (this._lastFocus && document.contains(this._lastFocus)) {
+                try { this._lastFocus.focus(); } catch (e) {}
+            }
+            this._lastFocus = null;
+        },
+
+        // 最上层弹窗 = 最近一次打开的那个，不是 DOM 里最靠后的那个。
+        // 首启的「关于」弹窗常驻打开时，DOM 顺序会把后打开的设置弹窗
+        // 挤到前面，导致 Esc / Tab 作用在错误的弹窗上。
+        _topmost() {
+            while (this._modalStack.length) {
+                const id = this._modalStack[this._modalStack.length - 1];
+                const el = document.getElementById(id);
+                if (el && el.classList.contains('open')) return el;
+                this._modalStack.pop();   // 已被别处关掉，清出栈
+            }
+            const open = Utils.$$('.modal.open');
+            return open.length ? open[open.length - 1] : null;
+        },
+
+        closeTopmost() {
+            const box = this._topmost();
+            if (!box) return false;
+            box.classList.remove('open');
+            this._modalStack = this._modalStack.filter(function (m) { return m !== box.id; });
+            if (this._lastFocus && document.contains(this._lastFocus)) {
+                try { this._lastFocus.focus(); } catch (e) {}
+            }
+            this._lastFocus = null;
+            return true;
+        },
+
+        // 模态框打开时把 Tab 圈在框内（Esc 由全局 keydown 处理）。
+        // 焦点可能跑到框外（例如点了遮罩、或某次 focus() 失败落到 body），
+        // 这时单纯比较 first/last 拦不住，要先把焦点拉回首项。
+        trapFocus(ev) {
+            if (ev.key !== 'Tab') return false;
+            const box = this._topmost();
+            if (!box) return false;
+            const items = this._focusables(box);
+            if (!items.length) return false;
+            const first = items[0];
+            const last = items[items.length - 1];
+
+            if (!box.contains(document.activeElement)) {
+                ev.preventDefault();
+                first.focus();
+                return true;
+            }
+            if (ev.shiftKey && document.activeElement === first) {
+                ev.preventDefault();
+                last.focus();
+                return true;
+            }
+            if (!ev.shiftKey && document.activeElement === last) {
+                ev.preventDefault();
+                first.focus();
+                return true;
+            }
+            return false;
+        },
+
+        setSaved(text) {
+            const el = Utils.$('#saveStatus');
+            if (el) {
+                el.textContent = text;
+                el.className = /已保存/.test(text) ? 'saved' : '';
+            }
+        }
+    };
+
+    /* ======================================================================
+     * 7. BookService
+     * ==================================================================== */
+    const BookService = {
+        async loadAll() {
+            State.books = (await Storage.getAll('books')).sort(function (a, b) {
+                return (a.updatedAt || 0) - (b.updatedAt || 0);
+            });
+        },
+
+        async loadBook(bookId) {
+            State.volumes = (await Storage.getAllByIndex('volumes', 'byBook', bookId))
+                .sort(function (a, b) { return a.order - b.order; });
+            State.chapters = (await Storage.getAllByIndex('chapters', 'byBook', bookId))
+                .sort(function (a, b) { return a.order - b.order; });
+            State.entities = (await Storage.getAllByIndex('entities', 'byBook', bookId))
+                .sort(function (a, b) { return (a.name || '').localeCompare(b.name || '', 'zh'); });
+        },
+
+        currentBook() {
+            return State.books.filter(function (b) { return b.id === State.bookId; })[0] || null;
+        },
+        currentVolume() {
+            return State.volumes.filter(function (v) { return v.id === State.volumeId; })[0] || null;
+        },
+        currentChapter() {
+            return State.chapters.filter(function (c) { return c.id === State.chapterId; })[0] || null;
+        },
+
+        chaptersOf(volumeId) {
+            return State.chapters
+                .filter(function (c) { return c.volumeId === volumeId; })
+                .sort(function (a, b) { return a.order - b.order; });
+        },
+
+        totalWords(volumeId) {
+            const list = volumeId
+                ? State.chapters.filter(function (c) { return c.volumeId === volumeId; })
+                : State.chapters;
+            return list.reduce(function (sum, c) { return sum + (c.wordCount || 0); }, 0);
+        },
+
+        async createBook(title) {
+            const now = Date.now();
+            const book = {
+                id: Utils.uid('book'),
+                title: title || '未命名作品',
+                author: '', synopsis: '',
+                createdAt: now, updatedAt: now
+            };
+            await Storage.put('books', book);
+            State.books.push(book);
+
+            const volume = {
+                id: Utils.uid('vol'),
+                bookId: book.id, title: '第一卷', synopsis: '', order: 0
+            };
+            await Storage.put('volumes', volume);
+
+            const chapter = {
+                id: Utils.uid('ch'),
+                bookId: book.id, volumeId: volume.id,
+                title: '第一章', order: 0, wordCount: 0, updatedAt: now
+            };
+            await Storage.put('chapters', chapter);
+            await Storage.put('chapterContents', { id: chapter.id, text: '', updatedAt: now });
+
+            State.volumes = [volume];
+            State.chapters = [chapter];
+            State.entities = [];
+            State.bookId = book.id;
+            State.volumeId = volume.id;
+            State.chapterId = chapter.id;
+            State.text = '';
+            State.dirty = false;
+            await PrefsService.saveLast();
+            return book;
+        },
+
+        async createVolume(title) {
+            if (!State.bookId) return null;
+            const order = State.volumes.length;
+            const volume = {
+                id: Utils.uid('vol'),
+                bookId: State.bookId,
+                title: title || ('第' + (order + 1) + '卷'),
+                synopsis: '', order: order
+            };
+            await Storage.put('volumes', volume);
+            State.volumes.push(volume);
+            return volume;
+        },
+
+        async createChapter(volumeId, title) {
+            if (!State.bookId) return null;
+            const target = volumeId || State.volumeId ||
+                (State.volumes[0] && State.volumes[0].id);
+            if (!target) return null;
+            const list = this.chaptersOf(target);
+            const ch = {
+                id: Utils.uid('ch'),
+                bookId: State.bookId,
+                volumeId: target,
+                title: title || ('第' + (list.length + 1) + '章'),
+                order: list.length,
+                wordCount: 0,
+                updatedAt: Date.now()
+            };
+            await Storage.put('chapters', ch);
+            await Storage.put('chapterContents', { id: ch.id, text: '', updatedAt: Date.now() });
+            State.chapters.push(ch);
+            return ch;
+        },
+
+        async updateVolume(volume) {
+            await Storage.put('volumes', volume);
+        },
+
+        async updateChapter(chapter) {
+            await Storage.put('chapters', chapter);
+        },
+
+        async deleteChapter(chapterId) {
+            const ch = State.chapters.filter(function (c) { return c.id === chapterId; })[0];
+            if (!ch) return;
+            const content = await Storage.get('chapterContents', chapterId);
+            const index = State.chapters.indexOf(ch);
+            State.chapters.splice(index, 1);
+            await Storage.del('chapters', chapterId);
+            await Storage.del('chapterContents', chapterId);
+            await this.reorderVolume(ch.volumeId);
+            State.undo = { chapter: ch, content: content || { id: ch.id, text: '' }, index: index };
+        },
+
+        async undoDelete() {
+            const u = State.undo;
+            if (!u) return false;
+            State.undo = null;
+            State.chapters.push(u.chapter);
+            await Storage.put('chapters', u.chapter);
+            await Storage.put('chapterContents', u.content);
+            await this.reorderVolume(u.chapter.volumeId);
+            return true;
+        },
+
+        async reorderVolume(volumeId) {
+            const list = this.chaptersOf(volumeId);
+            const updates = [];
+            list.forEach(function (c, i) {
+                if (c.order !== i) { c.order = i; updates.push(c); }
+            });
+            if (updates.length) await Storage.bulkPut('chapters', updates);
+        },
+
+        async reorderVolumes() {
+            State.volumes.sort(function (a, b) { return a.order - b.order; });
+            const updates = [];
+            State.volumes.forEach(function (v, i) {
+                if (v.order !== i) { v.order = i; updates.push(v); }
+            });
+            if (updates.length) await Storage.bulkPut('volumes', updates);
+        },
+
+        async moveChapter(chapterId, direction) {
+            const ch = State.chapters.filter(function (c) { return c.id === chapterId; })[0];
+            if (!ch) return;
+            const list = this.chaptersOf(ch.volumeId);
+            const idx = list.indexOf(ch);
+
+            if (direction === 'up' && idx > 0) {
+                const prev = list[idx - 1];
+                const t = ch.order; ch.order = prev.order; prev.order = t;
+                await Storage.bulkPut('chapters', [ch, prev]);
+                this.chaptersOf(ch.volumeId).sort(function (a, b) { return a.order - b.order; });
+                return;
+            }
+            if (direction === 'down' && idx < list.length - 1) {
+                const next = list[idx + 1];
+                const t = ch.order; ch.order = next.order; next.order = t;
+                await Storage.bulkPut('chapters', [ch, next]);
+                this.chaptersOf(ch.volumeId).sort(function (a, b) { return a.order - b.order; });
+                return;
+            }
+
+            const volIdx = State.volumes.map(function (v) { return v.id; }).indexOf(ch.volumeId);
+            let targetVol = null;
+            if (direction === 'up' && idx === 0 && volIdx > 0) targetVol = State.volumes[volIdx - 1];
+            if (direction === 'down' && idx === list.length - 1 && volIdx < State.volumes.length - 1) {
+                targetVol = State.volumes[volIdx + 1];
+            }
+            if (!targetVol) return;
+
+            // 先记下源卷，移走章节后要一起重排：否则源卷会留下
+            // 0,1,3,4 这样的空洞的 order，后续上移下移的比较会出错。
+            const sourceVolumeId = ch.volumeId;
+            ch.volumeId = targetVol.id;
+            ch.order = this.chaptersOf(targetVol.id).length;
+            await Storage.put('chapters', ch);
+            await this.reorderVolume(ch.volumeId);
+            await this.reorderVolume(sourceVolumeId);
+        },
+
+        async moveVolume(volumeId, direction) {
+            const idx = State.volumes.map(function (v) { return v.id; }).indexOf(volumeId);
+            if (idx < 0) return;
+            const swap = direction === 'up' ? idx - 1 : idx + 1;
+            if (swap < 0 || swap >= State.volumes.length) return;
+            const a = State.volumes[idx], b = State.volumes[swap];
+            const t = a.order; a.order = b.order; b.order = t;
+            await Storage.bulkPut('volumes', [a, b]);
+            State.volumes.sort(function (x, y) { return x.order - y.order; });
+        }
+    };
+
+    /* ======================================================================
+     * 8. EntityService
+     * ==================================================================== */
+    const EntityService = {
+        async save(entity) {
+            await Storage.put('entities', entity);
+            const idx = State.entities.map(function (e) { return e.id; }).indexOf(entity.id);
+            if (idx >= 0) State.entities[idx] = entity;
+            else State.entities.push(entity);
+            State.entities.sort(function (a, b) {
+                return (a.name || '').localeCompare(b.name || '', 'zh');
+            });
+        },
+        async remove(entityId) {
+            await Storage.del('entities', entityId);
+            State.entities = State.entities.filter(function (e) { return e.id !== entityId; });
+            delete State.refs[entityId];
+        }
+    };
+
+    /* ======================================================================
+     * 9. PrefsService
+     * ==================================================================== */
+    const PrefsService = {
+        async load() {
+            const ui = await Storage.get('prefs', 'ui');
+            const ai = await Storage.get('prefs', 'ai');
+            const last = await Storage.get('prefs', 'last');
+            State.prefs.ui = Object.assign({}, DEFAULT_UI, ui && ui.value ? ui.value : {});
+            State.prefs.ai = Object.assign({}, DEFAULT_AI, ai && ai.value ? ai.value : {});
+            if (!State.prefs.ai.rememberKey) State.prefs.ai.apiKey = '';
+            return last && last.value ? last.value : null;
+        },
+        async saveUI() {
+            await Storage.put('prefs', { key: 'ui', value: State.prefs.ui });
+        },
+        async saveAI() {
+            await Storage.put('prefs', { key: 'ai', value: State.prefs.ai });
+        },
+        async saveLast() {
+            await Storage.put('prefs', {
+                key: 'last',
+                value: { bookId: State.bookId, volumeId: State.volumeId, chapterId: State.chapterId }
+            });
+        }
+    };
+
+    /* ======================================================================
+     * 10. PromptService
+     * ==================================================================== */
+    const PromptService = {
+        template(id) {
+            return PROMPT_TEMPLATES.filter(function (t) { return t.id === id; })[0] || null;
+        },
+
+        refEntities() {
+            return State.entities.filter(function (e) { return State.refs[e.id]; });
+        },
+
+        formatRefs() {
+            const list = this.refEntities();
+            if (!list.length) return '（未引用资料）';
+            return list.map(function (e) {
+                const head = '【' + (KIND_LABEL[e.kind] || '资料') + '】' + e.name +
+                    (e.role ? '（' + e.role + '）' : '');
+                const tags = e.tags && e.tags.length ? '　标签：' + e.tags.join('、') : '';
+                return head + (e.summary ? '\n' + e.summary : '') + tags;
+            }).join('\n\n');
+        },
+
+        outlineText() {
+            const book = BookService.currentBook();
+            const vol = BookService.currentVolume();
+            const parts = [];
+            if (book && book.synopsis) parts.push('【全书】' + book.synopsis);
+            if (vol && vol.synopsis) parts.push('【本卷】' + vol.synopsis);
+            return parts.length ? parts.join('\n') : '（未填写）';
+        },
+
+        prevChapterTail() {
+            const ch = BookService.currentChapter();
+            if (!ch) return '（无）';
+            const list = BookService.chaptersOf(ch.volumeId);
+            const idx = list.indexOf(ch);
+            const prev = idx > 0 ? list[idx - 1] : null;
+            if (!prev) return '（本章为卷首，无上一章）';
+            return State._prevText || '（上一章内容尚未载入）';
+        },
+
+        compose() {
+            const tpl = this.template(State.templateId);
+            const inspiration = (Utils.$('#inspiration').value || '').trim();
+            // 上一章内容由异步预取填充；未就绪时给出占位提示
+            const ctx = {
+                inspiration: inspiration || '（未填写）',
+                chapterText: State.text || '（当前章为空）',
+                characters: this.formatRefs(),
+                outline: this.outlineText(),
+                prevChapter: this.prevChapterTail()
+            };
+            if (tpl) return fillTemplate(tpl.template, ctx);
+
+            return '你是一位小说写作助手。请根据以下要求协助我。\n\n【本次要求】' + ctx.inspiration +
+                '\n\n【相关设定】\n' + ctx.characters +
+                '\n\n【书籍与卷简介】\n' + ctx.outline +
+                '\n\n【当前正文】\n' + ctx.chapterText;
+        }
+    };
+
+    function fillTemplate(tpl, ctx) {
+        return tpl.replace(/\{(\w+)\}/g, function (m, key) {
+            return Object.prototype.hasOwnProperty.call(ctx, key) ? ctx[key] : m;
+        });
+    }
+
+    let prevCacheKey = '';
+    // 上一章正文是异步读出来的。合成提示词前必须等它落地，否则模板里
+    // {prevChapter} 会渲染成「（上一章内容尚未载入）」。这里记住最近一次
+    // 预取对应的 key，供 composePrompt() 判断是否还需要等待。
+    let prevLoading = null;
+
+    function prevKeyOf(ch) {
+        const list = BookService.chaptersOf(ch.volumeId);
+        const idx = list.indexOf(ch);
+        if (idx <= 0) return null;
+        const prev = list[idx - 1];
+        return prev.id + ':' + (prev.updatedAt || 0);
+    }
+
+    async function getPrevChapterText() {
+        const ch = BookService.currentChapter();
+        if (!ch) return;
+        const key = prevKeyOf(ch);
+        if (key === null) { State._prevText = ''; prevCacheKey = ''; prevLoading = null; return; }
+        if (key === prevCacheKey) return;   // 已是最新
+        if (prevLoading && prevLoading.key === key) return prevLoading.promise;
+
+        const prevId = key.slice(0, key.lastIndexOf(':'));
+        const promise = Storage.get('chapterContents', prevId).then(function (content) {
+            const text = content && content.text ? content.text : '';
+            State._prevText = text.slice(-500);
+            prevCacheKey = key;
+            prevLoading = null;
+        }, function (err) {
+            // 读失败时清掉缓存，否则后续对同一章的调用会一直拿到这个
+            // 已拒绝的 promise，直到用户切换章节改变 key 才恢复。
+            prevLoading = null;
+            throw err;
+        });
+        prevLoading = { key: key, promise: promise };
+        return promise;
+    }
+
+    // 合成提示词：先确保上一章正文已就绪。预览、复制、送入 AI 都走这里，
+    // 避免各自再拼一次 await 逻辑。
+    async function composePrompt() {
+        await getPrevChapterText();
+        return PromptService.compose();
+    }
+
+    /* ======================================================================
+     * 11. AIClient（OpenAI 兼容 / Anthropic Messages，SSE 流式）
+     * ==================================================================== */
+    const AIClient = {
+        config() {
+            const ai = State.prefs.ai;
+            return {
+                protocol: ai.protocol || 'openai',
+                baseUrl: (ai.baseUrl || AI_PRESETS.deepseek.baseUrl).replace(/\/+$/, ''),
+                model: ai.model || AI_PRESETS.deepseek.model,
+                apiKey: ai.rememberKey ? (ai.apiKey || '') : (State.sessionApiKey || ''),
+                temperature: typeof ai.temperature === 'number' ? ai.temperature : 0.8
+            };
+        },
+
+        endpoint(cfg) {
+            if (cfg.protocol === 'anthropic') {
+                return /\/v1$/.test(cfg.baseUrl) ? cfg.baseUrl + '/messages' : cfg.baseUrl + '/v1/messages';
+            }
+            return /\/chat\/completions$/.test(cfg.baseUrl)
+                ? cfg.baseUrl
+                : cfg.baseUrl + '/chat/completions';
+        },
+
+        headers(cfg) {
+            const headers = { 'Content-Type': 'application/json' };
+            if (cfg.protocol === 'anthropic') {
+                if (cfg.apiKey) headers['x-api-key'] = cfg.apiKey;
+                headers['anthropic-version'] = '2023-06-01';
+                headers['anthropic-dangerous-direct-browser-access'] = 'true';
+            } else if (cfg.apiKey) {
+                headers['Authorization'] = 'Bearer ' + cfg.apiKey;
+            }
+            return headers;
+        },
+
+        body(cfg, prompt) {
+            if (cfg.protocol === 'anthropic') {
+                return {
+                    model: cfg.model,
+                    max_tokens: 4096,
+                    temperature: cfg.temperature,
+                    stream: true,
+                    messages: [{ role: 'user', content: prompt }]
+                };
+            }
+            return {
+                model: cfg.model,
+                temperature: cfg.temperature,
+                stream: true,
+                messages: [{ role: 'user', content: prompt }]
+            };
+        },
+
+        async *stream(prompt, signal) {
+            const cfg = this.config();
+            const url = this.endpoint(cfg);
+            let response;
+            try {
+                response = await fetch(url, {
+                    method: 'POST',
+                    headers: this.headers(cfg),
+                    body: JSON.stringify(this.body(cfg, prompt)),
+                    signal: signal
+                });
+            } catch (e) {
+                if (e && e.name === 'AbortError') throw e;
+                throw new AIError('网络请求失败。可能是跨域（CORS）限制、地址不可达或本地代理未启动。', e);
+            }
+
+            if (!response.ok) {
+                let detail = '';
+                try {
+                    const text = await response.text();
+                    try {
+                        const data = JSON.parse(text);
+                        detail = (data.error && (data.error.message || data.error.type)) || '';
+                    } catch (e2) { detail = text.slice(0, 240); }
+                } catch (e3) { /* 忽略 */ }
+                throw new AIError('接口返回 HTTP ' + response.status + (detail ? '：' + detail : ''), null);
+            }
+
+            const ctype = (response.headers.get('content-type') || '').toLowerCase();
+            if (ctype.indexOf('text/event-stream') === -1 && response.body) {
+                // 有些兼容实现不按 SSE 返回，退化为整体文本
+                const text = await response.text();
+                if (text) yield text;
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+
+            while (true) {
+                const chunk = await reader.read();
+                if (chunk.done) break;
+                buffer += decoder.decode(chunk.value, { stream: true });
+                buffer = buffer.replace(/\r\n/g, '\n');
+
+                let sep;
+                while ((sep = buffer.indexOf('\n\n')) >= 0) {
+                    const block = buffer.slice(0, sep);
+                    buffer = buffer.slice(sep + 2);
+                    const delta = this.parseBlock(block, cfg.protocol);
+                    if (delta === null) return;
+                    if (delta) yield delta;
+                }
+            }
+
+            buffer += decoder.decode();
+            if (buffer.trim()) {
+                const delta = this.parseBlock(buffer, cfg.protocol);
+                if (delta) yield delta;
+            }
+        },
+
+        parseBlock(block, protocol) {
+            const lines = block.split('\n');
+            let out = '';
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.indexOf('data:') !== 0) continue;
+                const payload = line.slice(5).trim();
+                if (!payload) continue;
+                if (payload === '[DONE]') return null;
+                let data;
+                try { data = JSON.parse(payload); } catch (e) { continue; }
+
+                if (protocol === 'anthropic') {
+                    if (data.type === 'message_stop') return null;
+                    if (data.type === 'error' && data.error) {
+                        throw new AIError('接口返回错误：' + (data.error.message || data.error.type || '未知'), null);
+                    }
+                    if (data.type === 'content_block_delta' && data.delta && typeof data.delta.text === 'string') {
+                        out += data.delta.text;
+                    }
+                } else {
+                    const choice = data.choices && data.choices[0];
+                    if (!choice) continue;
+                    if (choice.delta && typeof choice.delta.content === 'string') out += choice.delta.content;
+                    else if (choice.message && typeof choice.message.content === 'string') out += choice.message.content;
+                }
+            }
+            return out;
+        }
+    };
+
+    function AIError(message, cause) {
+        this.name = 'AIError';
+        this.message = message;
+        this.cause = cause || null;
+    }
+    AIError.prototype = Object.create(Error.prototype);
+
+    /* ======================================================================
+     * 12. BackupService
+     * ==================================================================== */
+    const BackupService = {
+        async exportJSON() {
+            const data = {
+                app: APP_ID,
+                schema: DB_VERSION,
+                version: CURRENT_VERSION,
+                exportedAt: new Date().toISOString(),
+                books: await Storage.getAll('books'),
+                volumes: await Storage.getAll('volumes'),
+                chapters: await Storage.getAll('chapters'),
+                chapterContents: await Storage.getAll('chapterContents'),
+                entities: await Storage.getAll('entities'),
+                prefs: { ui: State.prefs.ui }
+            };
+            const name = 'writer_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+            Utils.download(name, JSON.stringify(data, null, 2), 'application/json');
+        },
+
+        async importJSON(file, overwrite) {
+            if (file.size > MAX_IMPORT_BYTES) throw new Error('文件超过 20 MB，已拒绝。');
+            const text = await file.text();
+            let data;
+            try { data = JSON.parse(text); }
+            catch (e) { throw new Error('不是合法的 JSON 文件。'); }
+            if (!data || data.app !== APP_ID) throw new Error('不是 Writer 的备份文件。');
+            if (typeof data.schema === 'number' && data.schema > DB_VERSION) {
+                throw new Error('备份来自更新的版本（schema ' + data.schema + '），请先升级页面。');
+            }
+            ['books', 'volumes', 'chapters', 'chapterContents', 'entities'].forEach(function (key) {
+                if (data[key] != null && !Array.isArray(data[key])) throw new Error('备份结构异常：' + key);
+            });
+            // 字段级校验：只查顶层是数组不够。缺 id、order 不是数字、tags 不是
+            // 数组的条目会让后续排序、字数统计与资料卡渲染直接抛错。这里在
+            // 清库之前把整包过一遍，坏数据一律拒绝，绝不动旧库。
+            const IMPORT_SCHEMA = {
+                books: { id: 'string' },
+                volumes: { id: 'string', bookId: 'string', order: 'number' },
+                chapters: { id: 'string', bookId: 'string', volumeId: 'string', order: 'number', wordCount: 'number' },
+                chapterContents: { id: 'string', text: 'string' },
+                entities: { id: 'string', bookId: 'string', tags: 'array' }
+            };
+            Object.keys(IMPORT_SCHEMA).forEach(function (store) {
+                const rows = data[store] || [];
+                const spec = IMPORT_SCHEMA[store];
+                rows.forEach(function (row, i) {
+                    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+                        throw new Error('备份结构异常：' + store + ' 第 ' + (i + 1) + ' 条不是对象');
+                    }
+                    Object.keys(spec).forEach(function (field) {
+                        const want = spec[field];
+                        const val = row[field];
+                        if (want === 'array') {
+                            if (val != null && !Array.isArray(val)) {
+                                throw new Error('备份结构异常：' + store + ' 第 ' + (i + 1) + ' 条的 ' + field + ' 不是数组');
+                            }
+                        } else if (want === 'number') {
+                            if (val != null && typeof val !== 'number') {
+                                throw new Error('备份结构异常：' + store + ' 第 ' + (i + 1) + ' 条的 ' + field + ' 不是数字');
+                            }
+                        } else if (typeof val !== want) {
+                            throw new Error('备份结构异常：' + store + ' 第 ' + (i + 1) + ' 条缺少有效的 ' + field);
+                        }
+                    });
+                });
+            });
+
+            if (overwrite) {
+                // 先取旧库快照：清库之后若任何一步写入失败，用它尽量回滚，
+                // 避免「旧数据已删、新数据没写全」这种两头空的状态。
+                const IMPORT_STORES = ['books', 'volumes', 'chapters', 'chapterContents', 'entities'];
+                const snapshot = {};
+                for (const s of IMPORT_STORES) snapshot[s] = await Storage.getAll(s);
+
+                try {
+                    await Storage.clearAll();
+                    for (const s of IMPORT_STORES) await Storage.bulkPut(s, data[s] || []);
+                } catch (err) {
+                    // 回滚：先清掉写了一半的新数据，再把快照写回
+                    try {
+                        await Storage.clearAll();
+                        for (const s of IMPORT_STORES) {
+                            if (snapshot[s] && snapshot[s].length) {
+                                await Storage.bulkPut(s, snapshot[s]);
+                            }
+                        }
+                    } catch (rollbackErr) {
+                        console.error('[import] 回滚失败', rollbackErr);
+                        throw new Error('导入失败且回滚未完成，数据可能不完整。请勿继续编辑，先用上一次的 JSON 备份重新导入。');
+                    }
+                    throw new Error('导入失败，已恢复到导入前的数据：' +
+                        (err && err.message ? err.message : '未知错误'));
+                }
+            } else {
+                const map = Object.create(null);
+                const remap = function (oldId, prefix) {
+                    if (!oldId) return oldId;
+                    if (!map[oldId]) map[oldId] = Utils.uid(prefix);
+                    return map[oldId];
+                };
+                const books = (data.books || []).map(function (b) {
+                    return Object.assign({}, b, { id: remap(b.id, 'book') });
+                });
+                const volumes = (data.volumes || []).map(function (v) {
+                    return Object.assign({}, v, { id: remap(v.id, 'vol'), bookId: remap(v.bookId, 'book') });
+                });
+                const chapters = (data.chapters || []).map(function (c) {
+                    return Object.assign({}, c, {
+                        id: remap(c.id, 'ch'),
+                        bookId: remap(c.bookId, 'book'),
+                        volumeId: remap(c.volumeId, 'vol')
+                    });
+                });
+                const contents = (data.chapterContents || []).map(function (c) {
+                    return { id: remap(c.id, 'ch'), text: String(c.text || ''), updatedAt: c.updatedAt || Date.now() };
+                });
+                const entities = (data.entities || []).map(function (e) {
+                    return Object.assign({}, e, { id: remap(e.id, 'ent'), bookId: remap(e.bookId, 'book') });
+                });
+                await Storage.bulkPut('books', books);
+                await Storage.bulkPut('volumes', volumes);
+                await Storage.bulkPut('chapters', chapters);
+                await Storage.bulkPut('chapterContents', contents);
+                await Storage.bulkPut('entities', entities);
+            }
+
+            if (data.prefs && data.prefs.ui) {
+                State.prefs.ui = Object.assign({}, DEFAULT_UI, data.prefs.ui);
+                await PrefsService.saveUI();
+            }
+        },
+
+        bookText(book, volumes, chapters, contents) {
+            const lines = [];
+            lines.push(book.title || '未命名作品');
+            if (book.author) lines.push('作者：' + book.author);
+            lines.push('');
+            volumes.forEach(function (vol) {
+                lines.push('【' + (vol.title || '未命名卷') + '】');
+                lines.push('');
+                chapters.filter(function (c) { return c.volumeId === vol.id; }).forEach(function (ch) {
+                    lines.push(ch.title || '未命名章');
+                    lines.push('');
+                    const c = contents[ch.id];
+                    lines.push(c ? c.text : '');
+                    lines.push('');
+                });
+            });
+            return lines.join('\n');
+        }
+    };
+
+    /* ======================================================================
+     * 13. 编辑器与自动保存
+     * ==================================================================== */
+    // 正文与章节标题各用一个定时器。二者共用时，改标题会 clearTimeout
+    // 掉正要写入的正文保存，切章时出现「最后一段没存上」。
+    let saveTimer = null;        // 正文
+    let titleSaveTimer = null;   // 章节标题
+
+    function setDirty() {
+        State.dirty = true;
+        UI.setSaved('保存中…');
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(function () { flushSave(); }, 900);
+    }
+
+    // 把还在定时器里排队的标题改动立刻写掉（切章 / 离开页面前调用）
+    async function flushTitle() {
+        if (!titleSaveTimer) return;
+        clearTimeout(titleSaveTimer);
+        titleSaveTimer = null;
+        const ch = BookService.currentChapter();
+        if (ch) await BookService.updateChapter(ch);
+    }
+
+    async function flushSave() {
+        await flushTitle();
+        if (!State.dirty || !State.chapterId) return true;
+        clearTimeout(saveTimer);
+        saveTimer = null;
+
+        const id = State.chapterId;
+        const text = State.text;
+        const now = Date.now();
+        const wc = countWords(text);
+
+        try {
+            await Storage.bulkPut('chapterContents', [{ id: id, text: text, updatedAt: now }]);
+            const ch = State.chapters.filter(function (c) { return c.id === id; })[0];
+            if (ch) {
+                ch.wordCount = wc;
+                ch.updatedAt = now;
+                await Storage.put('chapters', ch);
+            }
+            const book = BookService.currentBook();
+            if (book) {
+                book.updatedAt = now;
+                await Storage.put('books', book);
+            }
+            // 只有全部写成功才清脏标记。写在前面的话，失败时既不重试、
+            // 也不再标记为脏，而 UI 已经显示「已保存」，用户以为存上了。
+            State.dirty = false;
+            UI.setSaved('已保存 ' + Utils.nowTime());
+            renderTreeCounts();
+            return true;
+        } catch (e) {
+            console.error('[save]', e);
+            // 保持 dirty=true，下一次输入或切章还会再试一次
+            State.dirty = true;
+            UI.setSaved('保存失败');
+            UI.toast('保存失败：' + (e && e.message ? e.message : '未知错误'));
+            return false;
+        }
+    }
+
+    // pagehide 里没法 await，只能把写入发出去就结束。这里把正文与章节
+    // 元数据（字数 / 更新时间）一起写，否则下一次打开章节树显示的是旧字数。
+    //
+    // 守卫只看 chapterId，不看 State.dirty：标题改动只动 titleSaveTimer，
+    // 不置 dirty。若按 dirty 提前返回，用户只改标题后立刻关标签页，正文
+    // 确实没变，但标题会连同定时器一起丢掉。
+    function flushSaveSync() {
+        if (!State.chapterId) return;
+        const hasTitlePending = !!titleSaveTimer;
+        const hasTextPending = State.dirty;
+        clearTimeout(saveTimer);
+        saveTimer = null;
+        clearTimeout(titleSaveTimer);
+        titleSaveTimer = null;
+        const now = Date.now();
+        const id = State.chapterId;
+        const ch = State.chapters.filter(function (c) { return c.id === id; })[0];
+
+        if (hasTextPending) {
+            State.dirty = false;
+            Storage.bulkPut('chapterContents', [{ id: id, text: State.text, updatedAt: now }]);
+            if (ch) {
+                ch.wordCount = countWords(State.text);
+                ch.updatedAt = now;
+                Storage.put('chapters', ch);
+                return;
+            }
+        }
+        if (hasTitlePending && ch) {
+            ch.updatedAt = now;
+            Storage.put('chapters', ch);
+        }
+    }
+
+    // 切章是异步的（要先 flush 当前章、再读新章正文）。快速连点两章时，
+    // 两次调用的 await 可能乱序返回：后点的先回来、先点的后回来，于是
+    // 编辑区最后显示的是先点那章的内容，而 State.chapterId 已是后点那章，
+    // 接着一次自动保存就把 A 章正文写进了 B 章。这里用递增序号丢弃过期调用。
+    let chapterSeq = 0;
+
+    async function selectChapter(chapterId) {
+        if (chapterId === State.chapterId) return;
+        const seq = ++chapterSeq;
+
+        await flushSave();
+        // flush 期间用户可能又点了别的章，本次已过期
+        if (seq !== chapterSeq) return;
+
+        const ch = State.chapters.filter(function (c) { return c.id === chapterId; })[0];
+        if (!ch) return;
+
+        State.chapterId = ch.id;
+        State.volumeId = ch.volumeId;
+        const content = await Storage.get('chapterContents', ch.id);
+        // 读取正文期间又切换了：不要把这次的结果写进编辑区
+        if (seq !== chapterSeq) return;
+        State.text = content && content.text ? content.text : '';
+        State.dirty = false;
+        prevCacheKey = '';
+        // 换章后计数缓存必须失效，否则新旧章节字数恰好相同时树不会刷新
+        lastWc = -1;
+        lastCc = -1;
+
+        const editor = Utils.$('#manuscript');
+        editor.value = State.text;
+        Utils.$('#chapterTitle').value = ch.title || '';
+        UI.setSaved('已载入');
+        updateCounts();
+        renderTree();
+        await PrefsService.saveLast();
+        // saveLast 也是异步的：期间若又切了章，后续的预取与预览会指向旧章
+        if (seq !== chapterSeq) return;
+        getPrevChapterText();
+        schedulePreview();
+    }
+
+    function liveTotal(volumeId, currentWords) {
+        // 当前章取实时值，其余章取已存字数，避免输入时卷 / 全书计数不动
+        return State.chapters.reduce(function (sum, c) {
+            const inScope = !volumeId || c.volumeId === volumeId;
+            if (!inScope) return sum;
+            return sum + (c.id === State.chapterId ? currentWords : (c.wordCount || 0));
+        }, 0);
+    }
+
+    // 输入时的实时统计：整篇正则计数在十万字级别并不便宜，每次按键都跑
+    // 一遍会明显拖慢输入。这里把同一帧内的多次输入合并成一次统计，并且
+    // 只有字数真的变了才去刷新章节树里的数字。
+    let liveRaf = null;
+    let lastWc = -1;
+    let lastCc = -1;
+
+    function scheduleLiveUpdate() {
+        if (liveRaf) return;
+        liveRaf = requestAnimationFrame(function () {
+            liveRaf = null;
+            updateCounts();
+        });
+    }
+
+    function updateCounts() {
+        const wc = countWords(State.text);
+        const cc = charCount(State.text);
+        const changed = wc !== lastWc || cc !== lastCc;
+        lastWc = wc;
+        lastCc = cc;
+        const chapter = BookService.currentChapter();
+        const vol = BookService.currentVolume();
+        const book = BookService.currentBook();
+
+        const volTotal = vol ? liveTotal(vol.id, wc) : 0;
+        const bookTotal = liveTotal(null, wc);
+
+        Utils.$('#countStatus').textContent =
+            '本章 ' + wc + ' 字 · ' + cc + ' 字符' +
+            (vol ? '　|　本卷 ' + volTotal + ' 字' : '') +
+            (book ? '　|　全书 ' + bookTotal + ' 字' : '');
+
+        Utils.$('#chapterMeta').textContent = wc + ' 字';
+
+        const bm = Utils.$('#bookMeta');
+        if (book) {
+            bm.textContent = book.title + ' · ' + State.chapters.length + ' 章 · ' + bookTotal + ' 字';
+        } else {
+            bm.textContent = '';
+        }
+        if (chapter) chapter.wordCount = wc;
+        // 只有数字真的变了才碰章节树，避免每次按键都扫一遍 DOM
+        if (changed) {
+            renderTreeCounts();
+            updatePreviewMeta();
+        }
+    }
+
+    /* ======================================================================
+     * 14. 渲染：章节树 / 资料库 / 书籍下拉
+     * ==================================================================== */
+    function el(tag, cls, text) {
+        const node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text != null) node.textContent = text;
+        return node;
+    }
+
+    function miniBtn(label, title, onClick, danger) {
+        const b = el('button', 'mini' + (danger ? ' danger' : ''), label);
+        b.type = 'button';
+        b.title = title;
+        b.setAttribute('aria-label', title);
+        b.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            onClick();
+        });
+        return b;
+    }
+
+    function renderTree() {
+        const root = Utils.$('#chapterTree');
+        root.textContent = '';
+
+        if (!State.volumes.length) {
+            const empty = el('div', 'empty', '还没有卷。点上方「新建卷」开始。');
+            root.appendChild(empty);
+            return;
+        }
+
+        State.volumes.forEach(function (vol, vIndex) {
+            const box = el('div', 'vol' + (vol.id === State.volumeId ? ' active' : ''));
+            box.setAttribute('role', 'treeitem');
+            box.setAttribute('aria-expanded', 'true');
+
+            const head = el('div', 'vol-head');
+            head.tabIndex = 0;
+            head.appendChild(el('span', 'row-name', '📁 ' + (vol.title || '未命名卷')));
+            head.appendChild(el('span', 'row-count', BookService.totalWords(vol.id) + ' 字'));
+
+            const tools = el('span', 'row-tools');
+            tools.appendChild(miniBtn('✎', '编辑卷', function () { openVolumeModal(vol); }));
+            tools.appendChild(miniBtn('↑', '上移卷', async function () {
+                await BookService.moveVolume(vol.id, 'up');
+                renderTree();
+            }));
+            tools.appendChild(miniBtn('↓', '下移卷', async function () {
+                await BookService.moveVolume(vol.id, 'down');
+                renderTree();
+            }));
+            tools.appendChild(miniBtn('＋', '在本卷新建章', async function () {
+                await flushSave();
+                const ch = await BookService.createChapter(vol.id);
+                renderTree();
+                if (ch) await selectChapter(ch.id);
+            }));
+            head.appendChild(tools);
+
+            head.addEventListener('click', function () {
+                State.volumeId = vol.id;
+                renderTree();
+            });
+            head.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault();
+                    State.volumeId = vol.id;
+                    renderTree();
+                }
+            });
+            box.appendChild(head);
+
+            BookService.chaptersOf(vol.id).forEach(function (ch) {
+                const row = el('div', 'ch-row' + (ch.id === State.chapterId ? ' active' : ''));
+                row.tabIndex = 0;
+                row.setAttribute('role', 'treeitem');
+                row.setAttribute('aria-selected', ch.id === State.chapterId ? 'true' : 'false');
+                row.appendChild(el('span', 'ch-title row-name', ch.title || '未命名章'));
+                row.appendChild(el('span', 'row-count', (ch.wordCount || 0) + ' 字'));
+
+                const t = el('span', 'row-tools');
+                t.appendChild(miniBtn('✎', '重命名', function () { openChapterModal(ch); }));
+                t.appendChild(miniBtn('↑', '上移 / 移到上一卷', async function () {
+                    await flushSave();
+                    await BookService.moveChapter(ch.id, 'up');
+                    renderTree();
+                }));
+                t.appendChild(miniBtn('↓', '下移 / 移到下一卷', async function () {
+                    await flushSave();
+                    await BookService.moveChapter(ch.id, 'down');
+                    renderTree();
+                }));
+                t.appendChild(miniBtn('✕', '删除本章', function () { deleteChapter(ch); }, true));
+                row.appendChild(t);
+
+                row.addEventListener('click', function () { selectChapter(ch.id); });
+                row.addEventListener('keydown', function (ev) {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                        ev.preventDefault();
+                        selectChapter(ch.id);
+                    } else if (ev.key === 'F2') {
+                        ev.preventDefault();
+                        openChapterModal(ch);
+                    } else if (ev.key === 'Delete') {
+                        ev.preventDefault();
+                        deleteChapter(ch);
+                    } else if (ev.altKey && ev.key === 'ArrowUp') {
+                        ev.preventDefault();
+                        BookService.moveChapter(ch.id, 'up').then(renderTree);
+                    } else if (ev.altKey && ev.key === 'ArrowDown') {
+                        ev.preventDefault();
+                        BookService.moveChapter(ch.id, 'down').then(renderTree);
+                    }
+                });
+                box.appendChild(row);
+            });
+
+            root.appendChild(box);
+        });
+    }
+
+    function renderTreeCounts() {
+        // 只更新数字，不重建 DOM；行序与 chaptersOf() 一致，按索引对齐，
+        // 不靠标题文本匹配（重名章节会串行）。
+        const boxes = Utils.$$('#chapterTree .vol');
+        State.volumes.forEach(function (vol, vIndex) {
+            const box = boxes[vIndex];
+            if (!box) return;
+            const volCount = box.querySelector('.vol-head .row-count');
+            if (volCount) volCount.textContent = BookService.totalWords(vol.id) + ' 字';
+
+            const rows = box.querySelectorAll('.ch-row');
+            const list = BookService.chaptersOf(vol.id);
+            for (let i = 0; i < rows.length && i < list.length; i++) {
+                const cnt = rows[i].querySelector('.row-count');
+                if (cnt) cnt.textContent = (list[i].wordCount || 0) + ' 字';
+            }
+        });
+    }
+
+    function renderEntities() {
+        const root = Utils.$('#entityList');
+        const filter = Utils.$('#entityFilter').value;
+        root.textContent = '';
+
+        const list = State.entities.filter(function (e) {
+            return filter === 'all' || e.kind === filter;
+        });
+
+        if (!list.length) {
+            root.appendChild(el('div', 'empty', '还没有资料卡。\n点上方「新建卡片」添加人物、地点或世界观。'));
+            return;
+        }
+
+        list.forEach(function (ent) {
+            const card = el('div', 'entity' + (State.refs[ent.id] ? ' ref' : ''));
+            const top = el('div', 'entity-top');
+            top.appendChild(el('span', 'entity-name', ent.name || '未命名'));
+            top.appendChild(el('span', 'entity-kind', KIND_LABEL[ent.kind] || '资料'));
+            card.appendChild(top);
+
+            if (ent.role) card.appendChild(el('div', 'entity-summary', ent.role));
+            if (ent.summary) card.appendChild(el('div', 'entity-summary', ent.summary));
+
+            const actions = el('div', 'entity-actions');
+            const refBtn = el('button', 'btn sm', State.refs[ent.id] ? '取消引用' : '引用');
+            refBtn.type = 'button';
+            refBtn.addEventListener('click', function () {
+                if (State.refs[ent.id]) delete State.refs[ent.id];
+                else State.refs[ent.id] = true;
+                renderEntities();
+                renderRefTray();
+                schedulePreview();
+            });
+            actions.appendChild(refBtn);
+
+            const editBtn = el('button', 'btn sm', '编辑');
+            editBtn.type = 'button';
+            editBtn.addEventListener('click', function () { openEntityModal(ent); });
+            actions.appendChild(editBtn);
+
+            card.appendChild(actions);
+            root.appendChild(card);
+        });
+    }
+
+    function renderRefTray() {
+        const tray = Utils.$('#refTray');
+        tray.textContent = '';
+        const list = PromptService.refEntities();
+        Utils.$('#refCount').textContent = list.length ? '（' + list.length + ' 项）' : '（无）';
+        if (!list.length) {
+            tray.appendChild(el('span', 'hint', '在「资料」页签点「引用」把卡片加进来。'));
+            return;
+        }
+        list.forEach(function (ent) {
+            const chip = el('button', 'chip-btn on', (KIND_LABEL[ent.kind] || '资料') + '·' + (ent.name || '未命名') + ' ×');
+            chip.type = 'button';
+            chip.addEventListener('click', function () {
+                delete State.refs[ent.id];
+                renderEntities();
+                renderRefTray();
+                schedulePreview();
+            });
+            tray.appendChild(chip);
+        });
+    }
+
+    function renderChips() {
+        const box = Utils.$('#templateChips');
+        box.textContent = '';
+        let lastGroup = '';
+        PROMPT_TEMPLATES.forEach(function (tpl) {
+            if (tpl.group !== lastGroup) {
+                lastGroup = tpl.group;
+                box.appendChild(el('span', 'hint', tpl.group));
+            }
+            const chip = el('button', 'chip-btn' + (State.templateId === tpl.id ? ' on' : ''), tpl.label);
+            chip.type = 'button';
+            chip.addEventListener('click', function () {
+                State.templateId = tpl.id;
+                State.prefs.ui.templateId = tpl.id;
+                PrefsService.saveUI();
+                renderChips();
+                schedulePreview();
+            });
+            box.appendChild(chip);
+        });
+    }
+
+    const PANE_IDS = {
+        chapters: 'paneChapters',
+        library: 'paneLibrary',
+        prompt: 'panePrompt',
+        ai: 'paneAI'
+    };
+
+    let activePane = 'chapters';
+
+    function activatePane(pane) {
+        if (!PANE_IDS[pane]) return;
+        activePane = pane;
+        Utils.$$('.pane-tab').forEach(function (t) {
+            const on = t.getAttribute('data-pane') === pane;
+            t.classList.toggle('active', on);
+            t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        Object.keys(PANE_IDS).forEach(function (key) {
+            const node = document.getElementById(PANE_IDS[key]);
+            if (node) node.classList.toggle('active', key === pane);
+        });
+        if (pane === 'prompt') renderPreview();
+    }
+
+    function renderBookSelect() {
+        const sel = Utils.$('#bookSelect');
+        sel.textContent = '';
+        if (!State.books.length) {
+            const opt = el('option', null, '（无书籍）');
+            opt.value = '';
+            sel.appendChild(opt);
+            return;
+        }
+        State.books.forEach(function (b) {
+            const opt = el('option', null, b.title || '未命名作品');
+            opt.value = b.id;
+            if (b.id === State.bookId) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+
+    function updatePreviewMeta() {
+        const n = charCount(State.text);
+        Utils.$('#previewMeta').textContent = '正文约 ' + n + ' 字符（约 ' +
+            Math.round(n / 1.6) + ' tokens）';
+    }
+
+    /* ======================================================================
+     * 15. 预览
+     * ==================================================================== */
+    const schedulePreview = Utils.debounce(function () {
+        renderPreview();
+    }, 200);
+
+    // 预览可能要等上一章正文读出来，异步渲染存在先后颠倒的可能：
+    // 用递增序号丢弃过期结果，只让最后一次调用写进预览框。
+    let previewSeq = 0;
+
+    async function renderPreview() {
+        const seq = ++previewSeq;
+        let text;
+        try {
+            text = await composePrompt();
+        } catch (e) {
+            // 调用方（activatePane / debounce）都不接 promise，异常吞在里面
+            // 否则会变成未处理的 rejection。预览框保留上一次内容即可。
+            console.error('[preview]', e);
+            return;
+        }
+        if (seq !== previewSeq) return;
+        Utils.$('#previewBox').textContent = text;
+        updatePreviewMeta();
+    }
+
+    /* ======================================================================
+     * 16. 模态框操作
+     * ==================================================================== */
+    let chapterEditing = null;
+    let volumeEditing = null;
+    let entityEditing = null;
+
+    function openChapterModal(chapter) {
+        chapterEditing = chapter || null;
+        Utils.$('#chapterModalTitle').textContent = chapter ? '编辑章节' : '新建章节';
+        Utils.$('#chapterNameInput').value = chapter ? (chapter.title || '') : '';
+
+        const sel = Utils.$('#chapterVolumeSelect');
+        sel.textContent = '';
+        State.volumes.forEach(function (v) {
+            const opt = el('option', null, v.title || '未命名卷');
+            opt.value = v.id;
+            if (chapter && chapter.volumeId === v.id) opt.selected = true;
+            sel.appendChild(opt);
+        });
+
+        UI.openModal('chapterModal');
+    }
+
+    async function saveChapterModal() {
+        const title = Utils.$('#chapterNameInput').value.trim() || '未命名章';
+        const volumeId = Utils.$('#chapterVolumeSelect').value || State.volumeId;
+
+        if (chapterEditing) {
+            chapterEditing.title = title;
+            if (chapterEditing.volumeId !== volumeId) {
+                chapterEditing.volumeId = volumeId;
+                chapterEditing.order = BookService.chaptersOf(volumeId).length;
+                await BookService.reorderVolume(volumeId);
+            }
+            chapterEditing.updatedAt = Date.now();
+            await BookService.updateChapter(chapterEditing);
+            if (chapterEditing.id === State.chapterId) {
+                Utils.$('#chapterTitle').value = title;
+            }
+        } else {
+            const ch = await BookService.createChapter(volumeId, title);
+            if (ch) {
+                renderTree();
+                UI.closeModal('chapterModal');
+                await selectChapter(ch.id);
+                return;
+            }
+        }
+        UI.closeModal('chapterModal');
+        renderTree();
+        updateCounts();
+    }
+
+    function openVolumeModal(volume) {
+        volumeEditing = volume;
+        Utils.$('#volumeModalTitle').textContent = volume ? '编辑卷' : '新建卷';
+        Utils.$('#volumeNameInput').value = volume ? (volume.title || '') : '';
+        Utils.$('#volumeSynopsisInput').value = volume ? (volume.synopsis || '') : '';
+        UI.openModal('volumeModal');
+    }
+
+    async function saveVolumeModal() {
+        const title = Utils.$('#volumeNameInput').value.trim() || '未命名卷';
+        const synopsis = Utils.$('#volumeSynopsisInput').value;
+
+        if (volumeEditing) {
+            volumeEditing.title = title;
+            volumeEditing.synopsis = synopsis;
+            await BookService.updateVolume(volumeEditing);
+        } else {
+            const v = await BookService.createVolume(title);
+            if (v) {
+                v.synopsis = synopsis;
+                await BookService.updateVolume(v);
+                State.volumeId = v.id;
+            }
+        }
+        UI.closeModal('volumeModal');
+        renderTree();
+        updateCounts();
+        schedulePreview();
+    }
+
+    function openEntityModal(entity) {
+        entityEditing = entity || null;
+        Utils.$('#entityModalTitle').textContent = entity ? '编辑资料卡' : '新建资料卡';
+        Utils.$('#entityKind').value = entity ? entity.kind : 'character';
+        Utils.$('#entityName').value = entity ? (entity.name || '') : '';
+        Utils.$('#entityRole').value = entity ? (entity.role || '') : '';
+        Utils.$('#entitySummary').value = entity ? (entity.summary || '') : '';
+        Utils.$('#entityTags').value = entity && entity.tags ? entity.tags.join('，') : '';
+        Utils.$('#entityDeleteBtn').style.display = entity ? 'inline-flex' : 'none';
+        UI.openModal('entityModal');
+    }
+
+    async function saveEntityModal() {
+        const name = Utils.$('#entityName').value.trim();
+        if (!name) { UI.toast('请填写名称'); return; }
+        const tags = Utils.$('#entityTags').value
+            .split(/[,，、\s]+/).map(function (s) { return s.trim(); })
+            .filter(Boolean);
+
+        const entity = entityEditing ? Object.assign({}, entityEditing) : {
+            id: Utils.uid('ent'),
+            bookId: State.bookId,
+            createdAt: Date.now()
+        };
+        entity.kind = Utils.$('#entityKind').value;
+        entity.name = name;
+        entity.role = Utils.$('#entityRole').value.trim();
+        entity.summary = Utils.$('#entitySummary').value;
+        entity.tags = tags;
+        entity.updatedAt = Date.now();
+
+        await EntityService.save(entity);
+        UI.closeModal('entityModal');
+        renderEntities();
+        renderRefTray();
+        schedulePreview();
+    }
+
+    async function deleteChapter(ch) {
+        const ok = window.confirm('删除章节「' + (ch.title || '未命名章') + '」？\n删除后可在提示条里撤销。');
+        if (!ok) return;
+        await flushSave();
+        await BookService.deleteChapter(ch.id);
+        if (State.chapterId === ch.id) {
+            const next = State.chapters[0] || null;
+            State.chapterId = null;
+            State.text = '';
+            State.dirty = false;
+            Utils.$('#manuscript').value = '';
+            Utils.$('#chapterTitle').value = '';
+            if (next) await selectChapter(next.id);
+            else {
+                const ch2 = await BookService.createChapter(State.volumes[0] && State.volumes[0].id);
+                renderTree();
+                if (ch2) await selectChapter(ch2.id);
+            }
+        }
+        renderTree();
+        updateCounts();
+        UI.toast('已删除「' + (ch.title || '未命名章') + '」', '撤销', async function () {
+            const okUndo = await BookService.undoDelete();
+            if (!okUndo) return;
+            renderTree();
+            updateCounts();
+            UI.toast('已恢复');
+        }, 6000);
+    }
+
+    /* ======================================================================
+     * 17. 设置 / 排版 / 数据
+     * ==================================================================== */
+    function currentKey() {
+        return State.prefs.ai.rememberKey ? (State.prefs.ai.apiKey || '') : (State.sessionApiKey || '');
+    }
+
+    function syncSettingsForm() {
+        const ai = State.prefs.ai;
+        let preset = 'custom';
+        Object.keys(AI_PRESETS).forEach(function (key) {
+            const p = AI_PRESETS[key];
+            if (p.protocol === ai.protocol && p.baseUrl === ai.baseUrl && p.model === ai.model) preset = key;
+        });
+        Utils.$('#presetSelect').value = preset;
+        Utils.$('#protocolSelect').value = ai.protocol || 'openai';
+        Utils.$('#baseUrlInput').value = ai.baseUrl || '';
+        Utils.$('#modelInput').value = ai.model || '';
+        Utils.$('#apiKeyInput').value = currentKey();
+        Utils.$('#rememberKey').checked = !!ai.rememberKey;
+        updateAIConfigLine();
+    }
+
+    function updateAIConfigLine() {
+        const ai = State.prefs.ai;
+        const hasKey = currentKey() ? '已填密钥' : '未填密钥';
+        Utils.$('#aiConfigLine').textContent =
+            (ai.protocol === 'anthropic' ? 'Anthropic' : 'OpenAI 兼容') + ' · ' +
+            (ai.model || '未设模型') + ' · ' + hasKey;
+    }
+
+    function applyTypography() {
+        const ui = State.prefs.ui;
+        const root = document.documentElement;
+        const fonts = {
+            serif: "var(--font-serif)",
+            sans: "var(--font-sans)",
+            mono: "var(--font-mono)",
+            system: "var(--font-ui)"
+        };
+        root.style.setProperty('--ms-font', fonts[ui.font] || fonts.serif);
+        root.style.setProperty('--ms-size', ui.size + 'px');
+        root.style.setProperty('--ms-lh', String(ui.lh));
+    }
+
+    async function saveSettings() {
+        const protocol = Utils.$('#protocolSelect').value;
+        const baseUrl = Utils.$('#baseUrlInput').value.trim();
+        const model = Utils.$('#modelInput').value.trim();
+        const apiKey = Utils.$('#apiKeyInput').value;
+        const remember = Utils.$('#rememberKey').checked;
+
+        State.prefs.ai.protocol = protocol;
+        State.prefs.ai.baseUrl = baseUrl || AI_PRESETS.deepseek.baseUrl;
+        State.prefs.ai.model = model || AI_PRESETS.deepseek.model;
+        State.prefs.ai.rememberKey = remember;
+
+        if (remember) {
+            State.prefs.ai.apiKey = apiKey;
+            State.sessionApiKey = '';
+        } else {
+            State.prefs.ai.apiKey = '';
+            State.sessionApiKey = apiKey;
+        }
+        await PrefsService.saveAI();
+        updateAIConfigLine();
+        UI.closeModal('settingsModal');
+        UI.toast('设置已保存');
+    }
+
+    /* ======================================================================
+     * 18. AI 运行
+     * ==================================================================== */
+    let aiController = null;
+    let aiBuffer = '';
+    let aiRaf = null;
+
+    function renderAIOutput(force) {
+        const box = Utils.$('#aiOutput');
+        if (aiRaf && !force) return;
+        aiRaf = requestAnimationFrame(function () {
+            aiRaf = null;
+            box.textContent = aiBuffer;
+            box.scrollTop = box.scrollHeight;
+        });
+    }
+
+    async function runAI() {
+        const prompt = Utils.$('#aiInput').value.trim();
+        if (!prompt) { UI.toast('请先填写发送内容'); return; }
+
+        const cfg = AIClient.config();
+        // 本机代理通常不校验密钥，除此之外没配密钥就只会换来一个 401。
+        // 直接中止并打开设置，比先发一次注定失败的请求更好。
+        const isLocal = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(cfg.baseUrl || '');
+        if (!cfg.apiKey && !isLocal) {
+            UI.toast('尚未填写 API Key：请先在「设置」里填写，或改用本机代理', null, null, 5000);
+            syncSettingsForm();
+            UI.openModal('settingsModal');
+            return;
+        }
+
+        aiBuffer = '';
+        Utils.$('#aiOutput').textContent = '';
+        Utils.$('#aiStatus').className = 'ai-status';
+        Utils.$('#aiStatus').textContent = '请求中…';
+        Utils.$('#aiSendBtn').disabled = true;
+        Utils.$('#aiStopBtn').disabled = false;
+
+        aiController = new AbortController();
+
+        try {
+            for await (const chunk of AIClient.stream(prompt, aiController.signal)) {
+                aiBuffer += chunk;
+                renderAIOutput(false);
+                Utils.$('#aiStatus').textContent = '接收中… ' + aiBuffer.length + ' 字符';
+            }
+            renderAIOutput(true);
+            Utils.$('#aiStatus').textContent = aiBuffer ? '完成' : '接口没有返回内容';
+        } catch (e) {
+            renderAIOutput(true);
+            if (e && e.name === 'AbortError') {
+                Utils.$('#aiStatus').textContent = '已停止';
+            } else {
+                const msg = e && e.message ? e.message : '请求失败';
+                Utils.$('#aiStatus').className = 'ai-status err';
+                Utils.$('#aiStatus').textContent = msg;
+            }
+        } finally {
+            aiController = null;
+            Utils.$('#aiSendBtn').disabled = false;
+            Utils.$('#aiStopBtn').disabled = true;
+        }
+    }
+
+    // 用 execCommand('insertText') 而不是 setRangeText：直接给 editor.value
+    // 赋值会清空撤销栈，而 setRangeText 虽然走原生编辑路径，却**不产生撤销
+    // 记录**（实测 Ctrl+Z 无效），只有 insertText 会真正压栈。
+    // 若 execCommand 被禁用则退回 setRangeText，至少保证内容正确。
+    function replaceEditorText(text, start, end) {
+        const editor = Utils.$('#manuscript');
+        const s = typeof start === 'number' ? start : 0;
+        const e = typeof end === 'number' ? end : editor.value.length;
+        editor.focus();
+        editor.setSelectionRange(s, e);
+        let ok = false;
+        try {
+            ok = document.execCommand('insertText', false, text);
+        } catch (err) {
+            ok = false;
+        }
+        // execCommand 成功后光标已落在插入内容末尾，无需再调整
+        if (!ok) editor.setRangeText(text, s, e, 'end');
+        State.text = editor.value;
+        updateCounts();
+        setDirty();
+        schedulePreview();
+    }
+
+    function insertAtCursor(text) {
+        const editor = Utils.$('#manuscript');
+        const start = typeof editor.selectionStart === 'number' ? editor.selectionStart : editor.value.length;
+        const end = typeof editor.selectionEnd === 'number' ? editor.selectionEnd : start;
+        replaceEditorText(text, start, end);
+    }
+
+    /* ======================================================================
+     * 19. 事件绑定
+     * ==================================================================== */
+
+    // 侧栏显隐：宽屏用 collapsed 折叠，窄屏用 sidebar-open 抽屉。
+    // 两者互斥，统一由这里判断当前模式。
+    function isNarrow() {
+        return window.matchMedia('(max-width: 820px)').matches;
+    }
+
+    function setDrawer(open) {
+        document.body.classList.toggle('sidebar-open', open);
+        Utils.$('#sidebarBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function syncSidebarBtn() {
+        const expanded = isNarrow()
+            ? document.body.classList.contains('sidebar-open')
+            : !Utils.$('#sidebar').classList.contains('collapsed');
+        Utils.$('#sidebarBtn').setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+
+    function bindEvents() {
+        const editor = Utils.$('#manuscript');
+        editor.addEventListener('input', function () {
+            State.text = editor.value;
+            State.dirty = true;
+            scheduleLiveUpdate();   // 一帧内合并，不必每次按键都全量统计
+            setDirty();
+            schedulePreview();
+        });
+        editor.addEventListener('keydown', function (ev) {
+            if ((ev.ctrlKey || ev.metaKey) && ev.key === 's') {
+                ev.preventDefault();
+                flushSave();
+            }
+        });
+
+        Utils.$('#chapterTitle').addEventListener('input', function () {
+            const ch = BookService.currentChapter();
+            if (!ch) return;
+            ch.title = Utils.$('#chapterTitle').value;
+            UI.setSaved('保存中…');
+            // 用标题自己的定时器，不能动 saveTimer
+            clearTimeout(titleSaveTimer);
+            titleSaveTimer = setTimeout(function () {
+                titleSaveTimer = null;
+                BookService.updateChapter(ch).then(function () {
+                    renderTree();
+                    UI.setSaved('已保存 ' + Utils.nowTime());
+                });
+            }, 900);
+        });
+
+        Utils.$('#saveNowBtn').addEventListener('click', async function () {
+            // flushSave 现在返回是否真的写成功；失败时 flushSave 内部已弹过
+            // 失败提示，这里不再补一句「已保存」误导用户。
+            if (await flushSave()) UI.toast('已保存');
+        });
+
+        // 面板切换（四块共用同一列，只切换显示哪一块）
+        Utils.$$('.pane-tab').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                activatePane(tab.getAttribute('data-pane'));
+            });
+        });
+
+        // 侧栏折叠（桌面）与抽屉（窄屏）
+        Utils.$('#sidebarBtn').addEventListener('click', function () {
+            if (isNarrow()) {
+                setDrawer(!document.body.classList.contains('sidebar-open'));
+            } else {
+                const bar = Utils.$('#sidebar');
+                bar.classList.toggle('collapsed');
+                State.prefs.ui.sidebarCollapsed = bar.classList.contains('collapsed');
+                PrefsService.saveUI();
+                syncSidebarBtn();
+            }
+        });
+
+        // 点遮罩关闭抽屉
+        Utils.$('#sidebarScrim').addEventListener('click', function () {
+            setDrawer(false);
+        });
+
+        // 宽度跨越断点时，退出抽屉状态，避免遮罩留在桌面上
+        window.addEventListener('resize', function () {
+            if (!isNarrow() && document.body.classList.contains('sidebar-open')) {
+                setDrawer(false);
+            }
+            syncSidebarBtn();
+        });
+
+        // 专注模式（进入前先收起抽屉，否则遮罩会留在专注界面里）
+        Utils.$('#focusBtn').addEventListener('click', function () {
+            setDrawer(false);
+            document.body.classList.add('focus-mode');
+            editor.focus();
+        });
+        Utils.$('#focusExitBtn').addEventListener('click', function () {
+            document.body.classList.remove('focus-mode');
+        });
+
+        // 书籍
+        Utils.$('#bookSelect').addEventListener('change', async function () {
+            await flushSave();
+            await loadBook(Utils.$('#bookSelect').value);
+        });
+        Utils.$('#newBookBtn').addEventListener('click', async function () {
+            const title = window.prompt('新书书名：', '未命名作品');
+            if (title === null) return;
+            await flushSave();
+            await BookService.createBook(title.trim() || '未命名作品');
+            await loadBook(State.bookId);
+            UI.toast('已创建新书');
+        });
+
+        // 章节 / 卷
+        Utils.$('#newChapterBtn').addEventListener('click', function () { openChapterModal(null); });
+        Utils.$('#newVolumeBtn').addEventListener('click', function () { openVolumeModal(null); });
+        Utils.$('#chapterSaveBtn').addEventListener('click', saveChapterModal);
+        Utils.$('#volumeSaveBtn').addEventListener('click', saveVolumeModal);
+
+        // 资料
+        Utils.$('#newEntityBtn').addEventListener('click', function () { openEntityModal(null); });
+        Utils.$('#entityFilter').addEventListener('change', renderEntities);
+        Utils.$('#entitySaveBtn').addEventListener('click', saveEntityModal);
+        Utils.$('#entityDeleteBtn').addEventListener('click', async function () {
+            if (!entityEditing) return;
+            const ok = window.confirm('删除资料卡「' + (entityEditing.name || '未命名') + '」？');
+            if (!ok) return;
+            await EntityService.remove(entityEditing.id);
+            UI.closeModal('entityModal');
+            renderEntities();
+            renderRefTray();
+            schedulePreview();
+        });
+
+        // 提示词
+        Utils.$('#inspiration').addEventListener('input', schedulePreview);
+        Utils.$('#copyPromptBtn').addEventListener('click', async function () {
+            const ok = await Utils.copyText(await composePrompt());
+            UI.toast(ok ? '提示词已复制' : '复制失败，请手动选择文本');
+        });
+        Utils.$('#sendToAiBtn').addEventListener('click', async function () {
+            Utils.$('#aiInput').value = await composePrompt();
+            activatePane('ai');
+            UI.toast('已载入 AI 面板');
+        });
+        Utils.$('#loadPromptBtn').addEventListener('click', async function () {
+            Utils.$('#aiInput').value = await composePrompt();
+            UI.toast('已载入提示词');
+        });
+
+        // AI
+        Utils.$('#aiSendBtn').addEventListener('click', runAI);
+        Utils.$('#aiStopBtn').addEventListener('click', function () {
+            if (aiController) aiController.abort();
+        });
+
+        // AI 面板的发送内容改变时，不再自动重算预览（预览只取面板内的“本次要求”）
+        Utils.$('#aiCopyBtn').addEventListener('click', async function () {
+            if (!aiBuffer) { UI.toast('还没有结果'); return; }
+            const ok = await Utils.copyText(aiBuffer);
+            UI.toast(ok ? '已复制结果' : '复制失败');
+        });
+        Utils.$('#aiInsertBtn').addEventListener('click', function () {
+            if (!aiBuffer) { UI.toast('还没有结果'); return; }
+            insertAtCursor('\n' + aiBuffer + '\n');
+            UI.toast('已插入光标处');
+        });
+        Utils.$('#aiAppendBtn').addEventListener('click', function () {
+            if (!aiBuffer) { UI.toast('还没有结果'); return; }
+            // 从「去掉尾部空白」的那个位置到文末替换掉，等价于先裁剪再追加，
+            // 但走原生编辑路径，Ctrl+Z 能整体退回。
+            const trimmed = editor.value.replace(/\s*$/, '');
+            replaceEditorText(trimmed + '\n\n' + aiBuffer + '\n', trimmed.length, editor.value.length);
+            UI.toast('已追加到章末');
+        });
+        Utils.$('#aiReplaceBtn').addEventListener('click', function () {
+            if (!aiBuffer) { UI.toast('还没有结果'); return; }
+            const ok = window.confirm('用 AI 结果替换本章全文？原内容会被覆盖，可用 Ctrl+Z 撤销。');
+            if (!ok) return;
+            replaceEditorText(aiBuffer);
+            UI.toast('已替换本章');
+        });
+
+        // 设置
+        Utils.$('#settingsBtn').addEventListener('click', function () {
+            syncSettingsForm();
+            UI.openModal('settingsModal');
+        });
+        Utils.$('#presetSelect').addEventListener('change', function () {
+            const key = Utils.$('#presetSelect').value;
+            if (key === 'custom') return;
+            const p = AI_PRESETS[key];
+            Utils.$('#protocolSelect').value = p.protocol;
+            Utils.$('#baseUrlInput').value = p.baseUrl;
+            Utils.$('#modelInput').value = p.model;
+        });
+        Utils.$('#settingsSaveBtn').addEventListener('click', saveSettings);
+        Utils.$('#toggleKeyBtn').addEventListener('click', function () {
+            const input = Utils.$('#apiKeyInput');
+            input.type = input.type === 'password' ? 'text' : 'password';
+            Utils.$('#toggleKeyBtn').textContent = input.type === 'password' ? '显示密钥' : '隐藏密钥';
+        });
+        Utils.$('#clearKeyBtn').addEventListener('click', async function () {
+            Utils.$('#apiKeyInput').value = '';
+            State.sessionApiKey = '';
+            State.prefs.ai.apiKey = '';
+            await PrefsService.saveAI();
+            updateAIConfigLine();
+            UI.toast('密钥已清除');
+        });
+
+        // 排版
+        Utils.$('#typeBtn').addEventListener('click', function () {
+            const ui = State.prefs.ui;
+            Utils.$('#fontSelect').value = ui.font;
+            Utils.$('#sizeRange').value = ui.size;
+            Utils.$('#sizeOut').textContent = ui.size;
+            Utils.$('#lhRange').value = ui.lh;
+            Utils.$('#lhOut').textContent = ui.lh;
+            UI.openModal('typeModal');
+        });
+        Utils.$('#fontSelect').addEventListener('change', function () {
+            State.prefs.ui.font = Utils.$('#fontSelect').value;
+            applyTypography();
+            PrefsService.saveUI();
+        });
+        Utils.$('#sizeRange').addEventListener('input', function () {
+            State.prefs.ui.size = Number(Utils.$('#sizeRange').value);
+            Utils.$('#sizeOut').textContent = State.prefs.ui.size;
+            applyTypography();
+            PrefsService.saveUI();
+        });
+        Utils.$('#lhRange').addEventListener('input', function () {
+            State.prefs.ui.lh = Number(Utils.$('#lhRange').value);
+            Utils.$('#lhOut').textContent = State.prefs.ui.lh;
+            applyTypography();
+            PrefsService.saveUI();
+        });
+        Utils.$('#indentBtn').addEventListener('click', function () {
+            const lines = editor.value.split('\n');
+            let changed = 0;
+            const next = lines.map(function (line) {
+                const trimmed = line.replace(/^[\s\u3000]+/, '');
+                if (!trimmed) return '';
+                const want = '\u3000\u3000' + trimmed;
+                if (want !== line) changed++;
+                return want;
+            }).join('\n');
+            if (!changed) { UI.toast('段落缩进已是整理后的状态'); return; }
+            replaceEditorText(next);
+            UI.toast('已整理 ' + changed + ' 个段落（可 Ctrl+Z 撤销）');
+        });
+
+        // 数据
+        Utils.$('#dataBtn').addEventListener('click', function () { UI.openModal('dataModal'); });
+        Utils.$('#exportJsonBtn').addEventListener('click', async function () {
+            await flushSave();
+            await BackupService.exportJSON();
+            UI.toast('已导出 JSON');
+        });
+        Utils.$('#importJsonBtn').addEventListener('click', function () {
+            Utils.$('#importFile').click();
+        });
+        Utils.$('#importFile').addEventListener('change', async function () {
+            const file = Utils.$('#importFile').files[0];
+            Utils.$('#importFile').value = '';
+            if (!file) return;
+            const overwrite = window.confirm('点「确定」覆盖当前全部数据；点「取消」则按合并方式导入。');
+            try {
+                await flushSave();
+                await BackupService.importJSON(file, overwrite);
+                await reloadAll();
+                UI.toast(overwrite ? '已覆盖导入' : '已合并导入');
+            } catch (e) {
+                UI.toast('导入失败：' + (e && e.message ? e.message : '未知错误'), null, null, 6000);
+            }
+        });
+        Utils.$('#exportChapterBtn').addEventListener('click', async function () {
+            await flushSave();
+            const ch = BookService.currentChapter();
+            if (!ch) { UI.toast('还没有章节'); return; }
+            const name = Utils.sanitizeFilename(ch.title, 'chapter') + '.txt';
+            Utils.download(name, State.text);
+            UI.toast('已导出当前章');
+        });
+        Utils.$('#exportBookBtn').addEventListener('click', async function () {
+            await flushSave();
+            const book = BookService.currentBook();
+            if (!book) { UI.toast('还没有书籍'); return; }
+            const contents = {};
+            const all = await Storage.getAll('chapterContents');
+            all.forEach(function (c) { contents[c.id] = c.text; });
+            const volumes = State.volumes.slice().sort(function (a, b) { return a.order - b.order; });
+            const chapters = State.chapters.slice();
+            const text = BackupService.bookText(book, volumes, chapters, contents);
+            Utils.download(Utils.sanitizeFilename(book.title, 'book') + '.txt', text);
+            UI.toast('已导出全书');
+        });
+        Utils.$('#clearAllBtn').addEventListener('click', async function () {
+            const ok = window.confirm('确定清空本浏览器里的全部 Writer 数据？此操作不可恢复，建议先导出备份。');
+            if (!ok) return;
+            await Storage.clearAll();
+            State.books = [];
+            State.volumes = [];
+            State.chapters = [];
+            State.entities = [];
+            State.bookId = null;
+            State.volumeId = null;
+            State.chapterId = null;
+            State.text = '';
+            await initData();
+            UI.closeModal('dataModal');
+            UI.toast('已清空');
+        });
+
+        // 关于
+        Utils.$('#brandBtn').addEventListener('click', function () { UI.openModal('aboutModal'); });
+
+        // 模态框关闭
+        Utils.$$('[data-close]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                UI.closeModal(btn.getAttribute('data-close'));
+            });
+        });
+        Utils.$$('.modal').forEach(function (modal) {
+            modal.addEventListener('mousedown', function (ev) {
+                if (ev.target === modal) UI.closeModal(modal.id);
+            });
+        });
+
+        // 键盘
+        document.addEventListener('keydown', function (ev) {
+            // 模态框打开时，Tab 只在框内循环
+            if (UI.trapFocus(ev)) return;
+            if (ev.key === 'Escape') {
+                if (UI.closeTopmost()) { ev.preventDefault(); return; }
+                if (document.body.classList.contains('focus-mode')) {
+                    document.body.classList.remove('focus-mode');
+                }
+                if (document.body.classList.contains('sidebar-open')) {
+                    setDrawer(false);
+                }
+            }
+            if ((ev.ctrlKey || ev.metaKey) && ev.key === 's') {
+                if (document.activeElement === editor) return;
+                ev.preventDefault();
+                flushSave();
+            }
+        });
+
+        // 离开页面前保存
+        window.addEventListener('pagehide', flushSaveSync);
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden') flushSave();
+        });
+    }
+
+    /* ======================================================================
+     * 20. 初始化
+     * ==================================================================== */
+    async function loadBook(bookId) {
+        State.bookId = bookId;
+        await BookService.loadBook(bookId);
+        renderBookSelect();
+
+        State.volumeId = State.volumes[0] ? State.volumes[0].id : null;
+        State.chapterId = null;
+        State.text = '';
+        State.dirty = false;
+        State.refs = Object.create(null);
+        prevCacheKey = '';
+
+        renderBookSelect();
+        renderEntities();
+        renderRefTray();
+        renderTree();
+
+        if (State.chapters.length) {
+            await selectChapter(State.chapters[0].id);
+        } else {
+            const ch = await BookService.createChapter(State.volumeId);
+            renderTree();
+            if (ch) await selectChapter(ch.id);
+        }
+        await PrefsService.saveLast();
+        updateCounts();
+        renderPreview();
+    }
+
+    async function reloadAll() {
+        await BookService.loadAll();
+        renderBookSelect();
+        if (!State.books.length) {
+            await initData();
+        } else {
+            const last = await PrefsService.load();
+            const pick = State.books.filter(function (b) { return last && b.id === last.bookId; })[0] ||
+                State.books[State.books.length - 1];
+            await loadBook(pick.id);
+        }
+    }
+
+    async function initData() {
+        await BookService.loadAll();
+        if (!State.books.length) {
+            await BookService.createBook('未命名作品');
+            renderBookSelect();
+            await loadBook(State.bookId);
+            return;
+        }
+        renderBookSelect();
+        await loadBook(State.books[0].id);
+    }
+
+    async function boot() {
+        await Storage.init();
+        const warn = Utils.$('#storageWarn');
+        if (Storage.mode === 'ls') warn.hidden = false;
+
+        const last = await PrefsService.load();
+        applyTypography();
+        State.templateId = State.prefs.ui.templateId || 'polish';
+        renderChips();
+        bindEvents();
+        syncSettingsForm();
+
+        await BookService.loadAll();
+        if (!State.books.length) {
+            await BookService.createBook('未命名作品');
+        }
+
+        const pick = last && State.books.filter(function (b) { return b.id === last.bookId; })[0];
+        await loadBook(pick ? pick.id : State.books[0].id);
+
+        if (State.prefs.ui.sidebarCollapsed) {
+            Utils.$('#sidebar').classList.add('collapsed');
+        }
+        syncSidebarBtn();
+        activatePane(activePane);
+
+        renderPreview();
+        updateAIConfigLine();
+
+        let firstRun = false;
+        try { firstRun = !localStorage.getItem(LS_FIRST_RUN); } catch (e) { firstRun = true; }
+        if (firstRun) {
+            UI.openModal('aboutModal');
+            try { localStorage.setItem(LS_FIRST_RUN, '1'); } catch (e) { /* 忽略 */ }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', boot);
+    window.addEventListener('error', function (ev) {
+        console.error('[Writer] 未捕获错误', ev.error || ev.message);
+    });
+})();
+</script>
+</body>
+</html>

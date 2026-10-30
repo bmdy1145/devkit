@@ -163,7 +163,10 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │       ├── index.html               # Landing page (open link + data-safety notice)
 │       └── code/
 │           ├── index.html           # Code / branch index
-│           ├── A1_I_Φ3/             # Current version (logic & robustness fixes)
+│           ├── A1_I_Φ4/             # Current version (data safety & concurrency fixes)
+│           │   ├── index.html
+│           │   └── deepseek_A1_I_Φ4_CN.html
+│           ├── A1_I_Φ3/             # Logic & robustness fixes
 │           │   ├── index.html
 │           │   └── deepseek_A1_I_Φ3_CN.html
 │           ├── A1_I_Φ2/             # Layout rework (single left column, four tabs)
@@ -211,7 +214,8 @@ The site entry is the **root-level** `index.html`, a **project picker**; each pr
 | `/projects/dircleaner/code/A1_II_Φ8/` | A1_II_Φ8 application file |
 | `/projects/writer/` | Writer novel-editor project page |
 | `/projects/writer/code/` | Writer code/branch index |
-| `/projects/writer/code/A1_I_Φ3/` | A1_I_Φ3 application file (current) |
+| `/projects/writer/code/A1_I_Φ4/` | A1_I_Φ4 application file (current) |
+| `/projects/writer/code/A1_I_Φ3/` | A1_I_Φ3 application file (logic & robustness fixes) |
 | `/projects/writer/code/A1_I_Φ2/` | A1_I_Φ2 application file (layout rework) |
 | `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 application file (historical reference) |
 

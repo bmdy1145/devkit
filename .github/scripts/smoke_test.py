@@ -48,6 +48,7 @@ OTHER_APPS = (
     ROOT / "projects" / "writer" / "code" / "A1_I_Φ1" / "deepseek_A1_I_Φ1_CN.html",
     ROOT / "projects" / "writer" / "code" / "A1_I_Φ2" / "deepseek_A1_I_Φ2_CN.html",
     ROOT / "projects" / "writer" / "code" / "A1_I_Φ3" / "deepseek_A1_I_Φ3_CN.html",
+    ROOT / "projects" / "writer" / "code" / "A1_I_Φ4" / "deepseek_A1_I_Φ4_CN.html",
 )
 
 ERROR_RE = re.compile(r"CONSOLE.*?(Uncaught|SyntaxError|TypeError|ReferenceError)")
