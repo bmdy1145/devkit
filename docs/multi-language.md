@@ -75,6 +75,32 @@ DevKit 有 9 个皮肤，另有 1 个「九皮肤合一」版本：
 
 ---
 
+## Release 附件命名
+
+`.github/workflows/build-implementations.yml` 在 windows-latest 上构建全部产物，
+合并进 `main` 后自动发布为 Release 附件。命名规则：
+
+```
+<项目>_<语言>_<层次>.exe
+```
+
+| 段 | 取值 | 说明 |
+|---|---|---|
+| 项目 | `dircleaner` / `submerge-pro` / `writer` / `devkit` | |
+| 语言 | `cpp` / `csharp` / `go` / `python` / `rust` / `typescript` | |
+| 层次 | `cli` / `gui` | `cli` = 源码目录的 `core`；`gui` = 源码目录的 `full` |
+
+例：`submerge-pro_rust_gui.exe`、`dircleaner_cpp_cli.exe`。
+
+- **用下划线分隔**：项目名 `submerge-pro` 自带连字符，再用连字符作分隔符会歧义。
+- **对外叫 `cli` / `gui`**：`core` / `full` 是源码目录名，对使用者不如
+  「命令行 / 图形界面」直观；`full` 层原本还额外带 `-gui` 后缀，信息重复。
+- **项目名排在最前**：附件列表按文件名排序，这样同一项目的各语言实现相邻。
+
+> 源码目录名与附件层次名不同（`core` ↔ `cli`、`full` ↔ `gui`），改命名时两处要一起看。
+
+---
+
 ## 检查脚本
 
 现有 `version_guard.py`、`size_guard.py`、`smoke_test.py`、`auto_release.py`
