@@ -296,7 +296,12 @@ jobs:
         shell: pwsh
         run: |
           # 按目录扫描，而不是写死文件清单：任何新加的项目/语言自动被收集。
-          # 命名规则：<语言层>__<项目>[-gui].exe，例如 rust-full__writer-gui.exe
+          # 附件命名规则：<项目>_<语言>_<层次>.exe
+          #   项目：dircleaner / submerge-pro / writer / devkit
+          #   语言：cpp / csharp / go / python / rust / typescript
+          #   层次：cli（命令行内核，源码目录的 core）/ gui（图形界面，源码目录的 full）
+          #   例：submerge-pro_rust_gui.exe、dircleaner_cpp_cli.exe
+          #   用下划线分隔：项目名 submerge-pro 自带连字符，再用连字符会歧义。
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
 
           $map = @{
@@ -359,7 +364,11 @@ jobs:
               }
 
               if ($exe) {
-                $dst = "artifacts/${layer}__${proj}$suffix.exe"
+                # 目录名 <语言>-<层次> 拆成两段，拼成 <项目>_<语言>_<层次>.exe
+                $parts = $layer -split '-', 2
+                $lang = $parts[0]
+                $tier = if ($parts[1] -eq "full") { "gui" } else { "cli" }
+                $dst = "artifacts/${proj}_${lang}_${tier}.exe"
                 Copy-Item $exe.FullName $dst
                 Write-Host "收集: $dst ← $($exe.FullName)"
                 $count++
@@ -410,9 +419,14 @@ jobs:
           由 ``.github/workflows/build-implementations.yml`` 在 windows-latest 上编译，
           源码位于仓库 ``implementations/``。EXE 不入库，仅作为本 Release 的附件。
 
-          命名规则：``<语言>-<层次>__dircleaner.exe``
-          · ``core`` = 纯逻辑内核（命令行）
-          · ``full`` = 全功能版（图形界面）
-          · 带 ``-gui`` 或 ``full`` 的是图形界面版
+          命名规则：``<项目>_<语言>_<层次>.exe``，例如 ``submerge-pro_rust_gui.exe``
+
+          | 段 | 取值 |
+          |---|---|
+          | 项目 | ``dircleaner`` / ``submerge-pro`` / ``writer`` / ``devkit`` |
+          | 语言 | ``cpp`` / ``csharp`` / ``go`` / ``python`` / ``rust`` / ``typescript`` |
+          | 层次 | ``cli`` = 纯逻辑内核（命令行）；``gui`` = 全功能版（图形界面） |
+
+          共 4 个项目 × 6 种语言 × 2 个层次 = 48 个附件，按文件名排序即按项目分组。
           "@
           gh release create $tag artifacts/*.exe --title $tag --notes $body
