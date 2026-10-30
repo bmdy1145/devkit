@@ -109,13 +109,14 @@ class TestPlanAuto(unittest.TestCase):
             sorted([("devkit", "A1_V_Φ9"), ("writer", "A1_I_Φ3")]),
         )
 
-    def test_unknown_comparison_falls_back_to_everything(self):
+    def test_unknown_comparison_releases_nothing(self):
+        """compare 失败时不能退化为全量发版：一次异常会连发十几个 Release。
+
+        改成「本次不自动发版 + 日志说明」，需要时手动 dispatch 补发。
+        """
         targets, reason = ar.plan_auto(None)
-        self.assertIn("退化", reason)
-        expected = {
-            (p, t) for p in ar.local_projects() for t in ar.local_trunks(p)
-        }
-        self.assertEqual({(p, t) for p, t, _ in targets}, expected)
+        self.assertEqual(targets, [])
+        self.assertIn("不自动发版", reason)
 
     def test_targets_are_triples_so_modes_cannot_desync(self):
         targets, _ = ar.plan_auto([f("projects/writer/code/A1_I_Φ3/x.html")])
@@ -161,7 +162,32 @@ class TestPlanDispatch(unittest.TestCase):
         targets, forced, reason = ar.plan_dispatch("writer", "A1_I_Φ999", "")
         self.assertEqual(targets, [])
         self.assertIsNone(forced)
-        self.assertIn("找不到目录", reason)
+        self.assertIn("找不到", reason)
+
+    def test_archive_trunk_is_rejected(self):
+        """归档目录不能通过手动 dispatch 发布。
+
+        自动路径早就过滤了归档，但 plan_dispatch 之前只查 is_dir()，
+        DISPATCH_TRUNK=A1_V_Φ9_fix-archive 能给归档发一个 Release。
+        """
+        targets, forced, reason = ar.plan_dispatch("devkit", "A1_V_Φ9_fix-archive", "")
+        self.assertEqual(targets, [])
+        self.assertIsNone(forced)
+        self.assertIn("归档", reason)
+
+    def test_dotdot_trunk_is_rejected(self):
+        """`..` 能被 is_dir() 放行，必须靠名字校验挡住。"""
+        for bad in ("..", ".", "../A1_V_Φ9", "a/b", "a\\b", ""):
+            targets, forced, reason = ar.plan_dispatch("devkit", bad, "")
+            self.assertEqual(targets, [], f"{bad!r} 不应通过")
+            self.assertIsNone(forced)
+            self.assertTrue(reason)
+
+    def test_safe_trunk_name_helper(self):
+        self.assertTrue(ar.is_safe_trunk_name("A1_V_Φ9"))
+        self.assertTrue(ar.is_safe_trunk_name("writer"))
+        for bad in ("..", ".", "", "a/b", "a\\b"):
+            self.assertFalse(ar.is_safe_trunk_name(bad), f"{bad!r} 不应通过")
 
 
 class TestArchiveDirsAreNotTrunks(unittest.TestCase):

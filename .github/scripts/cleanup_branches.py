@@ -16,6 +16,8 @@ head 分支在本仓库的残留删掉。这个动作是幂等的，多处触发
     子 PR 合并后才轮到它，否则会把子 PR 的 base 抽掉
   · 未合并就被关闭的 PR，其分支不删（可能还要继续用）
   · 该分支不存在于本仓库时跳过（正常情况：它只存在于 fork）
+  · 分支当前 tip 与已合并 PR 的 head sha 不一致时跳过 —— 说明这个分支要么
+    已被同名重建、要么被人续了新提交，都不是「已完成使命可以删」的状态
 
 只清理本仓库（上游）的分支。fork 上的分支 GITHUB_TOKEN 无权删除——那需要
 另配一个有 fork 写权限的令牌，本脚本刻意不碰。
@@ -34,6 +36,7 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 API = "https://api.github.com"
@@ -94,13 +97,32 @@ def main() -> int:
         print(f"[问题] 读取已关闭的 PR 失败（HTTP {status}）。")
         return 1
 
-    candidates: list[str] = []
+    # 只比对名字会误删：某个已合并 PR 的 head 分支被删后，用户可能用同名重建
+    # 了一个新分支（内容完全不同）。所以必须再比对 tip commit —— 只有分支
+    # 当前指向的提交与 PR 的 head sha 一致，才说明它就是那个已完成使命的分支。
+    candidates: list[tuple[str, str]] = []   # (ref, head_sha)
+    seen: set[str] = set()
     for pr in closed_prs or []:
         if not pr.get("merged_at"):
             continue
-        ref = (pr.get("head") or {}).get("ref")
-        if ref and ref in existing and ref not in protected and ref not in candidates:
-            candidates.append(ref)
+        head = pr.get("head") or {}
+        ref, head_sha = head.get("ref"), head.get("sha")
+        if not ref or not head_sha:
+            continue
+        if ref not in existing or ref in protected or ref in seen:
+            continue
+
+        status, branch = api(
+            "GET", f"{API}/repos/{repo}/git/ref/heads/{ref}", token
+        )
+        tip = ((branch or {}).get("object") or {}).get("sha") if status == 200 else None
+        if tip != head_sha:
+            # 分支要么已被新内容覆盖，要么读不到 —— 两种情况都不动它
+            print(f"[跳过] {ref}：当前 tip 与已合并 PR 的 head 不一致（可能已被重建）")
+            seen.add(ref)
+            continue
+        seen.add(ref)
+        candidates.append((ref, head_sha))
 
     mode = "试运行（只打印）" if dry_run else "实际删除"
     print(f"仓库 {repo} · 模式：{mode} · 默认分支 {default_branch}")
@@ -113,11 +135,16 @@ def main() -> int:
         return 0
 
     failed: list[str] = []
-    for ref in sorted(candidates):
+    for ref, _ in sorted(candidates):
         if dry_run:
             print(f"[试运行] 将删除 {ref}")
             continue
-        status, _ = api("DELETE", f"{API}/repos/{repo}/git/refs/heads/{ref}", token)
+        # 分支名可能含 `#` 等字符，拼进 URL 前要编码
+        status, _ = api(
+            "DELETE",
+            f"{API}/repos/{repo}/git/refs/heads/{urllib.parse.quote(ref)}",
+            token,
+        )
         if status in (204, 200):
             print(f"已删除 {ref}")
         else:
@@ -130,7 +157,8 @@ def main() -> int:
     print()
     action = "将删除" if dry_run else "已删除"
     print(f"清理完成：{action} {len(candidates)} 个分支，失败 {len(failed)} 个。")
-    return 0
+    # 删除失败必须让工作流变红，否则失败被静默吞掉
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

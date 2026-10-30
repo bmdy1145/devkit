@@ -240,6 +240,10 @@ def release_trunk(
     forced_tag: str | None = None,
 ) -> bool:
     trunk_dir = code_dir(project) / trunk
+    # 兜底：即便调用方没过滤，归档目录也不得发布
+    if not is_trunk_dir(trunk_dir):
+        print(f"[告警] {project}/{trunk} 不是可发布的主干（归档或不存在），跳过。")
+        return False
     files = sorted(trunk_dir.glob("deepseek_*.html"))
     if not files:
         print(f"[告警] {project}/{trunk} 下没有版本文件，跳过。")
@@ -288,12 +292,26 @@ def release_trunk(
     return True
 
 
+# dispatch 的 trunk 来自 workflow_dispatch 的手工输入，会直接被拼进文件路径。
+# 只允许单段目录名：挡住 `..`、`../x`、以及任何分隔符，避免读到 projects 之外。
+SAFE_TRUNK_RE = re.compile(r"[^/\\]+")
+
+
+def is_safe_trunk_name(trunk: str) -> bool:
+    return bool(trunk) and trunk not in (".", "..") and bool(SAFE_TRUNK_RE.fullmatch(trunk))
+
+
 def plan_dispatch(
     project: str, trunk: str, suffix: str
 ) -> tuple[list[tuple[str, str, str]], str | None, str]:
     """手动触发：为指定项目的指定主干补发一个 Release。"""
-    if not (code_dir(project) / trunk).is_dir():
-        msg = f"[问题] 找不到目录 projects/{project}/code/{trunk}。"
+    if not is_safe_trunk_name(trunk):
+        return [], None, f"[问题] 主干名不合法：{trunk!r}（不得包含路径分隔符或为 . / ..）"
+    # 与自动路径用同一判定：归档目录（*_fix-archive）不是可发布主干。
+    if not is_trunk_dir(code_dir(project) / trunk):
+        msg = f"[问题] 找不到可发布的主干 projects/{project}/code/{trunk}。"
+        if (code_dir(project) / trunk).is_dir():
+            msg += "（该目录是归档，不能发布）"
         trunks = local_trunks(project)
         if trunks:
             msg += "现有主干：" + "、".join(trunks)
@@ -314,10 +332,11 @@ def plan_auto(
     分支只要漏写一处就会失步，最后在 main() 里 KeyError。
     """
     if files is None:
-        targets = [
-            (p, t, "changed") for p in local_projects() for t in local_trunks(p)
-        ]
-        return targets, "无法比较提交范围，退化为为全部项目的全部主干发布"
+        # 无法比较提交范围（force-push、compare 404 等）。此前的做法是「退化为
+        # 给全部项目的全部主干各发一个 Release」——一次异常能连发十几个，
+        # 且每个都新建标签，清理起来很麻烦。宁可这次不发，日志写清楚原因，
+        # 需要时用 workflow_dispatch 手动补发。
+        return [], "无法比较提交范围（可能是 force-push 或 compare 接口异常），为安全起见本次不自动发版；如需发布请手动触发并指定主干"
 
     changes = scan_changes(files)
     targets: list[tuple[str, str, str]] = []
