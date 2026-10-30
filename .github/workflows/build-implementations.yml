@@ -62,8 +62,15 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             implementations/**/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('implementations/**/Cargo.lock') }}
-          restore-keys: cargo-${{ runner.os }}-
+          # key 里带上 Cargo.lock 集合的哈希：新增项目或依赖变动时自然换 key。
+          # restore-keys 仅作前缀兜底，让「新增一个项目」时仍能复用旧依赖缓存
+          # （否则全量重下 crates 会给 Rust 步骤平白加几分钟）。但注意：从
+          # 单项目升级到多项目那次会命中旧缓存、缺新项目的依赖，属一次性变慢，
+          # 不是错误——真正的正确性由 cargo 自己校验 Cargo.lock 保证。
+          key: cargo-v2-${{ runner.os }}-${{ hashFiles('implementations/**/Cargo.lock') }}
+          restore-keys: |
+            cargo-v2-${{ runner.os }}-
+            cargo-${{ runner.os }}-
 
       - name: 安装 Go
         uses: actions/setup-go@v5
@@ -213,13 +220,23 @@ jobs:
               $dir = $_.FullName
               $files = Get-ChildItem $dir -Filter "*.py" -ErrorAction SilentlyContinue
               if (-not $files) { return }
-              # full 层优先找 *_gui.py，core 层找同名 .py
-              $entry = if ($layer -eq "python-full") {
-                $files | Where-Object { $_.Name -like "*_gui.py" } | Select-Object -First 1
+              # 入口文件判定，按优先级取第一个命中项，不依赖文件系统枚举顺序：
+              #   full 层：*_gui.py
+              #   core 层：与项目目录同名的 .py（如 devkit/devkit.py），
+              #            找不到才退回任意非 *_gui.py
+              $projName = $_.Name
+              $entry = $null
+              if ($layer -eq "python-full") {
+                $entry = $files | Where-Object { $_.Name -like "*_gui.py" } | Sort-Object Name | Select-Object -First 1
               } else {
-                $files | Where-Object { $_.Name -notlike "*_gui.py" } | Select-Object -First 1
+                $candidates = $files | Where-Object { $_.Name -notlike "*_gui.py" }
+                $entry = $candidates | Where-Object { $_.BaseName -eq $projName } | Select-Object -First 1
+                if (-not $entry) { $entry = $candidates | Sort-Object Name | Select-Object -First 1 }
               }
-              if (-not $entry) { return }
+              if (-not $entry) {
+                Write-Host "::warning::$layer/$projName 未找到 Python 入口文件，已跳过"
+                return
+              }
               Write-Host "::group::pyinstaller $dir"
               Push-Location $dir
               if ($layer -eq "python-full") {
@@ -275,6 +292,8 @@ jobs:
           }
 
           $count = 0
+          $expected = 0
+          $missing = @()
           foreach ($layer in $map.Keys) {
             $layerDir = "implementations/$layer"
             if (-not (Test-Path $layerDir)) { continue }
@@ -283,21 +302,45 @@ jobs:
               $searchDir = if ($map[$layer].Proj) { Join-Path $_.FullName $map[$layer].Proj } else { $_.FullName }
               if (-not (Test-Path $searchDir)) { return }
               $suffix = $map[$layer].Suffix
+              $expected++
+
+              # 精确匹配目标文件名，不再用「取体积最大的 exe」这种脆弱启发式：
+              #   core 层（suffix 为空）期望 <项目>.exe，必须显式排除 *-gui.exe，
+              #   否则同目录若残留 full 层产物会误取
+              #   full 层期望 <项目>-gui.exe
+              $wantName = "${proj}${suffix}.exe"
               $exe = Get-ChildItem $searchDir -Filter "*.exe" -ErrorAction SilentlyContinue |
-                     Where-Object { $_.Name -like "*$suffix.exe" } |
-                     Sort-Object Length -Descending | Select-Object -First 1
+                     Where-Object { $_.Name -eq $wantName } |
+                     Select-Object -First 1
+
+              if (-not $exe -and $suffix -eq "") {
+                # 兜底：名字不完全一致时取任意非 -gui 的 exe（例如 Rust 的
+                # cargo 产物名由 Cargo.toml 的 [[bin]] 决定，可能不等于目录名）
+                $exe = Get-ChildItem $searchDir -Filter "*.exe" -ErrorAction SilentlyContinue |
+                       Where-Object { $_.Name -notlike "*-gui.exe" } |
+                       Sort-Object LastWriteTime -Descending | Select-Object -First 1
+              } elseif (-not $exe -and $suffix -eq "-gui") {
+                $exe = Get-ChildItem $searchDir -Filter "*-gui.exe" -ErrorAction SilentlyContinue |
+                       Sort-Object LastWriteTime -Descending | Select-Object -First 1
+              }
+
               if ($exe) {
                 $dst = "artifacts/${layer}__${proj}$suffix.exe"
                 Copy-Item $exe.FullName $dst
                 Write-Host "收集: $dst ← $($exe.FullName)"
                 $count++
               } else {
-                Write-Host "::warning::未找到 $layer/$proj 的产物（$searchDir）"
+                Write-Host "::warning::未找到 $layer/$proj 的产物（期望 $wantName，目录 $searchDir）"
+                $missing += "$layer/$proj"
               }
             }
           }
-          Write-Host "共收集 $count 个产物"
+          Write-Host "共收集 $count / $expected 个产物"
           if ($count -eq 0) { Write-Error "没有任何产物，检查构建步骤"; exit 1 }
+          if ($missing.Count -gt 0) {
+            Write-Error "以下项目产物缺失：$($missing -join ', ')"
+            exit 1
+          }
 
       - name: 上传构建产物（工作流回执）
         uses: actions/upload-artifact@v4
