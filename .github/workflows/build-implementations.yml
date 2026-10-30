@@ -97,124 +97,207 @@ jobs:
           echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       # ---------- 构建 ----------
-      - name: 构建 Rust（core + full）
+      # ---------- 构建 ----------
+      #
+      # 下面每一步都**遍历 implementations 下的全部项目目录**，而不是只认
+      # dircleaner。原因：四个项目（devkit / submerge-pro / dircleaner /
+      # writer）各有 core 与 full 两层，共 48 个产物。若写死某个项目名，
+      # 其余项目的实现永远不会被构建，Release 里也只有一小部分产物。
+      #
+      # 判定方式统一为「该子目录下有没有该语言的标志文件」：
+      #   Rust → Cargo.toml、Go → go.mod、C++ → main.cpp
+      #   C# → *.csproj、Python → *.py
+      # 这样新增项目时无需再改本文件。
+
+      - name: 构建 Rust（core + full，全部项目）
         shell: pwsh
         run: |
-          $env:RUSTFLAGS = "-C link-self-contained=yes"
+          # 不需要 RUSTFLAGS：CI runner 的默认目标是 MSVC，链接器自带 CRT。
+          # `-C link-self-contained` 只对 GNU 目标有效，在 MSVC 上会被 rustc
+          # 直接拒收（"option `-C link-self-contained` is not supported on
+          # this target"），这是本工作流首次运行失败的原因。
+          $fail = @()
           Get-ChildItem implementations -Directory -Filter "rust-*" | ForEach-Object {
-            $dir = Join-Path $_.FullName "dircleaner"
-            if (Test-Path "$dir/Cargo.toml") {
-              Push-Location $dir
-              cargo build --release
-              Pop-Location
+            Get-ChildItem $_.FullName -Directory | ForEach-Object {
+              $dir = $_.FullName
+              if (Test-Path "$dir/Cargo.toml") {
+                Write-Host "::group::cargo build $dir"
+                Push-Location $dir
+                cargo build --release
+                if ($LASTEXITCODE -ne 0) { $fail += $dir }
+                Pop-Location
+                Write-Host "::endgroup::"
+              }
             }
           }
+          if ($fail.Count -gt 0) { Write-Error "Rust 构建失败：$($fail -join ', ')"; exit 1 }
 
-      - name: 构建 Go（core + full）
+      - name: 构建 Go（core + full，全部项目）
         shell: pwsh
         run: |
           $env:CGO_ENABLED = "1"
           $env:GOPROXY = "https://proxy.golang.org,direct"
+          $fail = @()
           Get-ChildItem implementations -Directory -Filter "go-*" | ForEach-Object {
-            $dir = Join-Path $_.FullName "dircleaner"
-            if (Test-Path "$dir/go.mod") {
-              Push-Location $dir
-              go mod tidy
-              if ($_.Name -eq "go-full") {
-                go build -ldflags="-H windowsgui" -o dircleaner-gui.exe main.go
-              } else {
-                go build -o dircleaner.exe main.go
+            $layer = $_.Name   # go-core / go-full
+            Get-ChildItem $_.FullName -Directory | ForEach-Object {
+              $dir = $_.FullName
+              if (Test-Path "$dir/go.mod") {
+                Write-Host "::group::go build $dir"
+                Push-Location $dir
+                go mod tidy
+                if ($layer -eq "go-full") {
+                  go build -ldflags="-H windowsgui" -o "$($_.Name)-gui.exe" .
+                } else {
+                  go build -o "$($_.Name).exe" .
+                }
+                if ($LASTEXITCODE -ne 0) { $fail += $dir }
+                Pop-Location
+                Write-Host "::endgroup::"
               }
-              Pop-Location
             }
           }
+          if ($fail.Count -gt 0) { Write-Error "Go 构建失败：$($fail -join ', ')"; exit 1 }
 
-      - name: 构建 C++（core + full）
+      - name: 构建 C++（core + full，全部项目）
         shell: pwsh
         run: |
+          $fail = @()
           Get-ChildItem implementations -Directory -Filter "cpp-*" | ForEach-Object {
-            $dir = Join-Path $_.FullName "dircleaner"
-            if (Test-Path "$dir/main.cpp") {
-              Push-Location $dir
-              if ($_.Name -eq "cpp-full") {
-                g++ -std=c++17 -O2 -static -mwindows -o dircleaner-gui.exe main.cpp -lcomctl32 -lole32 -lshell32
-              } else {
-                g++ -std=c++17 -O2 -static -o dircleaner.exe main.cpp
+            $layer = $_.Name
+            Get-ChildItem $_.FullName -Directory | ForEach-Object {
+              $dir = $_.FullName
+              if (Test-Path "$dir/main.cpp") {
+                Write-Host "::group::g++ $dir"
+                Push-Location $dir
+                if ($layer -eq "cpp-full") {
+                  g++ -std=c++17 -O2 -static -mwindows -o "$($_.Name)-gui.exe" main.cpp -lcomctl32 -lole32 -lshell32
+                } else {
+                  g++ -std=c++17 -O2 -static -o "$($_.Name).exe" main.cpp
+                }
+                if ($LASTEXITCODE -ne 0) { $fail += $dir }
+                Pop-Location
+                Write-Host "::endgroup::"
               }
-              Pop-Location
             }
           }
+          if ($fail.Count -gt 0) { Write-Error "C++ 构建失败：$($fail -join ', ')"; exit 1 }
 
-      - name: 构建 C#（core + full）
+      - name: 构建 C#（core + full，全部项目）
         shell: pwsh
         run: |
+          $fail = @()
           Get-ChildItem implementations -Directory -Filter "csharp-*" | ForEach-Object {
-            $dir = Join-Path $_.FullName "dircleaner"
-            $proj = Get-ChildItem $dir -Filter "*.csproj" -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($proj) {
-              Push-Location $dir
-              dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
-              Pop-Location
+            Get-ChildItem $_.FullName -Directory | ForEach-Object {
+              $dir = $_.FullName
+              $proj = Get-ChildItem $dir -Filter "*.csproj" -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($proj) {
+                Write-Host "::group::dotnet publish $dir"
+                Push-Location $dir
+                dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+                if ($LASTEXITCODE -ne 0) { $fail += $dir }
+                Pop-Location
+                Write-Host "::endgroup::"
+              }
             }
           }
+          if ($fail.Count -gt 0) { Write-Error "C# 构建失败：$($fail -join ', ')"; exit 1 }
 
-      - name: 构建 Python（core + full）
+      - name: 构建 Python（core + full，全部项目）
         shell: pwsh
         run: |
+          $fail = @()
           Get-ChildItem implementations -Directory -Filter "python-*" | ForEach-Object {
-            $dir = Join-Path $_.FullName "dircleaner"
-            if ($_.Name -eq "python-full") {
+            $layer = $_.Name
+            Get-ChildItem $_.FullName -Directory | ForEach-Object {
+              $dir = $_.FullName
+              $files = Get-ChildItem $dir -Filter "*.py" -ErrorAction SilentlyContinue
+              if (-not $files) { return }
+              # full 层优先找 *_gui.py，core 层找同名 .py
+              $entry = if ($layer -eq "python-full") {
+                $files | Where-Object { $_.Name -like "*_gui.py" } | Select-Object -First 1
+              } else {
+                $files | Where-Object { $_.Name -notlike "*_gui.py" } | Select-Object -First 1
+              }
+              if (-not $entry) { return }
+              Write-Host "::group::pyinstaller $dir"
               Push-Location $dir
-              python -m PyInstaller --onefile --windowed --noconfirm --name dircleaner-gui --distpath dist --workpath build --specpath spec dircleaner_gui.py
+              if ($layer -eq "python-full") {
+                python -m PyInstaller --onefile --windowed --noconfirm --name "$($_.Name)-gui" --distpath dist --workpath build --specpath spec $entry.Name
+              } else {
+                python -m PyInstaller --onefile --console --noconfirm --name "$($_.Name)" --distpath dist --workpath build --specpath spec $entry.Name
+              }
+              if ($LASTEXITCODE -ne 0) { $fail += $dir }
               Pop-Location
-            } elseif (Test-Path "$dir/dircleaner.py") {
-              Push-Location $dir
-              python -m PyInstaller --onefile --console --noconfirm --name dircleaner --distpath dist --workpath build --specpath spec dircleaner.py
-              Pop-Location
+              Write-Host "::endgroup::"
             }
           }
+          if ($fail.Count -gt 0) { Write-Error "Python 构建失败：$($fail -join ', ')"; exit 1 }
 
       - name: 构建 TypeScript（core + full）
         shell: pwsh
         run: |
-          # Node 无原生 EXE 打包，用 SEA（single executable application）
-          # 两种形态都先产出 .js，SEA 打包留待后续迭代
+          # Node 无原生 EXE 打包（SEA 需额外注入 blob），当前交付 .js 源码。
+          # 这里只做语法检查，确保产物可运行；真正的 EXE 打包留待后续迭代。
+          $fail = @()
           Get-ChildItem implementations -Directory -Filter "typescript-*" | ForEach-Object {
-            $dir = Join-Path $_.FullName "dircleaner"
-            if (Test-Path "$dir") {
-              Write-Host "TypeScript 版位于 $dir（当前交付 .js 源码，SEA 打包待做）"
+            Get-ChildItem $_.FullName -Directory | ForEach-Object {
+              $dir = $_.FullName
+              Get-ChildItem $dir -Filter "*.js" -ErrorAction SilentlyContinue | ForEach-Object {
+                Write-Host "::group::node --check $($_.FullName)"
+                node --check $_.FullName
+                if ($LASTEXITCODE -ne 0) { $fail += $_.FullName }
+                Write-Host "::endgroup::"
+              }
             }
           }
+          if ($fail.Count -gt 0) { Write-Error "TypeScript 语法检查失败：$($fail -join ', ')"; exit 1 }
 
       # ---------- 汇总产物 ----------
       - name: 收集产物
         shell: pwsh
         run: |
+          # 按目录扫描，而不是写死文件清单：任何新加的项目/语言自动被收集。
+          # 命名规则：<语言层>__<项目>[-gui].exe，例如 rust-full__writer-gui.exe
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          $patterns = @(
-            "implementations/rust-core/dircleaner/target/release/dircleaner.exe",
-            "implementations/rust-full/dircleaner/target/release/dircleaner-full.exe",
-            "implementations/go-core/dircleaner/dircleaner.exe",
-            "implementations/go-full/dircleaner/dircleaner-gui.exe",
-            "implementations/cpp-core/dircleaner/dircleaner.exe",
-            "implementations/cpp-full/dircleaner/dircleaner-gui.exe",
-            "implementations/csharp-core/dircleaner/publish/dircleaner.exe",
-            "implementations/csharp-full/dircleaner/publish/dircleaner-gui.exe",
-            "implementations/python-core/dircleaner/dist/dircleaner.exe",
-            "implementations/python-full/dircleaner/dist/dircleaner-gui.exe"
-          )
-          $i = 0
-          foreach ($p in $patterns) {
-            if (Test-Path $p) {
-              $lang = ($p -split '/')[1]
-              $name = Split-Path (Split-Path (Split-Path $p -Parent) -Parent) -Leaf
-              $dst = "artifacts/${lang}__${name}.exe"
-              Copy-Item $p $dst
-              Write-Host "收集: $dst"
-              $i++
+
+          $map = @{
+            "rust-core"   = @{ Proj = "target/release";  Suffix = "" }
+            "rust-full"   = @{ Proj = "target/release";  Suffix = "-gui" }
+            "go-core"     = @{ Proj = "";                Suffix = "" }
+            "go-full"     = @{ Proj = "";                Suffix = "-gui" }
+            "cpp-core"    = @{ Proj = "";                Suffix = "" }
+            "cpp-full"    = @{ Proj = "";                Suffix = "-gui" }
+            "csharp-core" = @{ Proj = "publish";         Suffix = "" }
+            "csharp-full" = @{ Proj = "publish";         Suffix = "-gui" }
+            "python-core" = @{ Proj = "dist";            Suffix = "" }
+            "python-full" = @{ Proj = "dist";            Suffix = "-gui" }
+          }
+
+          $count = 0
+          foreach ($layer in $map.Keys) {
+            $layerDir = "implementations/$layer"
+            if (-not (Test-Path $layerDir)) { continue }
+            Get-ChildItem $layerDir -Directory | ForEach-Object {
+              $proj = $_.Name
+              $searchDir = if ($map[$layer].Proj) { Join-Path $_.FullName $map[$layer].Proj } else { $_.FullName }
+              if (-not (Test-Path $searchDir)) { return }
+              $suffix = $map[$layer].Suffix
+              $exe = Get-ChildItem $searchDir -Filter "*.exe" -ErrorAction SilentlyContinue |
+                     Where-Object { $_.Name -like "*$suffix.exe" } |
+                     Sort-Object Length -Descending | Select-Object -First 1
+              if ($exe) {
+                $dst = "artifacts/${layer}__${proj}$suffix.exe"
+                Copy-Item $exe.FullName $dst
+                Write-Host "收集: $dst ← $($exe.FullName)"
+                $count++
+              } else {
+                Write-Host "::warning::未找到 $layer/$proj 的产物（$searchDir）"
+              }
             }
           }
-          Write-Host "共收集 $i 个产物"
+          Write-Host "共收集 $count 个产物"
+          if ($count -eq 0) { Write-Error "没有任何产物，检查构建步骤"; exit 1 }
 
       - name: 上传构建产物（工作流回执）
         uses: actions/upload-artifact@v4
