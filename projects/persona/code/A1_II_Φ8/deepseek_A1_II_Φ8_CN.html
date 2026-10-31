@@ -1,0 +1,3803 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!--
+    ============================================================
+    项目名称：Persona（人设编辑器 · 中文版）
+    版本代号：A1_II_Φ8_CN
+    基于分支：A1 分支（初始开发主线）
+    父版本：A1_II_Φ7_CN
+    修改说明：多比例屏幕适配（Φ 层递增：Φ2 → Φ3）。Φ2 只有一条
+              @media (max-width: 1000px) 断点，把三栏改成纵向堆叠，在若干
+              真实屏幕比例下失效：手机竖屏时编辑区被挤到约 150px、手机横屏
+              时内容整体溢出视口、超宽屏时正文行宽拉到 2000px+。本版：
+              1) 建立四档宽度断点（≥1800 超宽 / 1200–1799 桌面 /
+                 700–1199 平板 / <700 手机）+ 两档高度断点（≤760、≤480）；
+              2) 手机（<700px）改为**页签切换**：人设 / 编辑 / AI 结果，
+                 一次只显示一栏，各自占满剩余高度；发送到 AI 后自动切到
+                 结果页签，应用后自动切回编辑页签；
+              3) 超宽屏把编辑区内容限宽 900px 并居中，正文行宽不再失控；
+              4) 矮屏压缩详述框最小高度与各处 padding，极矮屏（≤480）
+                 隐藏状态栏，优先保证编辑区可用；
+              5) 补 env(safe-area-inset-*) 安全区内边距，适配刘海屏与手势条；
+                 补 height:100vh → 100dvh 降级；移除预览弹窗的内联 380px
+                 最小高度（手机横屏会撑破模态框）。
+              功能、数据结构与 AI 协议沿用 Φ2，未变动。
+
+    ====== Φ8 修改说明（本版）======
+    本版把人设与世界观的关系从「并排显示」改为「二选一编辑」（Φ7 → Φ8）：
+              1) 左侧栏顶部新增二选一滑块（人设 / 世界观），取代原分隔条。
+                 滑块决定三处跟随：左栏列表、中间编辑表单、底部提示词条；
+              2) 世界观表单移入中间栏，与人设表单互斥显示；左栏只留列表；
+              3) 人设与世界观各加一个「其他设定」自由文本框，内容会拼进
+                 对应提示词的「其他设定」小节；
+              4) 世界观新增「完善世界观」访谈模式，与人设的「完善人设」同构：
+                 让 AI 主动提问补齐地理、历史、势力、规则等信息；
+              5) 世界观不再使用聊天记忆，提示词中的「对话记录」段整体移除；
+              6) 顶栏 AI 栏按钮改为主色填充，并加新结果计数徽标；
+              7) 顺带修三处缺陷：关闭页面时的脏检查比较了已迁移的旧字段、
+                 世界观请求用的 AbortController 未保存导致停不下来、
+                 人设与世界观发送的按钮禁用态互不复位。
+              数据结构新增 other 字段（旧数据按空串处理，无需迁移）。
+
+    ====== Φ7 修改说明（存档）======
+    本版把世界观面板从中间栏移到**左侧栏**，与人设列表上下分（Φ6 → Φ7）：
+              1) 左侧栏竖直分成两块：上人设列表、下世界观，中间一条分隔条
+                 可拖拽调整比例（Φ6 曾把它放在中间栏，位置不对）；
+              2) 世界观的「+ 新建 / 删除」按钮移到面板内独立一行，适配左栏
+                 较窄的宽度；输入控件字号略小；
+              3) 左侧栏底部的「世界观」入口按钮移除（面板常驻可见），
+                 剩余「记忆文档 / 版本历史」两个按钮；
+              4) Φ6 的三处改动（AI 栏折叠、导出移至顶栏、关于页加链接）
+                 保持不变。
+              数据结构与 AI 协议未变动。
+
+    ====== Φ6 修改说明（存档）======
+    本版为四处界面调整（Φ 层递增：Φ5 → Φ6），不改数据结构与 AI 协议：
+              1) 世界观从弹窗改为内联：中间栏竖直分成上下两块，上人设、
+                 下世界观，中间一条分隔条可拖动调整两者高度比例，比例
+                 记在 prefs.ui 里；
+              2) 右侧 AI 结果栏可折叠：头部加折叠按钮，点了整栏收起，
+                 中间人设自动撑满；顶栏也留一个开关。折叠状态持久化。
+                 窄屏页签模式下折叠不生效，仍由页签控制显示；
+              3) 导出按钮从左侧栏底部移到顶栏右侧，与设置 / 关于并列；
+              4) 「关于」弹窗新增仓库与 Pages 页面两条外链。
+
+    ====== Φ5 修改说明（存档）======
+    本版补齐「设计后导出」并修正一处字段语义（Φ 层递增：Φ4 → Φ5）：
+              1) 导出弹窗新增勾选框（人物卡片 / 世界观卡片 / 记忆 / 完整提示词）
+                 与「导出勾选的内容」按钮，一次把所选内容分别存成独立文件；
+                 底部实时显示「将导出：卡片 · N 个平行世界 · 世界观」预览；
+              2) 新增「完整提示词」导出：把人物卡片、世界观、全部记忆拼成
+                 一份可以直接投喂给 AI 的文本；
+              3) 修正字段语义：原先「世界名」与「角色姓名」共用同一个字段，
+                 导致导出时把「机械师线」当成角色姓名写了出来。现在拆成
+                 「世界标签」（分支名，如机械师线）与「姓名」（角色名）两个
+                 字段，编辑区、列表、导出、快照全部区分使用；
+              4) 旧数据自动补 label：缺少该字段的 world 打开时补为「默认世界」，
+                 原有 name 继续作为角色姓名保留。
+              功能、数据结构与 AI 协议其余部分沿用 Φ4，未变动。
+
+    ====== Φ4 修改说明（存档）======
+    本版新增两项结构能力（Φ 层递增：Φ3 → Φ4）：
+              1) 平行世界：一个人物卡片下可挂多个平行世界，每个世界有各自
+                 的人设字段（姓名 / 身份 / 概括 / 详述）。左侧列表改为
+                 「人物卡片 → 平行世界」两级，卡片下可新建空白世界或从
+                 现有世界复制一份再改；每个世界的记忆与快照可选择
+                 「全卡共享」或「各自独立」（默认各自独立）；
+              2) 世界观库：世界观独立成库，不绑定人物；在人物编辑流程后
+                 可选择是否编辑世界观。世界观与人设走同一套四段式 AI
+                 流程（系统提示词 + 当前内容 + 待总结聊天记录 + 修改要求），
+                 支持复制提示词 / 内置发送 / 结果区应用 / 快照历史；
+              3) 导出增强：新增「拆分导出」，可分别下载人物卡片、世界观
+                 卡片与 N 个记忆文件；同时保留整包 JSON 备份。
+              数据结构：新增 worlds（平行世界）、worldviews（世界观）两个
+              store；personas 记录改为「人物卡片」，字段 id/name/createdAt；
+              worlds 记录承载原人设的四段字段。旧数据在打开时自动迁移。
+    Φ3 说明存档：多比例屏幕适配（Φ2 → Φ3）。Φ2 只有一条
+              「人设 + 记忆 + 要求」一次拼成提示词、要求 AI 一次给出成品；
+              但用户常说不清想要什么样的人设，需要 AI 反过来提问。本版：
+              1) 右下角新增「完善人设」按钮，提供访谈模式的入口；
+              2) 访谈提示词让 AI 主动提问，每轮只问 1–3 个最关键的问题，
+                 优先补齐身份处境、外貌年龄、性格底色、说话方式、人物关系、
+                 核心欲望与弱点、禁忌与底线；已写清的部分不重复问；
+              3) 用户回答后先复述理解到的要点，再问下一批；信息够了或
+                 用户说「可以了」「出结果」时，停止提问并输出成品；
+              4) 普通模式也支持多轮：系统提示词里说明可以先行提问，
+                 所有提示词末尾统一附「收尾说明」，多轮讨论后说一句
+                 「出结果」即按四段格式收口，可直接粘回工具；
+              5) 入口弹窗会提示是否已配置 API Key，未配置时建议复制到外部 AI。
+              其余功能、数据结构与 AI 协议沿用 Φ1，未变动。
+    原首版说明：人与 AI 之间的一层桥，本身不聊天，只负责：
+              1) 存放多份人设（姓名 / 身份 / 一句话概括 / 详细设定）；
+              2) 存放每份人设各自的「记忆」——即该人设与 AI 聊过之后
+                 产生、但尚未总结进人设的聊天记录；
+              3) 把「系统提示词 + 人设当前状态 + 待总结的聊天记录 +
+                 本次修改要求」拼成一段文本，供复制或直接发送给 AI；
+              4) 接收 AI 返回的新人设，经手动「应用」写回编辑器；
+              5) 每次应用或手动保存都留快照，可回退到任意历史版本；
+              6) 右下「完善人设」为访谈模式：用户说不清想要什么样的人设时，
+                 让 AI 主动提问、一轮问 1–3 个关键问题，聊清楚后再说一声
+                 「出结果」，AI 按四段格式收口，粘贴回工具即可。
+              支持 OpenAI 兼容与 Anthropic Messages 两种协议的流式调用；
+              提示词末尾附「收尾说明」，多轮对话里随时可用「出结果」收口。
+    日期：2026-10-31
+    版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+    许可证：GPLv3
+    ============================================================
+-->
+<!--
+    ============================================================
+    以下是当前项目的完整版本结构文字表述，供维护参考
+    当前最新版本：A1_II_Φ8_CN
+
+    Beta（基线版本，2026-10-31创建）
+    └── A1 分支（初始开发分支，2026-10-31创建）
+        └── A1_II（人设编辑器主线，2026-10-31创建，基于Beta）
+            └── A1_II_Φ1（首版：多人设库、每份人设独立记忆、
+                          四段式提示词拼合、双协议流式 AI、
+                          快照历史与回退、JSON 导入导出，
+                          2026-10-31创建，基于A1_II）
+                └── A1_II_Φ1_CN（中文版 · 默认皮肤）
+            └── A1_II_Φ2（新增「完善人设」访谈模式：AI 主动提问、
+                          每轮 1–3 问补齐信息，可先追问再「出结果」；
+                          普通模式也支持多轮收口，
+                          2026-10-31创建，基于A1_II_Φ1）
+                └── A1_II_Φ2_CN（中文版 · 默认皮肤）
+            └── A1_II_Φ3（多比例屏幕适配：四档宽度断点 + 两档高度断点、
+                          手机页签切换、超宽屏限宽居中、矮屏压缩、
+                          安全区内边距，
+                          2026-10-31创建，基于A1_II_Φ2）
+                └── A1_II_Φ3_CN（中文版 · 默认皮肤）
+            └── A1_II_Φ8（二选一滑块与配套改造：人设 / 世界观滑块切换、
+                          其他设定栏、完善世界观访谈、AI 栏按钮主色与徽标，
+                          2026-11-01创建，基于A1_II_Φ7）
+                └── A1_II_Φ8_CN（中文版 · 默认皮肤）
+            └── A1_II_Φ7（世界观移到左侧栏：与人设列表上下分并可拖拽调比例，
+                          2026-11-01创建，基于A1_II_Φ6）
+                └── A1_II_Φ7_CN（中文版 · 默认皮肤）
+            └── A1_II_Φ6（界面调整：世界观内联化并可拖拽调比例、
+                          AI 栏可折叠、导出移至顶栏、关于页加仓库与
+                          Pages 链接，
+                          2026-11-01创建，基于A1_II_Φ5）
+                └── A1_II_Φ6_CN（中文版 · 默认皮肤）
+            └── A1_II_Φ5（导出增强与字段语义修正：导出勾选与一键整套、
+                          完整提示词导出、「世界标签」与「姓名」分离，
+                          2026-11-01创建，基于A1_II_Φ4）
+                └── A1_II_Φ5_CN（中文版 · 默认皮肤）
+            └── A1_II_Φ4（平行世界与世界观：人物卡片下挂多个平行世界、
+                          各自或共享记忆与快照；世界观独立成库、与人设
+                          同一套四段式 AI 流程；导出支持拆分多文件或整包，
+                          2026-10-31创建，基于A1_II_Φ3）
+                └── A1_II_Φ4_CN（中文版 · 默认皮肤）
+    ============================================================
+-->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Persona · 人设编辑器</title>
+<meta name="description" content="Persona 人设编辑器：存放人设与聊天记忆，拼合成提示词交给 AI，把 AI 返回的新人设写回编辑器。单文件网页应用。">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src *; base-uri 'self'; object-src 'none'; form-action 'self';">
+<style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        color-scheme: dark;
+        --bg: #0f1115;
+        --surface: #151922;
+        --surface-2: #1b202b;
+        --surface-3: #222836;
+        --border: #2a3140;
+        --text: #e6e9ef;
+        --text-2: #98a2b3;
+        --text-3: #6f7a8c;
+        --accent: #7fd1c1;
+        --accent-soft: rgba(127, 209, 193, 0.14);
+        --accent-fg: #08201c;
+        --danger: #ef6b6b;
+        --ok: #63c68a;
+        --radius: 10px;
+        --radius-sm: 6px;
+        --left-w: 240px;
+        --result-w: 380px;
+        --font-ui: 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+        --font-serif: 'Songti SC', 'Noto Serif SC', 'Source Han Serif SC', SimSun, serif;
+        --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+        --titlebar-h: 50px;
+        --shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.9);
+    }
+
+    html, body { height: 100%; }
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+        /* 刘海屏 / 手势条安全区；viewport-fit=cover 已在 viewport meta 里声明 */
+        padding: env(safe-area-inset-top) env(safe-area-inset-right)
+                 env(safe-area-inset-bottom) env(safe-area-inset-left);
+        font-family: var(--font-ui);
+        color: var(--text);
+        background:
+            radial-gradient(1000px 600px at 12% -12%, rgba(127,209,193,0.08), transparent 60%),
+            radial-gradient(900px 600px at 94% 4%, rgba(0,188,255,0.05), transparent 62%),
+            var(--bg);
+        font-size: 14px;
+        line-height: 1.5;
+        overflow: hidden;
+    }
+
+    button, input, select, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* ================= 顶栏 ================= */
+    .app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; min-height: 0; }
+
+    .topbar {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 8px;
+        height: var(--titlebar-h);
+        padding: 0 12px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .topbar::-webkit-scrollbar { display: none; }
+
+    .brand {
+        display: flex; align-items: center; gap: 7px;
+        font-family: var(--font-mono); font-weight: 700;
+        color: var(--accent); white-space: nowrap;
+        padding: 4px 8px; border-radius: var(--radius-sm);
+        border: none; background: transparent;
+    }
+    .brand:hover { background: var(--surface-2); }
+    .brand-mark {
+        display: grid; place-items: center;
+        width: 24px; height: 24px; border-radius: 6px;
+        background: var(--accent); color: var(--accent-fg);
+        font-size: 13px; font-weight: 800;
+    }
+    .topbar .spacer { flex: 1 1 auto; min-width: 8px; }
+    .top-meta { font-size: 0.75rem; color: var(--text-3); white-space: nowrap; }
+
+    .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+        min-height: 32px; padding: 5px 11px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-2);
+        color: var(--text);
+        font-size: 0.82rem;
+        white-space: nowrap;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .btn:hover { background: var(--surface-3); border-color: #3a4355; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+    .btn.primary:hover:not(:disabled) { filter: brightness(1.06); }
+    .btn.danger { color: var(--danger); border-color: rgba(239,107,107,0.5); }
+    .btn.danger:hover { background: rgba(239,107,107,0.12); }
+    .btn.ghost { background: transparent; }
+    .btn.sm { min-height: 26px; padding: 2px 8px; font-size: 0.75rem; }
+
+    /* ================= 工作区三栏 ================= */
+    .workspace { flex: 1 1 auto; display: flex; min-height: 0; }
+
+    /* ---------- 左：人设列表 ---------- */
+    .sidebar {
+        flex: 0 0 var(--left-w);
+        display: flex; flex-direction: column;
+        min-height: 0;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+    }
+    .side-head {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 6px;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+    }
+    .side-head .title {
+        font-size: 0.74rem; color: var(--text-3);
+        text-transform: uppercase; letter-spacing: 0.1em;
+        flex: 1 1 auto;
+    }
+    .persona-list { flex: 1 1 auto; overflow-y: auto; padding: 6px; }
+    .persona-item {
+        display: block; width: 100%;
+        text-align: left;
+        padding: 8px 10px;
+        margin-bottom: 4px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--text-2);
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .persona-item:hover { background: var(--surface-2); color: var(--text); }
+    .persona-item.on {
+        background: var(--accent-soft);
+        border-color: rgba(127,209,193,0.55);
+        color: var(--text);
+    }
+    .persona-item .p-name {
+        display: block;
+        font-weight: 600; font-size: 0.86rem;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .persona-item .p-sub {
+        display: block;
+        font-size: 0.72rem; color: var(--text-3);
+        margin-top: 2px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .side-foot {
+        flex: 0 0 auto;
+        display: flex; flex-direction: column; gap: 5px;
+        padding: 8px;
+        border-top: 1px solid var(--border);
+    }
+    .side-foot .btn { width: 100%; }
+
+    /* ---------- 中：人设编辑 ---------- */
+    .editor {
+        flex: 1 1 auto;
+        display: flex; flex-direction: column;
+        min-width: 0; min-height: 0;
+        background: var(--bg);
+    }
+    .editor-head {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--border);
+    }
+    .editor-head .title { font-size: 0.9rem; font-weight: 600; flex: 1 1 auto; min-width: 0;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .editor-body { flex: 1 1 auto; overflow-y: auto; padding: 14px; min-height: 0; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+    .field label { font-size: 0.74rem; color: var(--text-2); }
+    .field input[type="text"], .field input[type="password"], .field input[type="number"], .field select, .field textarea {
+        width: 100%;
+        padding: 7px 9px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 0.86rem;
+        outline: none;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+    .field textarea { resize: vertical; line-height: 1.65; }
+    #detailInput { min-height: 320px; font-family: var(--font-serif); font-size: 0.95rem; }
+    .field .check-line {
+        display: flex; align-items: flex-start; gap: 6px;
+        font-size: 0.76rem; color: var(--text-3);
+        line-height: 1.5; cursor: pointer;
+    }
+    .field .check-line input { margin: 2px 0 0; flex: 0 0 auto; accent-color: var(--accent); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* ---------- 平行世界列表 ---------- */
+    .world-list {
+        margin: 0 0 8px 10px;
+        padding-left: 8px;
+        border-left: 2px solid rgba(224,164,88,0.22);
+    }
+    .world-item {
+        display: block; width: 100%; text-align: left;
+        padding: 5px 8px; margin-bottom: 2px;
+        border: 1px solid transparent; border-radius: var(--radius-sm);
+        background: transparent; color: var(--text-2);
+        font-size: 0.8rem;
+    }
+    .world-item:hover { background: var(--surface-2); }
+    .world-item.on { background: var(--accent-soft); border-color: rgba(224,164,88,0.45); color: var(--accent); }
+    .world-item .w-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .world-item .w-sub { display: block; font-size: 0.7rem; color: var(--text-3);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .world-add {
+        display: block; width: 100%; text-align: left;
+        padding: 4px 8px; border: 1px dashed var(--border);
+        border-radius: var(--radius-sm); background: transparent;
+        color: var(--text-3); font-size: 0.75rem;
+    }
+    .world-add:hover { color: var(--accent); border-color: rgba(224,164,88,0.5); }
+
+    /* ---------- 记忆范围选择 ---------- */
+    .editor-scope {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        padding: 6px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        font-size: 0.74rem; color: var(--text-2);
+    }
+    .editor-scope select {
+        padding: 3px 6px; background: var(--surface-2);
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        font-size: 0.76rem;
+    }
+    .editor-scope .hint { font-size: 0.7rem; color: var(--text-3); }
+
+    /* ---------- 右：AI 结果区 ---------- */
+    .result {
+        flex: 0 0 var(--result-w);
+        display: flex; flex-direction: column;
+        min-height: 0;
+        background: var(--surface);
+        border-left: 1px solid var(--border);
+    }
+    .result-head {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 6px;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+    }
+    .result-head .title { font-size: 0.74rem; color: var(--text-3);
+        text-transform: uppercase; letter-spacing: 0.1em; flex: 1 1 auto; }
+    .result-body { flex: 1 1 auto; display: flex; flex-direction: column; padding: 8px; min-height: 0; }
+    #resultInput {
+        flex: 1 1 auto;
+        width: 100%; min-height: 120px;
+        padding: 9px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font-mono);
+        font-size: 0.78rem;
+        line-height: 1.65;
+        resize: none;
+        outline: none;
+    }
+    #resultInput:focus { border-color: var(--accent); }
+    .result-actions { flex: 0 0 auto; display: flex; gap: 6px; flex-wrap: wrap; padding-top: 8px; }
+    .result-actions .btn { flex: 1 1 auto; }
+
+    /* ---------- 底：提示词条 ---------- */
+    .promptbar {
+        flex: 0 0 auto;
+        display: flex; align-items: flex-end; gap: 8px;
+        padding: 8px 12px max(8px, env(safe-area-inset-bottom));
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+    }
+    .promptbar .grow { flex: 1 1 auto; min-width: 0; }
+    .promptbar textarea {
+        width: 100%; min-height: 38px; max-height: 96px;
+        padding: 7px 9px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 0.84rem;
+        resize: vertical;
+        outline: none;
+    }
+    .promptbar textarea:focus { border-color: var(--accent); }
+    .promptbar .btns { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    /* 「完善人设」是访谈模式的入口，与常规发送区分开 */
+    .btn.interview {
+        border-color: rgba(127,209,193,0.5);
+        color: var(--accent);
+        background: var(--accent-soft);
+    }
+    .btn.interview:hover { border-color: var(--accent); background: rgba(127,209,193,0.22); }
+
+    /* ---------- AI 栏折叠 ---------- */
+    .result.collapsed { flex: 0 0 0 !important; width: 0; overflow: hidden; border-left: none; }
+    .result.collapsed > * { display: none; }
+
+    /* ---------- 关于弹窗外链 ---------- */
+    .about-links {
+        display: flex; flex-direction: column; gap: 6px;
+        margin: 12px 0; padding: 10px 12px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+    }
+    .about-links a {
+        color: var(--accent); text-decoration: none;
+        font-size: 0.82rem; word-break: break-all;
+    }
+    .about-links a::before { content: '↗ '; }
+    .about-links a:hover { text-decoration: underline; }
+    .about-links a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* ---------- 二选一滑块（人设 / 世界观） ---------- */
+    .mode-switch {
+        flex: 0 0 auto;
+        position: relative; margin: 8px; padding: 3px;
+        display: flex;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+    }
+    .mode-switch::before {
+        content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px;
+        width: calc(50% - 3px); border-radius: 999px;
+        background: var(--accent);
+        transition: transform 0.18s ease;
+    }
+    .mode-switch[data-active="worldview"]::before { transform: translateX(100%); }
+    .mode-btn {
+        position: relative; z-index: 1; flex: 1 1 0;
+        border: none; background: transparent;
+        color: var(--text-2);
+        padding: 5px 0; font-size: 0.78rem;
+        border-radius: 999px;
+    }
+    .mode-btn.on { color: var(--accent-fg); font-weight: 600; }
+    .mode-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+    /* ---------- 左栏两种列表（互斥显示） ---------- */
+    .side-personas, .side-worldviews {
+        flex: 1 1 auto;
+        display: flex; flex-direction: column;
+        min-height: 0;
+    }
+    .side-personas[hidden], .side-worldviews[hidden] { display: none; }
+
+    .wv-list { flex: 1 1 auto; overflow-y: auto; padding: 6px; }
+    .wv-item {
+        display: block; width: 100%; text-align: left;
+        padding: 8px 10px; margin-bottom: 4px;
+        border: 1px solid transparent; border-radius: var(--radius-sm);
+        background: transparent; color: var(--text-2);
+        font-size: 0.82rem;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .wv-item:hover { background: var(--surface-2); color: var(--text); }
+    .wv-item.on { background: var(--accent-soft); border-color: rgba(127,209,193,0.45); color: var(--accent); }
+
+    /* ---------- 中间栏两种表单（互斥显示） ---------- */
+    .editor-persona, .editor-worldview {
+        flex: 1 1 auto;
+        display: flex; flex-direction: column;
+        min-height: 0;
+    }
+    .editor-persona[hidden], .editor-worldview[hidden] { display: none; }
+
+    /* ---------- AI 结果按钮的徽标 ---------- */
+    .result-toggle { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+    .badge {
+        min-width: 16px; height: 16px; padding: 0 4px;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--danger); color: #fff;
+        font-size: 0.66rem; font-weight: 700;
+        border-radius: 999px; line-height: 1;
+    }
+    .badge[hidden] { display: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .mode-switch::before { transition: none; }
+    }
+
+    /* ---------- 状态栏 ---------- */
+    .statusbar {
+        flex: 0 0 auto;
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 4px 14px;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        font-size: 0.72rem; color: var(--text-3);
+        font-family: var(--font-mono);
+    }
+    #countStatus { min-width: 0; text-align: right; }
+
+    /* ---------- 预览 / 记忆 ---------- */
+    .preview {
+        width: 100%; min-height: 200px;
+        padding: 10px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        line-height: 1.7;
+        white-space: pre-wrap;
+        word-break: break-word;
+        color: var(--text-2);
+        overflow: auto;
+    }
+    .hint { font-size: 0.74rem; color: var(--text-3); line-height: 1.6; }
+    .hint strong { color: var(--text-2); }
+
+    /* ---------- 模态框 ---------- */
+    .modal {
+        position: fixed; inset: 0; z-index: 100;
+        display: none; align-items: center; justify-content: center;
+        padding: 20px;
+        background: rgba(0,0,0,0.62);
+    }
+    .modal.open { display: flex; }
+    .modal-box {
+        display: flex; flex-direction: column;
+        width: min(100%, 720px); max-height: 88vh;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+    .modal-head {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 8px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+    }
+    .modal-head h2 { font-size: 0.95rem; flex: 1 1 auto; }
+    .modal-close {
+        width: 28px; height: 28px;
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        background: var(--surface-2); color: var(--text-2);
+        font-size: 1rem; line-height: 1;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { flex: 1 1 auto; overflow-y: auto; padding: 14px; min-height: 0; }
+    .modal-foot {
+        flex: 0 0 auto;
+        display: flex; justify-content: flex-end; gap: 8px;
+        padding: 10px 14px;
+        border-top: 1px solid var(--border);
+    }
+
+    /* ---------- 快照列表 ---------- */
+    .snap-list { display: flex; flex-direction: column; gap: 6px; }
+    .snap-item {
+        display: flex; align-items: center; gap: 10px;
+        padding: 9px 11px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-2);
+    }
+    .snap-item .s-main { flex: 1 1 auto; min-width: 0; }
+    .snap-item .s-time { font-size: 0.78rem; color: var(--text-2); font-family: var(--font-mono); }
+    .snap-item .s-reason { font-size: 0.7rem; color: var(--text-3); margin-left: 6px; }
+    .snap-item .s-preview {
+        font-size: 0.74rem; color: var(--text-3); margin-top: 3px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* ---------- Toast ---------- */
+    .toast {
+        position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+        z-index: 200;
+        padding: 9px 16px;
+        background: var(--surface-3);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        font-size: 0.82rem;
+        box-shadow: var(--shadow);
+        opacity: 0; pointer-events: none;
+        transition: opacity 0.2s, transform 0.2s;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+    .toast.err { border-color: rgba(239,107,107,0.6); color: var(--danger); }
+
+    /* ================= 窄屏页签（默认隐藏） ================= */
+    .mobile-tabs { display: none; }
+
+    /* ---------- 平板 / 小笔记本：收窄左右栏，仍三栏并存 ---------- */
+    @media (max-width: 1199px) and (min-width: 700px) {
+        .sidebar { flex-basis: 200px; }
+        .result { flex-basis: 320px; }
+    }
+
+    /* ---------- 超宽屏：编辑区内容限宽 900px 居中 ----------
+       起点定在 2200 而不是 1800：1920 下三栏本身已经合理，过早限宽会在
+       编辑区两侧留出 148px 空白，反而浪费。 */
+    @media (min-width: 2200px) {
+        .sidebar { flex-basis: 280px; }
+        .result { flex-basis: 420px; }
+        .editor-body { padding: 24px max(14px, calc((100% - 900px) / 2)); }
+    }
+
+    /* ---------- 手机：页签切换，一次只显示一栏 ---------- */
+    @media (max-width: 699px) {
+        .mobile-tabs {
+            display: flex; flex: 0 0 auto;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+        .mtab {
+            flex: 1 1 0; min-height: 38px;
+            border: none; border-bottom: 2px solid transparent;
+            background: transparent;
+            color: var(--text-3); font-size: 0.8rem;
+        }
+        .mtab.on { color: var(--accent); border-bottom-color: var(--accent); }
+        .mtab:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+
+        .workspace { flex-direction: column; }
+        .sidebar, .editor, .result {
+            display: none;
+            flex: 1 1 auto; width: 100%;
+            max-width: none; max-height: none;
+            border-right: none; border-left: none;
+        }
+        .sidebar.is-active, .editor.is-active, .result.is-active { display: flex; }
+
+        /* 列表恢复纵向整宽，两列字段降为单列 */
+        .persona-list { display: block; }
+        .persona-item { width: 100%; margin-bottom: 4px; }
+        .grid-2 { grid-template-columns: 1fr; }
+        .promptbar { flex-direction: column; align-items: stretch; }
+        .promptbar .btns { justify-content: stretch; }
+        .promptbar .btns .btn { flex: 1 1 auto; }
+        .statusbar { flex-direction: column; align-items: flex-start; gap: 2px; }
+        #countStatus { text-align: left; }
+        .modal { padding: 8px; }
+        .modal-box { max-height: 94vh; }
+    }
+
+    /* 页签模式下折叠不生效：显示与否交给 .is-active */
+    @media (max-width: 699px), (max-height: 480px) {
+        .result.collapsed { flex: 1 1 auto !important; width: auto; overflow: visible; }
+        .result.collapsed > * { display: revert; }
+    }
+
+    /* ---------- 矮屏：压缩高度 ---------- */
+    @media (max-height: 760px) {
+        #detailInput { min-height: 180px; }
+        .editor-body { padding: 10px; }
+        .field { margin-bottom: 8px; }
+        .topbar { height: 44px; }
+        .promptbar { padding: 6px 10px; }
+        .promptbar textarea { min-height: 32px; max-height: 64px; }
+        .statusbar { padding: 2px 10px; }
+    }
+
+    /* ---------- 极矮屏（手机横屏）：优先保证编辑区 ---------- */
+    @media (max-height: 480px) {
+        .statusbar { display: none; }
+        #detailInput { min-height: 120px; }
+        .topbar { height: 38px; }
+        .promptbar textarea { min-height: 28px; max-height: 48px; }
+        .editor-body { padding: 8px; }
+    }
+
+    /* 极矮屏（高度 ≤ 480）即便宽度够，三栏也会被压扁：
+       同样切到页签模式，让每栏独占高度 */
+    @media (max-height: 480px) {
+        .mobile-tabs {
+            display: flex; flex: 0 0 auto;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+        .mtab {
+            flex: 1 1 0; min-height: 34px;
+            border: none; border-bottom: 2px solid transparent;
+            background: transparent;
+            color: var(--text-3); font-size: 0.78rem;
+        }
+        .mtab.on { color: var(--accent); border-bottom-color: var(--accent); }
+        .workspace { flex-direction: column; }
+        .sidebar, .editor, .result {
+            display: none;
+            flex: 1 1 auto; width: 100%;
+            max-width: none; max-height: none;
+            border-right: none; border-left: none;
+        }
+        .sidebar.is-active, .editor.is-active, .result.is-active { display: flex; }
+        .persona-list { display: block; }
+        .persona-item { width: 100%; margin-bottom: 4px; }
+        .grid-2 { grid-template-columns: 1fr; }
+        .promptbar { flex-direction: column; align-items: stretch; }
+        .promptbar .btns .btn { flex: 1 1 auto; }
+        .statusbar { display: none; }
+    }
+
+    /* ---------- 预览弹窗：内容高度自适应（原内联 380px 会在横屏撑破模态） ---------- */
+    #promptPreview { min-height: min(380px, 50vh); }
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+</style>
+</head>
+<body class="app">
+
+<!-- ========== 顶栏 ========== -->
+<header class="topbar">
+    <button class="brand" id="brandBtn" type="button" title="关于 Persona">
+        <span class="brand-mark">P</span>
+        <span>Persona</span>
+    </button>
+    <span class="top-meta" id="topMeta"></span>
+    <span class="spacer"></span>
+    <button class="btn sm" id="exportBtn" type="button">导出</button>
+    <button class="btn sm primary result-toggle" id="resultToggleBtn" type="button" title="显示 / 隐藏 AI 结果栏">AI 结果<span class="badge" id="aiBadge" hidden>0</span></button>
+    <button class="btn sm" id="settingsBtn" type="button">设置</button>
+    <button class="btn sm" id="aboutBtn" type="button">关于</button>
+</header>
+
+<!-- ========== 窄屏页签（<700px 才显示） ========== -->
+<div class="mobile-tabs" role="tablist" aria-label="面板切换">
+    <button class="mtab" data-pane="sidebar" role="tab" aria-selected="false" type="button">人设</button>
+    <button class="mtab on" data-pane="editor" role="tab" aria-selected="true" type="button">编辑</button>
+    <button class="mtab" data-pane="result" role="tab" aria-selected="false" type="button">AI 结果</button>
+</div>
+
+<!-- ========== 三栏工作区 ========== -->
+<div class="workspace">
+
+    <!-- 左：人设列表 -->
+    <aside class="sidebar" data-pane="sidebar" aria-label="人设与世界观">
+        <div class="mode-switch" data-active="persona" role="tablist" aria-label="编辑对象">
+            <button class="mode-btn on" data-mode="persona" role="tab" aria-selected="true" type="button">人设</button>
+            <button class="mode-btn" data-mode="worldview" role="tab" aria-selected="false" type="button">世界观</button>
+        </div>
+
+        <section class="side-personas" id="sidePersonas" aria-label="人设列表">
+            <div class="side-head">
+                <span class="title">人设</span>
+                <button class="btn sm" id="newPersonaBtn" type="button">+ 新建</button>
+            </div>
+            <div class="persona-list" id="personaList" role="list"></div>
+        </section>
+
+        <section class="side-worldviews" id="sideWorldviews" aria-label="世界观列表" hidden>
+            <div class="side-head">
+                <span class="title">世界观</span>
+                <button class="btn sm" id="wvNewBtn" type="button">+ 新建</button>
+            </div>
+            <div class="wv-list" id="wvList" role="list"></div>
+        </section>
+
+        <div class="side-foot">
+            <button class="btn sm" id="memoryBtn" type="button">记忆文档</button>
+            <button class="btn sm" id="historyBtn" type="button">版本历史</button>
+            <button class="btn sm danger" id="wvDelBtn" type="button" hidden>删除当前世界观</button>
+        </div>
+    </aside>
+
+    <!-- 中：人设编辑 -->
+    <section class="editor" data-pane="editor" aria-label="人设编辑">
+        <div class="editor-head">
+            <span class="title" id="editorTitle">未选择平行世界</span>
+            <button class="btn sm" id="saveSnapBtn" type="button">存快照</button>
+            <button class="btn sm danger" id="deleteWorldBtn" type="button">删世界</button>
+            <button class="btn sm danger" id="deletePersonaBtn" type="button">删卡片</button>
+        </div>
+        <div class="editor-scope" id="editorScope">
+            <label for="scopeSelect">记忆归属</label>
+            <select id="scopeSelect">
+                <option value="per-world">各世界独立</option>
+                <option value="shared">全卡共享</option>
+            </select>
+            <span class="hint">决定记忆与快照是按「平行世界」还是按「整张人物卡片」保存</span>
+        </div>
+        <div class="editor-persona" id="editorPersona">
+        <div class="editor-body" id="editorBody">
+            <div class="field">
+                <label for="worldLabelInput">世界标签</label>
+                <input type="text" id="worldLabelInput" placeholder="这条平行世界的分支名，如：机械师线 / 海盗线" autocomplete="off">
+            </div>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="nameInput">姓名</label>
+                    <input type="text" id="nameInput" placeholder="角色名" autocomplete="off">
+                </div>
+                <div class="field">
+                    <label for="roleInput">身份</label>
+                    <input type="text" id="roleInput" placeholder="例如：机械师 / 帝国公主" autocomplete="off">
+                </div>
+            </div>
+            <div class="field">
+                <label for="summaryInput">一句话概括</label>
+                <input type="text" id="summaryInput" placeholder="用一句话点出这个角色的核心" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="detailInput">详细设定</label>
+                <textarea id="detailInput" placeholder="外貌、性格、说话方式、背景经历、与其他角色的关系、禁忌与弱点……"></textarea>
+            </div>
+            <div class="field">
+                <label for="otherInput">其他设定</label>
+                <textarea id="otherInput" rows="4" placeholder="想到什么写什么：战斗能力、口头禅、隐藏身份、特殊癖好……"></textarea>
+            </div>
+        </div>
+        </div>
+
+        <!-- 世界观表单（与人设表单互斥显示） -->
+        <div class="editor-worldview" id="editorWorldview" hidden>
+            <div class="editor-body">
+                <div class="field">
+                    <label for="wvNameInput">名称</label>
+                    <input type="text" id="wvNameInput" placeholder="例如：蒸汽纪元、近未来都市" autocomplete="off">
+                </div>
+                <div class="field">
+                    <label for="wvDetailInput">详细设定</label>
+                    <textarea id="wvDetailInput" placeholder="地理、历史、社会结构、科技或魔法规则、势力关系……"></textarea>
+                </div>
+                <div class="field">
+                    <label for="wvOtherInput">其他设定</label>
+                    <textarea id="wvOtherInput" rows="4" placeholder="想到什么写什么：特殊规则、传说、未解之谜……"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="statusbar">
+            <span id="saveStatus" aria-live="polite">就绪</span>
+            <span id="countStatus"></span>
+        </div>
+    </section>
+
+    <!-- 右：AI 结果区 -->
+    <section class="result" data-pane="result" aria-label="AI 结果区">
+        <div class="result-head">
+            <button class="btn sm ghost" id="resultCollapseBtn" type="button"
+                    aria-label="折叠 AI 栏" title="折叠 AI 栏">»</button>
+            <span class="title">AI 结果</span>
+            <button class="btn sm ghost" id="pasteResultBtn" type="button">粘贴</button>
+            <button class="btn sm ghost" id="clearResultBtn" type="button">清空</button>
+        </div>
+        <div class="result-body">
+            <textarea id="resultInput" placeholder="AI 返回的新人设粘贴在这里，或点底部「发送到 AI」自动填入。&#10;&#10;格式：&#10;姓名：…&#10;身份：…&#10;一句话概括：…&#10;详细设定：&#10;…" spellcheck="false"></textarea>
+            <div class="result-actions">
+                <button class="btn primary" id="applyBtn" type="button">应用</button>
+                <button class="btn" id="appendBtn" type="button">追加到详述</button>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- ========== 底部提示词条 ========== -->
+<div class="promptbar">
+    <div class="grow">
+        <textarea id="requestInput" placeholder="本次修改要求（可选）。例如：把她的说话方式改得更冷淡。留空则只把记忆里的新变化总结进人设。&#10;不确定怎么描述？点右下「完善人设」，让 AI 提问帮你聊清楚。" aria-label="本次修改要求"></textarea>
+    </div>
+    <div class="btns">
+        <button class="btn sm" id="previewBtn" type="button">预览提示词</button>
+        <button class="btn sm" id="copyPromptBtn" type="button">复制提示词</button>
+        <button class="btn primary sm" id="sendAiBtn" type="button">发送到 AI</button>
+        <button class="btn sm" id="stopAiBtn" type="button" disabled>停止</button>
+        <button class="btn sm interview" id="interviewBtn" type="button" title="不知道该怎么描述？让 AI 主动提问，陪你把人设聊清楚">完善人设</button>
+    </div>
+</div>
+
+<!-- ========== 完善人设（访谈模式）弹窗 ========== -->
+<div class="modal" id="interviewModal" role="dialog" aria-modal="true" aria-label="完善设定">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2 id="interviewTitle">完善人设 · 让 AI 来提问</h2>
+            <button class="modal-close" type="button" data-close="interviewModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <p class="hint" id="interviewDesc" style="margin-bottom:12px;">
+                有时候我们自己也说不清想要什么样的人设。这个模式会让 AI <strong>主动提问</strong>，
+                一轮问 1–3 个关键问题，等你回答后再问下一批，直到信息够用为止。
+                最后你说一句「出结果」，它就会按四段格式输出成品，你粘贴回工具即可。
+            </p>
+            <p class="hint" style="margin-bottom:12px;">
+                会用到底部那个输入框里的内容作为「初步想法」——可以只写一句「想做一个傲娇高中生」，也可以留空让它从头问。
+            </p>
+            <p class="hint" id="interviewHasKey" style="margin-bottom:14px;"></p>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" type="button" data-close="interviewModal">取消</button>
+            <button class="btn" type="button" data-mode="copy">复制访谈提示词</button>
+            <button class="btn primary" type="button" data-mode="send">在工具内开始对话</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 新建平行世界 ========== -->
+<div class="modal" id="worldModal" role="dialog" aria-modal="true" aria-label="新建平行世界">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>新建平行世界</h2>
+            <button class="modal-close" type="button" data-close="worldModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="field">
+                <label for="worldNameInput">世界标签</label>
+                <input type="text" id="worldNameInput" placeholder="例如：机械师线、海盗线">
+            </div>
+            <label class="check-line" for="worldCopyFrom">
+                <input type="checkbox" id="worldCopyFrom">
+                <span>从当前世界复制一份再改（复制姓名 / 身份 / 概括 / 详述，不复制记忆与快照）</span>
+            </label>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" type="button" data-close="worldModal">取消</button>
+            <button class="btn primary" id="createWorldBtn" type="button">创建</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 导出 ========== -->
+<div class="modal" id="exportModal" role="dialog" aria-modal="true" aria-label="导出">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>导出</h2>
+            <button class="modal-close" type="button" data-close="exportModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <p class="hint" style="margin-bottom:12px;">
+                勾选要导出的内容，然后「一键导出整套」会把这些分别存成独立文件，
+                方便分别投喂给 AI。只想单导某一样，用下面的单独按钮。
+            </p>
+
+            <div class="field">
+                <label>要导出的内容</label>
+                <label class="check-line" for="exCard">
+                    <input type="checkbox" id="exCard" checked>
+                    <span>人物卡片（含当前卡片下所有平行世界的四段设定）</span>
+                </label>
+                <label class="check-line" for="exWv">
+                    <input type="checkbox" id="exWv" checked>
+                    <span>世界观卡片（下方选定的一份）</span>
+                </label>
+                <label class="check-line" for="exMem">
+                    <input type="checkbox" id="exMem" checked>
+                    <span>记忆文件（有多少份导多少份）</span>
+                </label>
+                <label class="check-line" for="exPrompt">
+                    <input type="checkbox" id="exPrompt">
+                    <span>完整提示词（人物 + 世界观 + 记忆拼成一段，可直接投喂 AI）</span>
+                </label>
+            </div>
+
+            <div class="field">
+                <label for="exportWvSelect">附带的世界观</label>
+                <select id="exportWvSelect"></select>
+            </div>
+
+            <div class="field">
+                <label>一键导出整套</label>
+                <div class="row" style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button class="btn sm primary" id="exportBundleBtn" type="button">导出勾选的内容</button>
+                </div>
+                <p class="hint" style="margin-top:6px;" id="exportPreviewHint"></p>
+            </div>
+
+            <div class="field">
+                <label>单独导出</label>
+                <div class="row" style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button class="btn sm" id="exportCardBtn" type="button">人物卡片 .txt</button>
+                    <button class="btn sm" id="exportWvBtn" type="button">世界观卡片 .txt</button>
+                    <button class="btn sm" id="exportMemBtn" type="button">记忆 .txt</button>
+                </div>
+                <p class="hint" style="margin-top:6px;">记忆按当前归属导出（全卡共享时含该卡片所有世界的记忆）。</p>
+            </div>
+            <div class="field">
+                <label>整包</label>
+                <div class="row" style="display:flex;gap:6px;">
+                    <button class="btn sm primary" id="exportJsonBtn" type="button">JSON 整包备份</button>
+                </div>
+            </div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" type="button" data-close="exportModal">关闭</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 记忆弹窗 ========== -->
+<div class="modal" id="memoryModal" role="dialog" aria-modal="true" aria-label="记忆文档">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>记忆文档</h2>
+            <button class="modal-close" type="button" data-close="memoryModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <p class="hint" id="memoryMeta" style="margin-bottom:10px;"></p>
+            <div class="field">
+                <label for="memoryInput">粘贴聊天记录</label>
+                <textarea id="memoryInput" rows="10" placeholder="支持两种：&#10;1) OpenAI messages 格式的 JSON（[{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;…&quot;}, …]）&#10;2) 纯文本（整段原样保存，不区分角色）&#10;&#10;内容会自动识别。导入后可在下方查看与清空。"></textarea>
+            </div>
+            <div class="field">
+                <label>当前记忆 <span id="memoryCount" class="hint"></span></label>
+                <pre class="preview" id="memoryPreview"></pre>
+            </div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn danger" id="clearMemoryBtn" type="button">清空记忆</button>
+            <button class="btn primary" id="importMemoryBtn" type="button">导入</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 提示词预览弹窗 ========== -->
+<div class="modal" id="previewModal" role="dialog" aria-modal="true" aria-label="提示词预览">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>提示词预览</h2>
+            <button class="modal-close" type="button" data-close="previewModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <pre class="preview" id="promptPreview"></pre>
+        </div>
+        <div class="modal-foot">
+            <button class="btn primary" id="previewCopyBtn" type="button">复制</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 版本历史弹窗 ========== -->
+<div class="modal" id="historyModal" role="dialog" aria-modal="true" aria-label="版本历史">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>版本历史</h2>
+            <button class="modal-close" type="button" data-close="historyModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <p class="hint" style="margin-bottom:10px;">每次「应用」「追加」或手动存快照都会留下一条记录。恢复旧版也会新增一条，历史不会丢失。</p>
+            <div class="snap-list" id="snapList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 设置弹窗 ========== -->
+<div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-label="设置">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>设置</h2>
+            <button class="modal-close" type="button" data-close="settingsModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="field">
+                <label for="protocolSel">协议</label>
+                <select id="protocolSel">
+                    <option value="openai">OpenAI 兼容（DeepSeek / OpenAI / 本机代理）</option>
+                    <option value="anthropic">Anthropic Messages</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="baseUrlInput">接口地址</label>
+                <input type="text" id="baseUrlInput" placeholder="https://api.deepseek.com/v1" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="modelInput">模型</label>
+                <input type="text" id="modelInput" placeholder="deepseek-chat" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="apiKeyInput">API Key</label>
+                <input type="password" id="apiKeyInput" placeholder="sk-…" autocomplete="off">
+                <label class="check-line" for="rememberKeyChk">
+                    <input type="checkbox" id="rememberKeyChk">
+                    <span>记住 Key（保存在本机浏览器；不勾则仅本次会话有效）</span>
+                </label>
+            </div>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="tempInput">温度（0–2）</label>
+                    <input type="number" id="tempInput" min="0" max="2" step="0.1">
+                </div>
+                <div class="field">
+                    <label for="memTurnsInput">记忆发送条数</label>
+                    <input type="number" id="memTurnsInput" min="1" max="50" step="1">
+                </div>
+            </div>
+            <p class="hint">直连第三方接口可能受浏览器跨域（CORS）限制；可用本机代理或支持 CORS 的端点。</p>
+        </div>
+        <div class="modal-foot">
+            <button class="btn primary" id="saveSettingsBtn" type="button">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 关于弹窗 ========== -->
+<div class="modal" id="aboutModal" role="dialog" aria-modal="true" aria-label="关于 Persona">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>关于 Persona</h2>
+            <button class="modal-close" type="button" data-close="aboutModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <p><strong>Persona · 人设编辑器</strong>　版本 <code>A1_II_Φ8_CN</code></p>
+            <ul style="margin:10px 0 10px 18px; line-height:1.9;">
+                <li>多人设库，每份人设各自一份记忆</li>
+                <li>四段式提示词：系统提示词 / 人设当前状态 / 待总结聊天记录 / 修改要求</li>
+                <li>OpenAI 兼容与 Anthropic Messages 双协议流式 AI</li>
+                <li>AI 结果区独立，手动「应用」才写回人设</li>
+                <li>快照历史，可回退到任意版本</li>
+                <li>JSON 备份与导入、人设纯文本导出</li>
+                <li>「完善人设」访谈模式：AI 主动提问，聊清楚后按四段格式出成品</li>
+            </ul>
+            <div class="about-links">
+                <a href="https://github.com/bmdy1145/devkit" target="_blank" rel="noopener noreferrer">仓库 · github.com/bmdy1145/devkit</a>
+                <a href="https://bmdy1145.github.io/devkit/projects/persona/" target="_blank" rel="noopener noreferrer">在线使用 · bmdy1145.github.io/devkit</a>
+            </div>
+            <p class="hint">数据只保存在本机浏览器。用地址栏打开（Pages）与直接双击文件（file://）看到的是两份互不相通的数据，迁移请用 JSON 导出 / 导入。</p>
+            <p class="hint">这个工具本身不聊天。它只负责把「人设 + 聊天记录」拼成一段文本交给 AI，再把 AI 返回的新人设写回来。</p>
+            <p style="font-size:0.78rem;color:var(--text-3);margin-top:10px;">Persona  Copyright (C) 2026-至今 北冥的鱼, DeepSeek<br>本程序是自由软件，基于 GPLv3 发布，无任何担保。</p>
+        </div>
+        <div class="modal-foot"><button class="btn primary" type="button" data-close="aboutModal">知道了</button></div>
+    </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============================================================================
+ * Persona · 人设编辑器（A1_II_Φ8_CN）
+ * ----------------------------------------------------------------------------
+ * 分层：Utils / Storage / State / PrefsService / PersonaService /
+ *       MemoryService / SnapshotService / PromptService / AIClient /
+ *       BackupService / UI
+ * 数据全部保存在浏览器 IndexedDB（不可用时降级 localStorage）。
+ * 所有用户数据一律通过 textContent 渲染，不拼 innerHTML。
+ * ========================================================================== */
+(function () {
+    'use strict';
+
+    /* ======================================================================
+     * 0. 常量
+     * ==================================================================== */
+    const APP_ID = 'persona';
+    const DB_NAME = 'persona_db';
+    const DB_VERSION = 2;   // v2：新增 worlds / worldviews
+    const CURRENT_VERSION = 'A1_II_Φ8_CN';
+    const LS_FALLBACK_KEY = 'persona_db_fallback';
+    const LS_FIRST_RUN = 'persona_first_run';
+    const MAX_IMPORT_BYTES = 20 * 1024 * 1024;
+    const MAX_MEMORY_CHARS = 8000;
+
+    const STORES = {
+        meta:      { keyPath: 'key', indexes: [] },
+        // personas = 人物卡片（只存卡片本身：id / name / 排序 / 记忆共享策略）
+        personas:  { keyPath: 'id', indexes: [] },
+        // worlds = 平行世界（承载人设四段字段），按 personaId 归属
+        worlds:    { keyPath: 'id', indexes: [{ name: 'byPersona', keyPath: 'personaId' }] },
+        // worldviews = 世界观，独立成库，不绑定人物
+        worldviews:{ keyPath: 'id', indexes: [] },
+        memories:  { keyPath: 'id', indexes: [{ name: 'byPersona', keyPath: 'personaId' }] },
+        snapshots: { keyPath: 'id', indexes: [{ name: 'byPersona', keyPath: 'personaId' }] },
+        prefs:     { keyPath: 'key', indexes: [] }
+    };
+
+
+
+    const AI_PRESETS = {
+        deepseek:  { protocol: 'openai',    baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+        anthropic: { protocol: 'anthropic', baseUrl: 'https://api.anthropic.com',   model: 'claude-sonnet-5-5' },
+        openai:    { protocol: 'openai',    baseUrl: 'https://api.openai.com/v1',   model: 'gpt-4o-mini' }
+    };
+
+    const DEFAULT_AI = Object.assign(
+        { apiKey: '', rememberKey: false, temperature: 0.7, memTurns: 10 },
+        AI_PRESETS.deepseek
+    );
+
+    const REASON_LABEL = {
+        manual: '手动快照',
+        'ai-apply': '应用 AI 结果',
+        'ai-append': '追加 AI 结果',
+        edit: '编辑'
+    };
+
+    /* ======================================================================
+     * 1. Utils
+     * ==================================================================== */
+    const Utils = {
+        $(sel, root) { return (root || document).querySelector(sel); },
+        $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); },
+
+        uid(prefix) {
+            return (prefix || 'id') + '_' + Date.now().toString(36) + '_' +
+                Math.random().toString(36).slice(2, 8);
+        },
+
+        debounce(fn, wait) {
+            let t = null;
+            const wrapped = function () {
+                const args = arguments, ctx = this;
+                clearTimeout(t);
+                t = setTimeout(function () { fn.apply(ctx, args); }, wait);
+            };
+            wrapped.cancel = function () { clearTimeout(t); };
+            return wrapped;
+        },
+
+        async copyText(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (e) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+                document.body.removeChild(ta);
+                return ok;
+            }
+        },
+
+        /** 文件名安全化：去掉路径分隔符与非法字符，空则回落 fallback */
+        sanitize(name, fallback) {
+            const cleaned = String(name == null ? '' : name)
+                .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
+                .trim();
+            return (cleaned || fallback || 'persona').slice(0, 80);
+        },
+
+        download(filename, text, mime) {
+            const blob = new Blob([text], { type: (mime || 'text/plain') + ';charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        },
+
+        fmtTime(ts) {
+            const d = new Date(ts);
+            const p = function (n) { return String(n).padStart(2, '0'); };
+            return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+                ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+        },
+
+        today() {
+            const d = new Date();
+            const p = function (n) { return String(n).padStart(2, '0'); };
+            return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+        }
+    };
+
+    /* ======================================================================
+     * 2. Storage（IndexedDB，不可用时降级 localStorage）
+     * ==================================================================== */
+    const Storage = {
+        mode: null,
+        db: null,
+        _mem: null,
+
+        async init() {
+            try {
+                this.db = await this._open();
+                this.mode = 'idb';
+            } catch (e) {
+                console.warn('[Storage] IndexedDB 不可用，降级 localStorage', e);
+                this.mode = 'ls';
+                let raw = null;
+                try { raw = localStorage.getItem(LS_FALLBACK_KEY); } catch (e2) { raw = null; }
+                this._mem = raw ? JSON.parse(raw) : {};
+                Object.keys(STORES).forEach((name) => {
+                    if (!this._mem[name]) this._mem[name] = {};
+                });
+            }
+        },
+
+        _open() {
+            return new Promise(function (resolve, reject) {
+                if (!window.indexedDB) { reject(new Error('no indexedDB')); return; }
+                let req;
+                try { req = indexedDB.open(DB_NAME, DB_VERSION); }
+                catch (e) { reject(e); return; }
+
+                req.onupgradeneeded = function (ev) {
+                    const db = req.result;
+                    const oldV = ev.oldVersion || 0;
+                    Object.keys(STORES).forEach(function (name) {
+                        const def = STORES[name];
+                        if (db.objectStoreNames.contains(name)) return;
+                        const store = db.createObjectStore(name, { keyPath: def.keyPath });
+                        (def.indexes || []).forEach(function (idx) {
+                            store.createIndex(idx.name, idx.keyPath, { unique: false });
+                        });
+                    });
+                    void oldV;
+                };
+                req.onsuccess = function () { resolve(req.result); };
+                req.onerror = function () { reject(req.error || new Error('open failed')); };
+            });
+        },
+
+        _tx(store, mode) {
+            const tx = this.db.transaction(store, mode);
+            return tx.objectStore(store);
+        },
+
+        _lsPersist() {
+            try { localStorage.setItem(LS_FALLBACK_KEY, JSON.stringify(this._mem)); }
+            catch (e) { /* 超配额时忽略 */ }
+        },
+
+        async get(store, key) {
+            if (this.mode === 'ls') {
+                return this._mem[store] && this._mem[store][key] ? this._mem[store][key] : null;
+            }
+            return new Promise((resolve, reject) => {
+                const req = this._tx(store, 'readonly').get(key);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => reject(req.error);
+            });
+        },
+
+        async getAll(store) {
+            if (this.mode === 'ls') {
+                return Object.values(this._mem[store] || {});
+            }
+            return new Promise((resolve, reject) => {
+                const req = this._tx(store, 'readonly').getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+        },
+
+        async getAllByIndex(store, indexName, value) {
+            if (this.mode === 'ls') {
+                const keyPath = (STORES[store].indexes || [])
+                    .filter((i) => i.name === indexName)[0].keyPath;
+                return Object.values(this._mem[store] || {}).filter((r) => r[keyPath] === value);
+            }
+            return new Promise((resolve, reject) => {
+                const req = this._tx(store, 'readonly').index(indexName).getAll(value);
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+        },
+
+        async put(store, record) {
+            if (this.mode === 'ls') {
+                this._mem[store][record[STORES[store].keyPath]] = record;
+                this._lsPersist();
+                return;
+            }
+            return new Promise((resolve, reject) => {
+                const req = this._tx(store, 'readwrite').put(record);
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            });
+        },
+
+        async bulkPut(store, records) {
+            if (this.mode === 'ls') {
+                records.forEach((r) => { this._mem[store][r[STORES[store].keyPath]] = r; });
+                this._lsPersist();
+                return;
+            }
+            return new Promise((resolve, reject) => {
+                const tx = this.db.transaction(store, 'readwrite');
+                const os = tx.objectStore(store);
+                records.forEach((r) => os.put(r));
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        },
+
+        async del(store, key) {
+            if (this.mode === 'ls') {
+                delete this._mem[store][key];
+                this._lsPersist();
+                return;
+            }
+            return new Promise((resolve, reject) => {
+                const req = this._tx(store, 'readwrite').delete(key);
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            });
+        },
+
+        async clearStore(store) {
+            if (this.mode === 'ls') {
+                this._mem[store] = {};
+                this._lsPersist();
+                return;
+            }
+            return new Promise((resolve, reject) => {
+                const req = this._tx(store, 'readwrite').clear();
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            });
+        },
+
+        async clearAll() {
+            for (const name of Object.keys(STORES)) {
+                if (name === 'meta') continue;
+                await this.clearStore(name);
+            }
+        }
+    };
+
+    /* ======================================================================
+     * 3. State
+     * ==================================================================== */
+    const State = {
+        personas: [],
+        personaId: null,       // 当前人物卡片
+        worlds: [],            // 全部平行世界（按 personaId 归属）
+        worldId: null,         // 当前平行世界
+        worldviews: [],        // 世界观库
+        worldviewId: null,     // 当前编辑中的世界观
+        memory: null,          // 当前世界（或整卡共享）的 Memory 记录
+        snapshots: [],
+        prefs: { ai: Object.assign({}, DEFAULT_AI), ui: {} },
+        sessionApiKey: '',
+        dirty: false,
+        saveTimer: null
+    };
+
+    /* ======================================================================
+     * 4. PrefsService
+     * ==================================================================== */
+    const PrefsService = {
+        async load() {
+            const ai = await Storage.get('prefs', 'ai');
+            const last = await Storage.get('prefs', 'last');
+            const ui = await Storage.get('prefs', 'ui');
+            State.prefs.ai = Object.assign({}, DEFAULT_AI, ai && ai.value ? ai.value : {});
+            State.prefs.ui = Object.assign({}, ui && ui.value ? ui.value : {});
+            if (!State.prefs.ai.rememberKey) State.prefs.ai.apiKey = '';
+            return last && last.value ? last.value : null;
+        },
+        async saveUI() {
+            await Storage.put('prefs', { key: 'ui', value: State.prefs.ui });
+        },
+        async saveAI() {
+            await Storage.put('prefs', { key: 'ai', value: State.prefs.ai });
+        },
+        async saveLast() {
+            await Storage.put('prefs', { key: 'last', value: { personaId: State.personaId, worldId: State.worldId } });
+        }
+    };
+
+    /* ======================================================================
+     * 5. PersonaService
+     * ==================================================================== */
+    /* ======================================================================
+     * 5a. PersonaService —— 人物卡片（只存卡片本身）
+     * ----------------------------------------------------------------------
+     * 卡片 → 平行世界是 1:N。四段人设字段（姓名/身份/概括/详述）在 worlds 里，
+     * 不在卡片上。memoryScope 决定记忆与快照是「全卡共享」还是「各世界独立」。
+     * ==================================================================== */
+    const PersonaService = {
+        empty() {
+            return {
+                id: Utils.uid('per'),
+                name: '',
+                memoryScope: 'per-world',
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
+        },
+
+        current() {
+            return State.personas.filter((p) => p.id === State.personaId)[0] || null;
+        },
+
+        async loadAll() {
+            State.personas = (await Storage.getAll('personas'))
+                .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        },
+
+        async create(name) {
+            const p = this.empty();
+            p.name = name || '新人物';
+            await Storage.put('personas', p);
+            State.personas.push(p);
+            return p;
+        },
+
+        async save(p) {
+            p.updatedAt = Date.now();
+            await Storage.put('personas', p);
+            const idx = State.personas.findIndex((x) => x.id === p.id);
+            if (idx >= 0) State.personas[idx] = p;
+            else State.personas.push(p);
+        },
+
+        async remove(id) {
+            await Storage.del('personas', id);
+            State.personas = State.personas.filter((p) => p.id !== id);
+            // 连带删除该卡片下所有平行世界、记忆、快照
+            const worlds = await Storage.getAllByIndex('worlds', 'byPersona', id);
+            for (const w of worlds) await Storage.del('worlds', w.id);
+            const mem = await Storage.getAllByIndex('memories', 'byPersona', id);
+            for (const m of mem) await Storage.del('memories', m.id);
+            const snaps = await Storage.getAllByIndex('snapshots', 'byPersona', id);
+            for (const s of snaps) await Storage.del('snapshots', s.id);
+        }
+    };
+
+    /* ======================================================================
+     * 5b. WorldService —— 平行世界（承载四段人设字段）
+     * ==================================================================== */
+    const WorldService = {
+        empty(personaId, label) {
+            return {
+                id: Utils.uid('wld'),
+                personaId: personaId,
+                label: label || '默认世界',
+                name: '',
+                role: '',
+                summary: '',
+                detail: '',
+                other: '',
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
+        },
+
+        current() {
+            return State.worlds.filter((w) => w.id === State.worldId)[0] || null;
+        },
+
+        worldsOf(personaId) {
+            return State.worlds
+                .filter((w) => w.personaId === personaId)
+                .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        },
+
+        async loadAll() {
+            State.worlds = (await Storage.getAll('worlds'))
+                .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        },
+
+        async create(personaId, label, sourceWorld) {
+            const w = this.empty(personaId, label);
+            if (sourceWorld) {
+                w.role = sourceWorld.role;
+                w.summary = sourceWorld.summary;
+                w.detail = sourceWorld.detail;
+            }
+            await Storage.put('worlds', w);
+            State.worlds.push(w);
+            return w;
+        },
+
+        async save(w) {
+            w.updatedAt = Date.now();
+            await Storage.put('worlds', w);
+            const idx = State.worlds.findIndex((x) => x.id === w.id);
+            if (idx >= 0) State.worlds[idx] = w;
+            else State.worlds.push(w);
+        },
+
+        async remove(id) {
+            await Storage.del('worlds', id);
+            State.worlds = State.worlds.filter((w) => w.id !== id);
+        }
+    };
+
+    /* ======================================================================
+     * 5c. WorldviewService —— 世界观（独立库，不绑定人物）
+     * ==================================================================== */
+    const WorldviewService = {
+        empty(name) {
+            return {
+                id: Utils.uid('wv'),
+                name: name || '新世界观',
+                detail: '',
+                other: '',
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
+        },
+
+        current() {
+            return State.worldviews.filter((v) => v.id === State.worldviewId)[0] || null;
+        },
+
+        async loadAll() {
+            State.worldviews = (await Storage.getAll('worldviews'))
+                .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        },
+
+        async create(name) {
+            const v = this.empty(name);
+            await Storage.put('worldviews', v);
+            State.worldviews.push(v);
+            return v;
+        },
+
+        async save(v) {
+            v.updatedAt = Date.now();
+            await Storage.put('worldviews', v);
+            const idx = State.worldviews.findIndex((x) => x.id === v.id);
+            if (idx >= 0) State.worldviews[idx] = v;
+            else State.worldviews.push(v);
+        },
+
+        async remove(id) {
+            await Storage.del('worldviews', id);
+            State.worldviews = State.worldviews.filter((v) => v.id !== id);
+        }
+    };
+
+    /* ======================================================================
+     * 5d. Migration —— 把旧版「单层人设」迁到新结构
+     * ----------------------------------------------------------------------
+     * 旧记录：personas[i] = { id, name, role, summary, detail, ... }
+     * 新结构：personas[i] = { id, name, memoryScope } + worlds[j] 承载四段
+     * 幂等：只处理带 role/detail 字段的旧记录；迁移后卡片上不再有这两字段。
+     * ==================================================================== */
+    const Migration = {
+        async run() {
+            const all = await Storage.getAll('personas');
+            const legacy = all.filter(function (p) {
+                return p && (typeof p.role === 'string' || typeof p.detail === 'string');
+            });
+            let moved = 0;
+            for (const p of legacy) {
+                const w = WorldService.empty(p.id, '默认世界');
+                w.name = p.name || '';
+                w.role = p.role || '';
+                w.summary = p.summary || '';
+                w.detail = p.detail || '';
+                w.createdAt = p.createdAt || Date.now();
+                await Storage.put('worlds', w);
+                await Storage.put('personas', {
+                    id: p.id,
+                    name: p.name || '',
+                    memoryScope: 'per-world',
+                    createdAt: p.createdAt || Date.now(),
+                    updatedAt: p.updatedAt || Date.now()
+                });
+                moved++;
+            }
+            // 旧版 worlds 若缺 label，补一个（旧 name 其实是角色名）
+            const worlds = await Storage.getAll('worlds');
+            let patched = 0;
+            for (const w of worlds) {
+                if (typeof w.label === 'string') continue;
+                const fixed = Object.assign({}, w);
+                fixed.label = '默认世界';
+                if (typeof w.name !== 'string') fixed.name = '';
+                await Storage.put('worlds', fixed);
+                patched++;
+            }
+
+            if (moved || patched) await Storage.put('meta', { key: 'schemaMigrated', value: 3 });
+            return moved + patched;
+        }
+    };
+
+    /* ======================================================================
+     * 6. MemoryService
+     * ==================================================================== */
+    const MemoryService = {
+        empty(personaId) {
+            return {
+                id: Utils.uid('mem'),
+                personaId: personaId,
+                raw: '',
+                turns: [],
+                importedAt: Date.now()
+            };
+        },
+
+        /** 解析粘贴内容：JSON（OpenAI messages）或纯文本 */
+        parse(raw) {
+            const text = String(raw || '').trim();
+            if (!text) return { turns: [], kind: 'empty' };
+
+            if (text[0] === '{' || text[0] === '[') {
+                try {
+                    const data = JSON.parse(text);
+                    const list = Array.isArray(data) ? data
+                        : (data && Array.isArray(data.messages) ? data.messages : null);
+                    if (list) {
+                        const turns = list.map(function (m) {
+                            const role = (m && m.role) === 'user' ? 'user'
+                                : (m && m.role) === 'assistant' ? 'assistant' : 'other';
+                            let content = m && m.content;
+                            if (Array.isArray(content)) {
+                                content = content.map(function (c) {
+                                    return c && typeof c.text === 'string' ? c.text : '';
+                                }).join('');
+                            }
+                            return { role: role, text: String(content == null ? '' : content) };
+                        }).filter((t) => t.text.trim() !== '');
+                        if (turns.length) return { turns: turns, kind: 'json' };
+                    }
+                } catch (e) { /* 回落纯文本 */ }
+            }
+
+            // 纯文本：整段作为一条 other，不区分角色
+            return { turns: [{ role: 'other', text: text }], kind: 'text' };
+        },
+
+        async load(personaId) {
+            const list = await Storage.getAllByIndex('memories', 'byPersona', personaId);
+            list.sort((a, b) => (a.importedAt || 0) - (b.importedAt || 0));
+            return list.length ? list[list.length - 1] : null;
+        },
+
+        async save(mem) {
+            await Storage.put('memories', mem);
+            State.memory = mem;
+        },
+
+        async clear(personaId) {
+            const list = await Storage.getAllByIndex('memories', 'byPersona', personaId);
+            for (const m of list) await Storage.del('memories', m.id);
+            State.memory = null;
+        },
+
+        /** 取最近 N 条，并按字符上限从最旧处截断 */
+        recent(mem, n) {
+            if (!mem || !mem.turns || !mem.turns.length) {
+                return { text: '', count: 0, truncated: false };
+            }
+            const take = mem.turns.slice(Math.max(0, mem.turns.length - n));
+            let out = '';
+            let truncated = false;
+            // 从最新往前累加，保证留下的是最近的
+            const parts = [];
+            for (let i = take.length - 1; i >= 0; i--) {
+                const t = take[i];
+                const block = (t.role === 'user' ? '用户：' : t.role === 'assistant' ? 'AI：' : '') + t.text;
+                if (out.length + block.length > MAX_MEMORY_CHARS) { truncated = true; break; }
+                parts.unshift(block);
+                out = block + (out ? '\n\n' + out : '');
+            }
+            return { text: parts.join('\n\n'), count: parts.length, truncated: truncated };
+        }
+    };
+
+    /* ======================================================================
+     * 7. SnapshotService
+     * ==================================================================== */
+    const SnapshotService = {
+        /* ownerKey：全卡共享时是卡片 id，各世界独立时是世界 id。
+           快照仍存 personaId 字段（索引名不变），值即 ownerKey。 */
+        async capture(world, ownerKey, reason) {
+            const snap = {
+                id: Utils.uid('snap'),
+                personaId: ownerKey,
+                worldId: world.id,
+                persona: {
+                    id: world.id, label: world.label, name: world.name, role: world.role,
+                    summary: world.summary, detail: world.detail,
+                    createdAt: world.createdAt, updatedAt: world.updatedAt
+                },
+                reason: reason || 'manual',
+                createdAt: Date.now()
+            };
+            await Storage.put('snapshots', snap);
+            return snap;
+        },
+
+        async load(ownerKey) {
+            const list = await Storage.getAllByIndex('snapshots', 'byPersona', ownerKey);
+            list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            return list;
+        },
+
+        async remove(id) {
+            await Storage.del('snapshots', id);
+        }
+    };
+
+    /* ======================================================================
+     * 8. PromptService（四段式拼合）
+     * ==================================================================== */
+    const FORMAT_BLOCK =
+        '输出格式（严格照此，不要省略未改动的段落，不要加解释）：\n' +
+        '姓名：…\n身份：…\n一句话概括：…\n详细设定：\n…';
+
+    /* 人设正文：四段 + 其他设定（空则不输出该小节） */
+    function personaBody(p) {
+        const out = [
+            '姓名：' + (p.name || '（未填）'),
+            '身份：' + (p.role || '（未填）'),
+            '一句话概括：' + (p.summary || '（未填）'),
+            '详细设定：\n' + (p.detail || '（未填）')
+        ];
+        if (p.other && String(p.other).trim()) {
+            out.push('其他设定：\n' + p.other);
+        }
+        return out.join('\n');
+    }
+
+    const PromptService = {
+        build(persona, memoryText, memCount, request) {
+            const req = String(request || '').trim();
+            const parts = [];
+
+            parts.push(
+                '你是一个人物设定维护助手。用户会给你一份「人物当前设定」（第 2 段），' +
+                '以及该人物与用户此前的对话记录（第 3 段）。\n\n' +
+                '你的任务：把对话记录里体现出的**新变化**总结并合并进人物设定。\n' +
+                '新变化包括但不限于：新发生的事件与经历、新暴露的性格侧面、' +
+                '新的称呼与关系进展、新的说话习惯、新的能力或限制。\n\n' +
+                '要求：\n' +
+                '- 保留原设定中未被对话推翻的部分\n' +
+                '- 只做增量合并，不要凭空发挥\n' +
+                '- 若第 3 段为空，则只按第 4 段的修改要求调整\n' +
+                '- 若你对某处设定有疑问、或缺关键信息，可以先向我提问；' +
+                '我说「出结果」或「可以了」时，再按下方格式输出最终人设\n\n' +
+                FORMAT_BLOCK
+            );
+
+            parts.push('【第 2 段 · 人设当前状态】\n' + personaBody(persona));
+
+            if (memoryText) {
+                parts.push(
+                    '【第 3 段 · 待总结的新增聊天记录（最近 ' + memCount + ' 条）】\n' +
+                    '以下内容来自该人物此前的真实对话，混杂了用户与 AI 的发言。' +
+                    '这些对话里产生的新变化尚未写进上面的设定，请提炼归纳：\n\n' +
+                    memoryText
+                );
+            } else {
+                parts.push('【第 3 段 · 待总结的新增聊天记录】\n（暂无）');
+            }
+
+            parts.push(
+                '【第 4 段 · 本次修改要求】\n' + (req || '（未填写，仅做第 3 段的总结合并）')
+            );
+
+            return parts.join('\n\n────────────────────\n\n');
+        },
+
+        /**
+         * 访谈模式：用户不知道该怎么描述时，让 AI 主动追问，把缺失的信息补齐。
+         * 生成的文本发给 AI 后是多轮对话的起点，不要求一次给出成品。
+         */
+        buildInterview(persona, memoryText, memCount, rough) {
+            const hint = String(rough || '').trim();
+            const parts = [];
+
+            parts.push(
+                '你是一位擅长人物设定的小说编辑。用户想完善下面这个角色的人设，' +
+                '但可能还没想清楚具体要什么。\n\n' +
+                '你的任务：**主动提问**，帮用户一步步把缺失的信息补齐。\n\n' +
+                '提问要求：\n' +
+                '- 每轮只问 1–3 个最关键的问题，不要一口气列出长清单\n' +
+                '- 优先补齐：身份与处境、外貌与年龄、性格底色、说话方式、' +
+                '与主要角色的关系、核心欲望与弱点、禁忌与底线\n' +
+                '- 若用户已经写清某部分，不要再问，直接进入下一块\n' +
+                '- 问题要具体、可回答，避免「你想让她是什么样的人」这类空泛问法\n' +
+                '- 用户回答后，简要复述你理解到的要点，再问下一批问题\n' +
+                '- 当信息足够、或用户说「可以了」「出结果」时，停止提问，' +
+                '按下方格式输出最终人设\n\n' +
+                FORMAT_BLOCK
+            );
+
+            parts.push(
+                '【角色当前设定】\n' +
+                '姓名：' + (persona.name || '（未填）') + '\n' +
+                '身份：' + (persona.role || '（未填）') + '\n' +
+                '一句话概括：' + (persona.summary || '（未填）') + '\n' +
+                '详细设定：\n' + (persona.detail || '（未填）')
+            );
+
+            if (memoryText) {
+                parts.push(
+                    '【已有对话记录（最近 ' + memCount + ' 条，供你了解已有信息，不要重复提问）】\n' +
+                    memoryText
+                );
+            }
+
+            parts.push(
+                '【用户初步想法】\n' + (hint || '（未填写，请从头开始提问）')
+            );
+
+            return parts.join('\n\n────────────────────\n\n');
+        }
+    };
+
+    /* ======================================================================
+     * 8b. WorldviewPrompt —— 世界观的四段式提示词（与人设同一套结构）
+     * ==================================================================== */
+    /* 世界观正文：名称 / 详细设定 / 其他设定（空则不输出该小节） */
+    function worldviewBody(wv) {
+        const out = ['名称：' + (wv.name || '（未填）'),
+                     '详细设定：\n' + (wv.detail || '（未填）')];
+        if (wv.other && String(wv.other).trim()) {
+            out.push('其他设定：\n' + wv.other);
+        }
+        return out.join('\n');
+    }
+
+    const WORLDVIEW_FORMAT =
+        '输出格式（严格照此，不要加解释）：\n' +
+        '名称：…\n详细设定：\n…\n其他设定：…';
+
+    const WorldviewPrompt = {
+        /* 世界观不使用聊天记忆：只有 系统提示词 / 当前状态 / 修改要求 三段 */
+        build(wv, request) {
+            const req = String(request || '').trim();
+            const parts = [];
+
+            parts.push(
+                '你是一个世界观设定维护助手。用户会给你一份「世界观当前状态」（第 2 段），' +
+                '以及本次的修改要求（第 3 段）。\n\n' +
+                '你的任务：按修改要求调整世界观设定，涵盖地理与气候、历史与纪年、' +
+                '社会结构与权力、科技或魔法规则、势力与矛盾、风俗与禁忌。\n\n' +
+                '要求：\n' +
+                '- 保留原设定中未被推翻的部分\n' +
+                '- 只做增量合并，不要凭空发挥\n' +
+                '- 若你对某处有疑问、或缺关键信息，可以先向我提问；' +
+                '我说「出结果」时，再按下方格式输出\n\n' +
+                WORLDVIEW_FORMAT
+            );
+
+            parts.push('【第 2 段 · 世界观当前状态】\n' + worldviewBody(wv));
+
+            parts.push(
+                '【第 3 段 · 本次修改要求】\n' + (req || '（未填写）')
+            );
+
+            return parts.join('\n\n────────────────────\n\n');
+        },
+
+        /* 完善世界观：让 AI 主动提问，把缺失的信息补齐 */
+        buildInterview(wv, rough) {
+            const hint = String(rough || '').trim();
+            const parts = [];
+
+            parts.push(
+                '你是一位擅长构建世界观的小说编辑。用户想完善下面的世界观，' +
+                '但可能还没想清楚具体要什么。\n\n' +
+                '你的任务：**主动提问**，帮用户一步步把缺失的信息补齐。\n\n' +
+                '提问要求：\n' +
+                '- 每轮只问 1–3 个最关键的问题，不要一口气列出长清单\n' +
+                '- 优先补齐：地理与气候、历史与纪年、社会结构与权力、' +
+                '科技或魔法规则、主要势力与矛盾、风俗与禁忌\n' +
+                '- 若用户已经写清某部分，不要再问，直接进入下一块\n' +
+                '- 问题要具体、可回答，避免「你想让世界是什么样的」这类空泛问法\n' +
+                '- 用户回答后，简要复述你理解到的要点，再问下一批问题\n' +
+                '- 当信息足够、或用户说「可以了」「出结果」时，停止提问，' +
+                '按下方格式输出最终世界观\n\n' +
+                WORLDVIEW_FORMAT
+            );
+
+            parts.push('【世界观当前状态】\n' + worldviewBody(wv));
+            parts.push('【用户初步想法】\n' + (hint || '（未填写，请从头开始提问）'));
+
+            return parts.join('\n\n────────────────────\n\n');
+        }
+    };
+
+    /* 解析世界观结果：名称 + 详细设定 */
+    function parseWorldviewText(text) {
+        const t = String(text || '').trim();
+        if (!t) return { parsed: false };
+        let name = '';
+        let detail = '';
+        const lines = t.split('\n');
+        let i = 0;
+        for (; i < lines.length; i++) {
+            const m = /^\s*名称\s*[：:]\s*(.*)$/.exec(lines[i]);
+            if (m) { name = m[1].trim(); i++; break; }
+        }
+        for (; i < lines.length; i++) {
+            if (/^\s*详细设定\s*[：:]\s*$/.test(lines[i])) { i++; break; }
+        }
+        detail = lines.slice(i).join('\n').trim();
+        if (!name && !detail) return { parsed: false };
+        return { parsed: true, name: name, detail: detail };
+    }
+
+    /* ======================================================================
+     * 9. AIClient（OpenAI 兼容 / Anthropic Messages，SSE 流式）
+     * ==================================================================== */
+    const AIClient = {
+        config() {
+            const ai = State.prefs.ai;
+            return {
+                protocol: ai.protocol || 'openai',
+                baseUrl: (ai.baseUrl || AI_PRESETS.deepseek.baseUrl).replace(/\/+$/, ''),
+                model: ai.model || AI_PRESETS.deepseek.model,
+                apiKey: ai.rememberKey ? (ai.apiKey || '') : (State.sessionApiKey || ''),
+                temperature: typeof ai.temperature === 'number' ? ai.temperature : 0.7
+            };
+        },
+
+        endpoint(cfg) {
+            if (cfg.protocol === 'anthropic') {
+                return /\/v1$/.test(cfg.baseUrl) ? cfg.baseUrl + '/messages' : cfg.baseUrl + '/v1/messages';
+            }
+            return /\/chat\/completions$/.test(cfg.baseUrl)
+                ? cfg.baseUrl
+                : cfg.baseUrl + '/chat/completions';
+        },
+
+        headers(cfg) {
+            const headers = { 'Content-Type': 'application/json' };
+            if (cfg.protocol === 'anthropic') {
+                if (cfg.apiKey) headers['x-api-key'] = cfg.apiKey;
+                headers['anthropic-version'] = '2023-06-01';
+                headers['anthropic-dangerous-direct-browser-access'] = 'true';
+            } else if (cfg.apiKey) {
+                headers['Authorization'] = 'Bearer ' + cfg.apiKey;
+            }
+            return headers;
+        },
+
+        body(cfg, prompt) {
+            if (cfg.protocol === 'anthropic') {
+                return {
+                    model: cfg.model,
+                    max_tokens: 4096,
+                    temperature: cfg.temperature,
+                    stream: true,
+                    messages: [{ role: 'user', content: prompt }]
+                };
+            }
+            return {
+                model: cfg.model,
+                temperature: cfg.temperature,
+                stream: true,
+                messages: [{ role: 'user', content: prompt }]
+            };
+        },
+
+        async *stream(prompt, signal) {
+            const cfg = this.config();
+            const url = this.endpoint(cfg);
+            let response;
+            try {
+                response = await fetch(url, {
+                    method: 'POST',
+                    headers: this.headers(cfg),
+                    body: JSON.stringify(this.body(cfg, prompt)),
+                    signal: signal
+                });
+            } catch (e) {
+                if (e && e.name === 'AbortError') throw e;
+                throw new AIError('网络请求失败。可能是跨域（CORS）限制、地址不可达或本地代理未启动。', e);
+            }
+
+            if (!response.ok) {
+                let detail = '';
+                try {
+                    const text = await response.text();
+                    try {
+                        const data = JSON.parse(text);
+                        detail = (data.error && (data.error.message || data.error.type)) || '';
+                    } catch (e2) { detail = text.slice(0, 240); }
+                } catch (e3) { /* 忽略 */ }
+                throw new AIError('接口返回 HTTP ' + response.status + (detail ? '：' + detail : ''), null);
+            }
+
+            const ctype = (response.headers.get('content-type') || '').toLowerCase();
+            if (ctype.indexOf('text/event-stream') === -1 && response.body) {
+                const text = await response.text();
+                if (text) yield text;
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+
+            while (true) {
+                const chunk = await reader.read();
+                if (chunk.done) break;
+                buffer += decoder.decode(chunk.value, { stream: true });
+                buffer = buffer.replace(/\r\n/g, '\n');
+
+                let sep;
+                while ((sep = buffer.indexOf('\n\n')) >= 0) {
+                    const block = buffer.slice(0, sep);
+                    buffer = buffer.slice(sep + 2);
+                    const delta = this.parseBlock(block, cfg.protocol);
+                    if (delta === null) return;
+                    if (delta) yield delta;
+                }
+            }
+
+            buffer += decoder.decode();
+            if (buffer.trim()) {
+                const delta = this.parseBlock(buffer, cfg.protocol);
+                if (delta) yield delta;
+            }
+        },
+
+        parseBlock(block, protocol) {
+            const lines = block.split('\n');
+            let out = '';
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.indexOf('data:') !== 0) continue;
+                const payload = line.slice(5).trim();
+                if (!payload) continue;
+                if (payload === '[DONE]') return null;
+                let data;
+                try { data = JSON.parse(payload); } catch (e) { continue; }
+
+                if (protocol === 'anthropic') {
+                    if (data.type === 'message_stop') return null;
+                    if (data.type === 'error' && data.error) {
+                        throw new AIError('接口返回错误：' + (data.error.message || data.error.type || '未知'), null);
+                    }
+                    if (data.type === 'content_block_delta' && data.delta &&
+                        typeof data.delta.text === 'string') {
+                        out += data.delta.text;
+                    }
+                } else {
+                    const choice = data.choices && data.choices[0];
+                    if (!choice) continue;
+                    if (choice.delta && typeof choice.delta.content === 'string') out += choice.delta.content;
+                    else if (choice.message && typeof choice.message.content === 'string') out += choice.message.content;
+                }
+            }
+            return out;
+        }
+    };
+
+    function AIError(message, cause) {
+        this.name = 'AIError';
+        this.message = message;
+        this.cause = cause || null;
+    }
+    AIError.prototype = Object.create(Error.prototype);
+    AIError.prototype.constructor = AIError;
+
+    /* ======================================================================
+     * 10. 结果解析
+     * ==================================================================== */
+    const ResultParser = {
+        /** 从 AI 返回文本里提取四段；识别不到就原样放 detail */
+        parse(text) {
+            const src = String(text || '');
+            const grab = function (label) {
+                const re = new RegExp(label + '\\s*[：:]\\s*([\\s\\S]*?)(?=\\n\\s*(?:姓名|身份|一句话概括|详细设定)\\s*[：:]|$)');
+                const m = src.match(re);
+                return m ? m[1].trim() : '';
+            };
+            const name = grab('姓名');
+            const role = grab('身份');
+            const summary = grab('一句话概括');
+            const detail = grab('详细设定');
+            const any = name || role || summary || detail;
+            if (!any) return { name: '', role: '', summary: '', detail: src.trim(), parsed: false };
+            return { name: name, role: role, summary: summary, detail: detail, parsed: true };
+        }
+    };
+
+    /* ======================================================================
+     * 11. BackupService
+     * ==================================================================== */
+    const BackupService = {
+        async exportAll() {
+            const personas = await Storage.getAll('personas');
+            const worlds = await Storage.getAll('worlds');
+            const worldviews = await Storage.getAll('worldviews');
+            const memories = await Storage.getAll('memories');
+            const snapshots = await Storage.getAll('snapshots');
+            const data = {
+                app: APP_ID,
+                schema: DB_VERSION,
+                version: CURRENT_VERSION,
+                exportedAt: new Date().toISOString(),
+                personas: personas,
+                worlds: worlds,
+                worldviews: worldviews,
+                memories: memories,
+                snapshots: snapshots
+            };
+            Utils.download('persona_backup_' + Utils.today() + '.json',
+                JSON.stringify(data, null, 2), 'application/json');
+        },
+
+        async importAll(text) {
+            if (text.length > MAX_IMPORT_BYTES) throw new Error('文件超过 20MB');
+            const data = JSON.parse(text);
+            if (!data || data.app !== APP_ID) throw new Error('不是 Persona 的备份文件');
+            if (typeof data.schema === 'number' && data.schema > DB_VERSION) {
+                throw new Error('备份来自更新的版本（schema ' + data.schema + '），请先升级页面。');
+            }
+            const personas = Array.isArray(data.personas) ? data.personas : [];
+            const worlds = Array.isArray(data.worlds) ? data.worlds : [];
+            const worldviews = Array.isArray(data.worldviews) ? data.worldviews : [];
+            const memories = Array.isArray(data.memories) ? data.memories : [];
+            const snapshots = Array.isArray(data.snapshots) ? data.snapshots : [];
+
+            // 字段级校验
+            for (const p of personas) {
+                if (!p || typeof p.id !== 'string' || !p.id) throw new Error('人物卡片缺少 id');
+                if (typeof p.name !== 'string') throw new Error('人物卡片 name 不是字符串');
+            }
+            for (const w of worlds) {
+                if (!w || typeof w.id !== 'string' || typeof w.personaId !== 'string') {
+                    throw new Error('平行世界缺少 id / personaId');
+                }
+            }
+            for (const v of worldviews) {
+                if (!v || typeof v.id !== 'string') throw new Error('世界观缺少 id');
+            }
+            for (const m of memories) {
+                if (!m || typeof m.id !== 'string' || typeof m.personaId !== 'string') {
+                    throw new Error('记忆记录缺少 id / personaId');
+                }
+                if (!Array.isArray(m.turns)) throw new Error('记忆 turns 不是数组');
+            }
+            for (const s of snapshots) {
+                if (!s || typeof s.id !== 'string' || typeof s.personaId !== 'string') {
+                    throw new Error('快照记录缺少 id / personaId');
+                }
+                if (!s.persona || typeof s.persona !== 'object') throw new Error('快照缺少 persona');
+            }
+
+            // 覆盖导入：先快照内存，再清库写入，失败则回滚
+            const prev = {
+                personas: await Storage.getAll('personas'),
+                worlds: await Storage.getAll('worlds'),
+                worldviews: await Storage.getAll('worldviews'),
+                memories: await Storage.getAll('memories'),
+                snapshots: await Storage.getAll('snapshots')
+            };
+            try {
+                await Storage.clearAll();
+                if (personas.length) await Storage.bulkPut('personas', personas);
+                if (worlds.length) await Storage.bulkPut('worlds', worlds);
+                if (worldviews.length) await Storage.bulkPut('worldviews', worldviews);
+                if (memories.length) await Storage.bulkPut('memories', memories);
+                if (snapshots.length) await Storage.bulkPut('snapshots', snapshots);
+            } catch (e) {
+                try {
+                    await Storage.clearAll();
+                    if (prev.personas.length) await Storage.bulkPut('personas', prev.personas);
+                    if (prev.worlds.length) await Storage.bulkPut('worlds', prev.worlds);
+                    if (prev.worldviews.length) await Storage.bulkPut('worldviews', prev.worldviews);
+                    if (prev.memories.length) await Storage.bulkPut('memories', prev.memories);
+                    if (prev.snapshots.length) await Storage.bulkPut('snapshots', prev.snapshots);
+                } catch (e2) {
+                    throw new Error('导入失败且回滚失败，数据可能不完整');
+                }
+                throw new Error('导入失败，已回滚：' + (e && e.message ? e.message : e));
+            }
+            return { personas: personas.length, worlds: worlds.length, worldviews: worldviews.length, memories: memories.length, snapshots: snapshots.length };
+        },
+
+        personaText(persona) {
+            return '姓名：' + (persona.name || '') + '\n' +
+                '身份：' + (persona.role || '') + '\n' +
+                '一句话概括：' + (persona.summary || '') + '\n' +
+                '详细设定：\n' + (persona.detail || '');
+        }
+    };
+
+    /* ======================================================================
+     * 12. UI
+     * ==================================================================== */
+    /* ======================================================================
+     * 11.5 PaneService（窄屏页签：人设 / 编辑 / AI 结果）
+     * ----------------------------------------------------------------------
+     * 只在 <700px 生效 —— 宽屏下 is-active 类不起作用，三栏照常并存。
+     * ==================================================================== */
+    /* ======================================================================
+     * 11.5 ResultPane —— AI 结果栏折叠
+     * ==================================================================== */
+    /* ======================================================================
+     * 11.3 ModeService —— 人设 / 世界观 二选一
+     * ----------------------------------------------------------------------
+     * 滑块决定三处跟随：左栏列表、中间编辑表单、底部提示词条。
+     * ==================================================================== */
+    const ModeService = {
+        mode: 'persona',
+        _lastMode: null,
+
+        isPersona() { return this.mode === 'persona'; },
+
+        switchTo(mode, opts) {
+            const next = (mode === 'worldview') ? 'worldview' : 'persona';
+            if (next === this.mode && this._lastMode === next) return;
+            this.mode = next;
+            const isP = next === 'persona';
+
+            const sw = Utils.$('.mode-switch');
+            if (sw) sw.setAttribute('data-active', next);
+            Utils.$$('.mode-btn').forEach(function (b) {
+                const on = b.getAttribute('data-mode') === next;
+                b.classList.toggle('on', on);
+                b.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+
+            const show = function (sel, yes) {
+                const n = Utils.$(sel);
+                if (n) n.hidden = !yes;
+            };
+            show('#sidePersonas', isP);
+            show('#sideWorldviews', !isP);
+            show('#editorPersona', isP);
+            show('#editorWorldview', !isP);
+            show('#editorScope', isP);
+            show('#wvDelBtn', !isP);
+            show('#saveSnapBtn', isP);
+            show('#deleteWorldBtn', isP);
+            show('#deletePersonaBtn', isP);
+            show('#memoryBtn', isP);
+            show('#historyBtn', isP);
+
+            this.syncPromptBar();
+
+            if (isP) fillEditor(WorldService.current());
+            else fillWorldview(WorldviewService.current());
+
+            if (!opts || !opts.silent) {
+                State.prefs.ui.mode = next;
+                PrefsService.saveUI();
+            }
+        },
+
+        /* 底部提示词条：同一组按钮，文案与处理函数按模式分派 */
+        syncPromptBar() {
+            const isP = this.isPersona();
+            const t = Utils.$('#requestInput');
+            if (t && this._lastMode && this._lastMode !== this.mode) {
+                State.prefs.ui['draft_' + this._lastMode] = t.value;
+            }
+            if (t) {
+                t.value = (State.prefs.ui && State.prefs.ui['draft_' + this.mode]) || '';
+                t.placeholder = isP
+                    ? '本次修改要求（可选）。例如：把她的说话方式改得更冷淡。'
+                    : '本次世界观的修改要求（可选）。例如：补充三大势力的历史恩怨。';
+            }
+            this._lastMode = this.mode;
+
+            const ib = Utils.$('#interviewBtn');
+            if (ib) {
+                ib.textContent = isP ? '完善人设' : '完善世界观';
+                ib.title = isP
+                    ? '不知道该怎么描述？让 AI 主动提问，陪你把人设聊清楚'
+                    : '不知道怎么写？让 AI 主动提问，陪你补全世界观';
+            }
+        },
+
+        restore() {
+            const saved = State.prefs.ui && State.prefs.ui.mode;
+            this.mode = (saved === 'worldview') ? 'worldview' : 'persona';
+            this._lastMode = null;
+            this.switchTo(this.mode, { silent: true });
+        }
+    };
+
+    const ResultPane = {
+        collapsed: false,
+
+        apply() {
+            const r = Utils.$('.result');
+            if (!r) return;
+            r.classList.toggle('collapsed', this.collapsed);
+            const b = Utils.$('#resultCollapseBtn');
+            if (b) {
+                b.textContent = this.collapsed ? '«' : '»';
+                b.setAttribute('aria-label', this.collapsed ? '展开 AI 栏' : '折叠 AI 栏');
+                b.title = this.collapsed ? '展开 AI 栏' : '折叠 AI 栏';
+            }
+        },
+
+        toggle() {
+            this.collapsed = !this.collapsed;
+            this.apply();
+            State.prefs.ui.resultCollapsed = this.collapsed;
+            PrefsService.saveUI();
+            UI.toast(this.collapsed ? '已收起 AI 栏' : '已展开 AI 栏');
+        },
+
+        restore() {
+            this.collapsed = !!(State.prefs.ui && State.prefs.ui.resultCollapsed);
+            this.apply();
+        }
+    };
+
+    const PaneService = {
+        active: 'editor',
+
+        switchTo(pane) {
+            if (!pane) return;
+            this.active = pane;
+            Utils.$$('.mtab').forEach(function (b) {
+                const on = b.getAttribute('data-pane') === pane;
+                b.classList.toggle('on', on);
+                b.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+            Utils.$$('.sidebar, .editor, .result').forEach(function (el) {
+                el.classList.toggle('is-active', el.getAttribute('data-pane') === pane);
+            });
+        },
+
+        isNarrow() {
+            return window.matchMedia('(max-width: 699px)').matches;
+        }
+    };
+
+    const UI = {
+        _lastFocus: null,
+        _modalStack: [],
+
+        toast(msg, isErr) {
+            const el = Utils.$('#toast');
+            el.textContent = msg;
+            el.className = 'toast show' + (isErr ? ' err' : '');
+            clearTimeout(this._toastTimer);
+            this._toastTimer = setTimeout(function () { el.className = 'toast'; }, 2600);
+        },
+
+        openModal(id) {
+            const m = document.getElementById(id);
+            if (!m) return;
+            this._lastFocus = document.activeElement;
+            m.classList.add('open');
+            this._modalStack.push(id);
+            setTimeout(function () {
+                const f = m.querySelector('input, textarea, select, button');
+                if (f) f.focus();
+            }, 30);
+        },
+
+        closeModal(id) {
+            const m = document.getElementById(id);
+            if (!m) return;
+            m.classList.remove('open');
+            this._modalStack = this._modalStack.filter(function (x) { return x !== id; });
+            if (this._lastFocus && this._lastFocus.focus) {
+                try { this._lastFocus.focus(); } catch (e) { /* 忽略 */ }
+            }
+        },
+
+        setSaved(text) {
+            const el = Utils.$('#saveStatus');
+            el.textContent = text;
+        }
+    };
+
+    /* ======================================================================
+     * 13. 渲染
+     * ==================================================================== */
+    function el(tag, cls, text) {
+        const node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text != null) node.textContent = text;
+        return node;
+    }
+
+    function renderPersonaList() {
+        const box = Utils.$('#personaList');
+        box.textContent = '';
+        if (!State.personas.length) {
+            box.appendChild(el('p', 'hint', '还没有人物卡片，点右上「+ 新建」。'));
+            return;
+        }
+        State.personas.forEach(function (p) {
+            const isCardOn = p.id === State.personaId;
+
+            // 卡片行
+            const card = el('button', 'persona-item' + (isCardOn ? ' on' : ''));
+            card.type = 'button';
+            card.setAttribute('role', 'listitem');
+            card.appendChild(el('span', 'p-name', p.name || '（未命名）'));
+            const ws = WorldService.worldsOf(p.id);
+            card.appendChild(el('span', 'p-sub',
+                ws.length + ' 个世界' + (p.memoryScope === 'shared' ? ' · 记忆共享' : '')));
+            card.addEventListener('click', function () { selectPersona(p.id); });
+            box.appendChild(card);
+
+            // 当前卡片展开其平行世界
+            if (!isCardOn) return;
+            const wrap = el('div', 'world-list');
+            ws.forEach(function (w) {
+                const row = el('button', 'world-item' + (w.id === State.worldId ? ' on' : ''));
+                row.type = 'button';
+                row.appendChild(el('span', 'w-name', (w.label || '（未命名世界）') + (w.name ? ' · ' + w.name : '')));
+                row.appendChild(el('span', 'w-sub', w.role || w.summary || '—'));
+                row.addEventListener('click', function (ev) {
+                    ev.stopPropagation();
+                    selectWorld(w.id);
+                });
+                wrap.appendChild(row);
+            });
+            const add = el('button', 'world-add', '+ 新建世界');
+            add.type = 'button';
+            add.addEventListener('click', function (ev) {
+                ev.stopPropagation();
+                openWorldModal();
+            });
+            wrap.appendChild(add);
+            box.appendChild(wrap);
+        });
+    }
+
+    /* 编辑区绑定的是「当前平行世界」：姓名/身份/概括/详述来自 world，
+       卡片名单独显示在标题里。 */
+    function fillEditor(w) {
+        const card = PersonaService.current();
+        const worldName = w ? (w.label || '（未命名世界）') : '';
+
+        Utils.$('#worldLabelInput').value = w ? (w.label || '') : '';
+        Utils.$('#nameInput').value = w ? w.name : '';
+        Utils.$('#roleInput').value = w ? w.role : '';
+        Utils.$('#summaryInput').value = w ? w.summary : '';
+        Utils.$('#detailInput').value = w ? w.detail : '';
+        Utils.$('#otherInput').value = w ? (w.other || '') : '';
+
+        Utils.$('#editorTitle').textContent = w
+            ? (card ? (card.name || '（未命名）') + ' · ' : '') + worldName
+            : '未选择平行世界';
+        Utils.$('#topMeta').textContent = w
+            ? '当前：' + (card ? card.name || '（未命名）' : '') + ' · ' + worldName +
+              (w.role ? ' · ' + w.role : '')
+            : '';
+
+        const disabled = !w;
+        ['#saveSnapBtn', '#deletePersonaBtn', '#copyPromptBtn', '#sendAiBtn', '#previewBtn',
+         '#deleteWorldBtn'].forEach(function (sel) {
+            const node = Utils.$(sel);
+            if (node) node.disabled = disabled;
+        });
+        syncScopeUI();
+        updateCounts();
+    }
+
+    /* 记忆范围选择器：全卡共享 / 各世界独立 */
+    function syncScopeUI() {
+        const card = PersonaService.current();
+        const sel = Utils.$('#scopeSelect');
+        if (!sel) return;
+        sel.value = (card && card.memoryScope) || 'per-world';
+        sel.disabled = !card;
+    }
+
+    function updateCounts() {
+        const detail = Utils.$('#detailInput').value || '';
+        const chars = detail.length;
+        const lines = detail ? detail.split('\n').length : 0;
+        const paras = detail ? detail.split('\n').filter(function (l) { return l.trim() !== ''; }).length : 0;
+        Utils.$('#countStatus').textContent = '详述 ' + chars + ' 字符 · ' + lines + ' 行 · ' + paras + ' 段';
+    }
+
+    function renderMemoryMeta() {
+        const mem = State.memory;
+        const meta = Utils.$('#memoryMeta');
+        const count = Utils.$('#memoryCount');
+        const preview = Utils.$('#memoryPreview');
+        if (!mem || !mem.turns.length) {
+            meta.textContent = '当前人设还没有记忆。粘贴聊天记录后点「导入」。';
+            count.textContent = '';
+            preview.textContent = '（空）';
+            return;
+        }
+        const totalChars = mem.turns.reduce(function (s, t) { return s + t.text.length; }, 0);
+        meta.textContent = '已导入 ' + mem.turns.length + ' 条 · 共 ' + totalChars +
+            ' 字符 · 导入于 ' + Utils.fmtTime(mem.importedAt);
+        const n = State.prefs.ai.memTurns || 10;
+        const recent = MemoryService.recent(mem, n);
+        count.textContent = '（发送时取最近 ' + n + ' 条，实际 ' + recent.count + ' 条' +
+            (recent.truncated ? '，已按 8000 字符截断' : '') + '）';
+        preview.textContent = recent.text || '（空）';
+    }
+
+    function renderSnapshots() {
+        const box = Utils.$('#snapList');
+        box.textContent = '';
+        if (!State.snapshots.length) {
+            box.appendChild(el('p', 'hint', '还没有快照。'));
+            return;
+        }
+        State.snapshots.forEach(function (s) {
+            const row = el('div', 'snap-item');
+            const main = el('div', 's-main');
+            const time = el('span', 's-time', Utils.fmtTime(s.createdAt));
+            const reason = el('span', 's-reason', REASON_LABEL[s.reason] || s.reason || '');
+            const head = el('div');
+            head.appendChild(time);
+            head.appendChild(reason);
+            main.appendChild(head);
+            const name = s.persona && s.persona.name ? s.persona.name : '（未命名）';
+            const detail = s.persona && s.persona.detail ? s.persona.detail : '';
+            main.appendChild(el('div', 's-preview',
+                name + (detail ? ' · ' + detail.slice(0, 60).replace(/\n/g, ' ') : '')));
+            row.appendChild(main);
+            const btn = el('button', 'btn sm', '恢复');
+            btn.type = 'button';
+            btn.addEventListener('click', function () { restoreSnapshot(s); });
+            row.appendChild(btn);
+            box.appendChild(row);
+        });
+    }
+
+    /* ======================================================================
+     * 14. 业务动作
+     * ==================================================================== */
+    /* 记忆/快照的归属键：全卡共享时用卡片 id，各世界独立时用世界 id。 */
+    function memoryKey(card, world) {
+        if (!card) return null;
+        if (card.memoryScope === 'shared') return card.id;
+        return world ? world.id : null;
+    }
+
+    async function selectPersona(id) {
+        await flushSave();
+        State.personaId = id;
+        const worlds = WorldService.worldsOf(id);
+        // 优先选上次这个卡片用过的世界，否则选第一个
+        let pick = worlds.filter((w) => w.id === State.worldId)[0] || worlds[0] || null;
+        if (!pick && !worlds.length) {
+            // 新卡片没有任何世界：自动建一个默认世界
+            pick = await WorldService.create(id, '默认世界');
+        }
+        State.worldId = pick ? pick.id : null;
+        await loadScopeData();
+        fillEditor(pick);
+        renderPersonaList();
+        renderMemoryMeta();
+        renderSnapshots();
+        await PrefsService.saveLast();
+    }
+
+    async function selectWorld(worldId) {
+        await flushSave();
+        State.worldId = worldId;
+        await loadScopeData();
+        fillEditor(WorldService.current());
+        renderPersonaList();
+        renderMemoryMeta();
+        renderSnapshots();
+        await PrefsService.saveLast();
+    }
+
+    /* 按当前卡片的世界 / 记忆归属策略加载记忆与快照 */
+    async function loadScopeData() {
+        const card = PersonaService.current();
+        const world = WorldService.current();
+        const key = memoryKey(card, world);
+        State.memory = key ? await MemoryService.load(key) : null;
+        State.snapshots = key ? await SnapshotService.load(key) : [];
+    }
+
+    const scheduleSave = Utils.debounce(async function () {
+        const w = WorldService.current();
+        if (!w) return;
+        w.label = Utils.$('#worldLabelInput').value;
+        w.name = Utils.$('#nameInput').value;
+        w.role = Utils.$('#roleInput').value;
+        w.summary = Utils.$('#summaryInput').value;
+        w.detail = Utils.$('#detailInput').value;
+        w.other = Utils.$('#otherInput').value;
+        await WorldService.save(w);
+        UI.setSaved('已保存 ' + Utils.fmtTime(Date.now()).slice(11));
+        renderPersonaList();
+        const card = PersonaService.current();
+        Utils.$('#editorTitle').textContent =
+            (card ? (card.name || '（未命名）') + ' · ' : '') + (w.label || '（未命名世界）');
+        Utils.$('#topMeta').textContent = '当前：' +
+            (card ? card.name || '（未命名）' : '') + ' · ' + (w.label || '') +
+            (w.role ? ' · ' + w.role : '');
+    }, 900);
+
+    async function flushSave() {
+        scheduleSave.cancel();
+        const w = WorldService.current();
+        if (!w) return;
+        w.label = Utils.$('#worldLabelInput').value;
+        w.name = Utils.$('#nameInput').value;
+        w.role = Utils.$('#roleInput').value;
+        w.summary = Utils.$('#summaryInput').value;
+        w.detail = Utils.$('#detailInput').value;
+        w.other = Utils.$('#otherInput').value;
+        await WorldService.save(w);
+        renderPersonaList();
+    }
+
+    function readEditorInto(w) {
+        w.label = Utils.$('#worldLabelInput').value;
+        w.name = Utils.$('#nameInput').value;
+        w.role = Utils.$('#roleInput').value;
+        w.summary = Utils.$('#summaryInput').value;
+        w.detail = Utils.$('#detailInput').value;
+        w.other = Utils.$('#otherInput').value;
+    }
+
+    async function newPersona() {
+        await flushSave();
+        const name = window.prompt('新人物卡片的名称：', '未命名人物');
+        if (name === null) return;
+        const card = await PersonaService.create(String(name || '').trim() || '未命名人物');
+        await WorldService.create(card.id, '默认世界');   // 每张卡片至少一个世界
+        await selectPersona(card.id);
+        Utils.$('#nameInput').focus();
+        Utils.$('#nameInput').select();
+        UI.toast('已新建人物卡片与默认世界');
+    }
+
+    /* 新建平行世界：空白 / 从当前世界复制 */
+    function openWorldModal() {
+        const card = PersonaService.current();
+        if (!card) { UI.toast('请先选择人物卡片', true); return; }
+        Utils.$('#worldNameInput').value = '';
+        Utils.$('#worldCopyFrom').checked = false;
+        UI.openModal('worldModal');
+    }
+
+    async function createWorld() {
+        const card = PersonaService.current();
+        if (!card) return;
+        const name = (Utils.$('#worldNameInput').value || '').trim() || '新世界';
+        const copy = Utils.$('#worldCopyFrom').checked;
+        const src = copy ? WorldService.current() : null;
+        await flushSave();
+        const w = await WorldService.create(card.id, name, src);
+        UI.closeModal('worldModal');
+        await selectWorld(w.id);
+        UI.toast(copy ? '已从当前世界复制一份' : '已新建空白世界');
+    }
+
+    async function deleteWorld() {
+        const w = WorldService.current();
+        if (!w) return;
+        const card = PersonaService.current();
+        const siblings = card ? WorldService.worldsOf(card.id) : [];
+        if (siblings.length <= 1) {
+            UI.toast('每个人物至少保留一个世界；要清空请删除整张卡片', true);
+            return;
+        }
+        const ok = window.confirm('删除平行世界「' + (w.name || '未命名') + '」？其记忆与快照也会一并删除。');
+        if (!ok) return;
+        const key = memoryKey(card, w);
+        await WorldService.remove(w.id);
+        if (key) {
+            const mem = await Storage.getAllByIndex('memories', 'byPersona', key);
+            for (const m of mem) await Storage.del('memories', m.id);
+            const snaps = await Storage.getAllByIndex('snapshots', 'byPersona', key);
+            for (const sn of snaps) await Storage.del('snapshots', sn.id);
+        }
+        const rest = WorldService.worldsOf(card.id);
+        await selectWorld(rest[0].id);
+        UI.toast('已删除该平行世界');
+    }
+
+    /* 切换记忆范围：全卡共享 ↔ 各世界独立 */
+    async function changeScope(scope) {
+        const card = PersonaService.current();
+        if (!card) return;
+        card.memoryScope = scope === 'shared' ? 'shared' : 'per-world';
+        await PersonaService.save(card);
+        await loadScopeData();
+        renderMemoryMeta();
+        renderSnapshots();
+        renderPersonaList();
+        UI.toast(card.memoryScope === 'shared'
+            ? '已改为全卡共享：该卡片所有世界共用一份记忆与快照'
+            : '已改为各世界独立：每个世界各自拥有记忆与快照');
+    }
+
+    async function deletePersona() {
+        const p = PersonaService.current();
+        if (!p) return;
+        const ok = window.confirm('确定删除人物卡片「' + (p.name || '未命名') +
+            '」？该卡片下所有平行世界、记忆与快照都会一并删除，无法恢复。');
+        if (!ok) return;
+        await PersonaService.remove(p.id);
+        State.personaId = State.personas.length ? State.personas[0].id : null;
+        State.worldId = null;
+        if (State.personaId) await selectPersona(State.personaId);
+        else {
+            State.memory = null;
+            State.snapshots = [];
+            fillEditor(null);
+            renderPersonaList();
+            renderMemoryMeta();
+            renderSnapshots();
+        }
+        UI.toast('已删除');
+    }
+
+    async function saveSnapshotManual() {
+        await flushSave();
+        const card = PersonaService.current();
+        const w = WorldService.current();
+        if (!card || !w) return;
+        const key = memoryKey(card, w);
+        await SnapshotService.capture(w, key, 'manual');
+        State.snapshots = await SnapshotService.load(key);
+        renderSnapshots();
+        UI.toast('已保存快照');
+    }
+
+    async function restoreSnapshot(snap) {
+        const card = PersonaService.current();
+        const w = WorldService.current();
+        if (!card || !w) return;
+        const ok = window.confirm('恢复到这个版本？当前内容会先存为新快照，不会丢失。');
+        if (!ok) return;
+        await flushSave();
+        const key = memoryKey(card, w);
+        await SnapshotService.capture(w, key, 'manual');   // 先保存当前
+        w.label = snap.persona.label || w.label;
+        w.name = snap.persona.name;
+        w.role = snap.persona.role;
+        w.summary = snap.persona.summary;
+        w.detail = snap.persona.detail;
+        await WorldService.save(w);
+        State.snapshots = await SnapshotService.load(key);
+        fillEditor(w);
+        renderPersonaList();
+        renderSnapshots();
+        UI.closeModal('historyModal');
+        UI.toast('已恢复到 ' + Utils.fmtTime(snap.createdAt));
+    }
+
+    /* 粘贴回工具时的收尾指令。用户在多轮对话里让 AI 出成品后，
+       只要说「出结果」，AI 就按这个格式收口。 */
+    const FINALIZE_HINT =
+        '\n\n────────────────────\n\n' +
+        '【收尾说明】以上是起始指令，我们可能会多轮讨论。' +
+        '当我说「出结果」「可以了」或「就这样」时，请停止讨论，' +
+        '只输出最终人设，格式为：姓名 / 身份 / 一句话概括 / 详细设定 四段，' +
+        '不要加任何解释，我随后会把它粘贴回工具。';
+
+    function currentPrompt(interview) {
+        const w = WorldService.current();
+        if (!w) return null;
+        readEditorInto(w);
+        const n = State.prefs.ai.memTurns || 10;
+        const recent = MemoryService.recent(State.memory, n);
+        const request = Utils.$('#requestInput').value;
+        const text = interview
+            ? PromptService.buildInterview(w, recent.text, recent.count, request)
+            : PromptService.build(w, recent.text, recent.count, request);
+        return {
+            text: text + FINALIZE_HINT,
+            hasMemory: !!recent.text,
+            hasRequest: !!String(request || '').trim(),
+            interview: !!interview
+        };
+    }
+
+    async function copyPrompt(interview) {
+        const built = currentPrompt(interview);
+        if (!built) { UI.toast('请先选择人设', true); return; }
+        // 访谈模式允许记忆与要求都为空：它是从零开始聊的起点
+        if (!interview && !built.hasMemory && !built.hasRequest) {
+            UI.toast('记忆与修改要求都为空，至少填一个', true);
+            return;
+        }
+        const ok = await Utils.copyText(built.text);
+        UI.toast(ok
+            ? (interview ? '访谈提示词已复制，去 AI 那边聊吧' : '提示词已复制')
+            : '复制失败，请手动选择', !ok);
+    }
+
+    function previewPrompt(interview) {
+        const built = currentPrompt(interview);
+        if (!built) { UI.toast('请先选择人设', true); return; }
+        Utils.$('#promptPreview').textContent = built.text;
+        UI.openModal('previewModal');
+    }
+
+    /* 「完善人设」：访谈模式入口。
+       用户往往说不清想要什么样的人设，这里让 AI 主动提问、陪用户聊清楚。
+       两种出口：复制到外部 AI 多轮对话，或直接在本工具内发送。 */
+    function askInterview(mode) {
+        const isP = (mode || ModeService.mode) === 'persona';
+        if (isP) {
+            if (!PersonaService.current()) { UI.toast('请先选择人设', true); return; }
+        } else {
+            if (!WorldviewService.current()) { UI.toast('请先选择世界观', true); return; }
+        }
+        // 记录本次访谈的目标，出口按钮据此分派
+        interviewTarget = isP ? 'persona' : 'worldview';
+
+        const title = Utils.$('#interviewTitle');
+        if (title) title.textContent = isP ? '完善人设 · 让 AI 来提问' : '完善世界观 · 让 AI 来提问';
+
+        const desc = Utils.$('#interviewDesc');
+        if (desc) {
+            desc.textContent = isP
+                ? '有时候我们自己也说不清想要什么样的人设。这个模式会让 AI 主动提问，一轮问 1–3 个关键问题，等你回答后再问下一批，直到信息够用为止。最后你说一句「出结果」，它就会按四段格式输出成品，你粘贴回工具即可。'
+                : '不知道该写哪些内容？这个模式会让 AI 主动提问，一轮问 1–3 个关键问题，覆盖地理、历史、势力、规则、风俗，等你回答后再问下一批。最后你说「出结果」，它按「名称 / 详细设定 / 其他设定」输出成品。';
+        }
+
+        const hasKey = !!AIClient.config().apiKey;
+        Utils.$('#interviewHasKey').textContent = hasKey
+            ? '已配置 API Key，可直接在工具内多轮对话。'
+            : '未配置 API Key，建议复制到 DeepSeek / ChatGPT 等外部 AI 多轮对话，或先去「设置」填写 Key。';
+        Utils.$$('#interviewModal [data-mode]').forEach(function (b) {
+            b.disabled = (b.getAttribute('data-mode') === 'send') && !hasKey;
+        });
+        UI.openModal('interviewModal');
+    }
+
+    /* 访谈目标：'persona' | 'worldview'，由 askInterview 设置 */
+    let interviewTarget = 'persona';
+
+    let aiController = null;
+
+    async function sendToAI(interview) {
+        const built = currentPrompt(interview);
+        if (!built) { UI.toast('请先选择人设', true); return; }
+        if (!interview && !built.hasMemory && !built.hasRequest) {
+            UI.toast('记忆与修改要求都为空，至少填一个', true);
+            return;
+        }
+        const cfg = AIClient.config();
+        const isLocal = /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(cfg.baseUrl);
+        if (!cfg.apiKey && !isLocal) {
+            UI.toast('尚未配置 API Key，请先在「设置」里填写', true);
+            UI.openModal('settingsModal');
+            return;
+        }
+
+        const out = Utils.$('#resultInput');
+        out.value = '';
+        if (ResultPane.collapsed) ResultPane.toggle();   // 折叠时先展开，否则看不到输出
+        PaneService.switchTo('result');   // 窄屏：切到结果页签才能看到流式输出
+        AiSendService.begin();
+
+        try {
+            for await (const chunk of AIClient.stream(built.text, aiController.signal)) {
+                out.value += chunk;
+                out.scrollTop = out.scrollHeight;
+            }
+            UI.setSaved('AI 返回完成');
+            UI.toast('已收到 AI 结果，确认后点「应用」');
+            AiBadge.bump();
+        } catch (e) {
+            if (e && e.name === 'AbortError') {
+                UI.setSaved('已停止');
+                UI.toast('已停止');
+            } else {
+                UI.setSaved('请求失败');
+                UI.toast(e && e.message ? e.message : '请求失败', true);
+            }
+        } finally {
+            AiSendService.end();
+        }
+    }
+
+    function stopAI() {
+        if (aiController) aiController.abort();
+    }
+
+    async function applyResult(appendMode) {
+        // 当前模式决定写回哪里：世界观模式交给 applyWorldviewResult
+        if (ModeService.mode === 'worldview') {
+            return applyWorldviewResult(appendMode);
+        }
+        const card = PersonaService.current();
+        const w = WorldService.current();
+        if (!card || !w) { UI.toast('请先选择一个平行世界', true); return; }
+        const text = Utils.$('#resultInput').value.trim();
+        if (!text) { UI.toast('AI 结果区为空', true); return; }
+
+        await flushSave();
+        const key = memoryKey(card, w);
+        await SnapshotService.capture(w, key, appendMode ? 'ai-append' : 'ai-apply');
+
+        if (appendMode) {
+            w.detail = (w.detail ? w.detail.replace(/\s+$/, '') + '\n\n' : '') + text;
+        } else {
+            const parsed = ResultParser.parse(text);
+            if (parsed.parsed) {
+                if (parsed.name) w.name = parsed.name;
+                if (parsed.role) w.role = parsed.role;
+                if (parsed.summary) w.summary = parsed.summary;
+                if (parsed.detail) w.detail = parsed.detail;
+            } else {
+                // 没识别出四段，整段放进详述
+                w.detail = text;
+                UI.toast('未识别出「姓名/身份/…」格式，已整段写入详述');
+            }
+        }
+        await WorldService.save(w);
+        State.snapshots = await SnapshotService.load(key);
+        fillEditor(w);
+        renderPersonaList();
+        renderSnapshots();
+        Utils.$('#resultInput').value = '';
+        UI.setSaved('已应用');
+        PaneService.switchTo('editor');   // 窄屏：应用后回到编辑页签看结果
+
+        // 询问是否清空已总结的记忆
+        if (State.memory && State.memory.turns.length) {
+            const clear = window.confirm('这段记忆已总结进人设，是否清空？\n\n选「取消」则保留，下次发送会重复带上。');
+            if (clear) {
+                await MemoryService.clear(key);
+                State.memory = null;
+                renderMemoryMeta();
+                UI.toast('已应用并清空记忆');
+                return;
+            }
+        }
+        UI.toast('已应用');
+    }
+
+    /* ======================================================================
+     * 15. 记忆导入
+     * ==================================================================== */
+    async function importMemory() {
+        const card = PersonaService.current();
+        const w = WorldService.current();
+        if (!card || !w) { UI.toast('请先选择一个平行世界', true); return; }
+        const key = memoryKey(card, w);
+        if (!key) { UI.toast('当前没有可用的记忆归属', true); return; }
+        const raw = Utils.$('#memoryInput').value;
+        if (!String(raw || '').trim()) { UI.toast('请先粘贴内容', true); return; }
+        const parsed = MemoryService.parse(raw);
+        if (!parsed.turns.length) { UI.toast('没有解析出任何内容', true); return; }
+
+        const mem = MemoryService.empty(key);
+        mem.raw = raw;
+        mem.turns = parsed.turns;
+        await MemoryService.save(mem);
+        Utils.$('#memoryInput').value = '';
+        renderMemoryMeta();
+        UI.toast('已导入 ' + parsed.turns.length + ' 条（' +
+            (parsed.kind === 'json' ? 'JSON' : '纯文本') + '）');
+    }
+
+    async function clearMemory() {
+        const card = PersonaService.current();
+        const w = WorldService.current();
+        if (!card || !w) return;
+        const key = memoryKey(card, w);
+        if (!State.memory) { UI.toast('当前没有记忆'); return; }
+        const ok = window.confirm('清空当前' +
+            (card.memoryScope === 'shared' ? '人物卡片（全卡共享）' : '平行世界') + '的全部记忆？');
+        if (!ok) return;
+        await MemoryService.clear(key);
+        State.memory = null;
+        renderMemoryMeta();
+        UI.toast('已清空记忆');
+    }
+
+    /* ======================================================================
+     * 16. 设置
+     * ==================================================================== */
+    function syncSettingsForm() {
+        const ai = State.prefs.ai;
+        Utils.$('#protocolSel').value = ai.protocol || 'openai';
+        Utils.$('#baseUrlInput').value = ai.baseUrl || '';
+        Utils.$('#modelInput').value = ai.model || '';
+        Utils.$('#apiKeyInput').value = ai.rememberKey ? (ai.apiKey || '') : (State.sessionApiKey || '');
+        Utils.$('#rememberKeyChk').checked = !!ai.rememberKey;
+        Utils.$('#tempInput').value = typeof ai.temperature === 'number' ? ai.temperature : 0.7;
+        Utils.$('#memTurnsInput').value = ai.memTurns || 10;
+    }
+
+    async function saveSettings() {
+        const ai = State.prefs.ai;
+        ai.protocol = Utils.$('#protocolSel').value;
+        ai.baseUrl = Utils.$('#baseUrlInput').value.trim();
+        ai.model = Utils.$('#modelInput').value.trim();
+        ai.rememberKey = Utils.$('#rememberKeyChk').checked;
+        const key = Utils.$('#apiKeyInput').value;
+        if (ai.rememberKey) { ai.apiKey = key; State.sessionApiKey = ''; }
+        else { ai.apiKey = ''; State.sessionApiKey = key; }
+        const t = parseFloat(Utils.$('#tempInput').value);
+        ai.temperature = isNaN(t) ? 0.7 : Math.min(2, Math.max(0, t));
+        const n = parseInt(Utils.$('#memTurnsInput').value, 10);
+        ai.memTurns = isNaN(n) ? 10 : Math.min(50, Math.max(1, n));
+        await PrefsService.saveAI();
+        renderMemoryMeta();
+        UI.closeModal('settingsModal');
+        UI.toast('设置已保存');
+    }
+
+    /* ======================================================================
+     * 17. 事件绑定
+     * ==================================================================== */
+    /* ======================================================================
+     * 17. 世界观 UI
+     * ==================================================================== */
+    /* 世界观列表（替代原下拉框） */
+    function renderWvList() {
+        const box = Utils.$('#wvList');
+        if (!box) return;
+        box.textContent = '';
+        if (!State.worldviews.length) {
+            box.appendChild(el('p', 'hint', '还没有世界观，点上方「+ 新建」。'));
+            return;
+        }
+        State.worldviews.forEach(function (v) {
+            const item = el('button', 'wv-item' + (v.id === State.worldviewId ? ' on' : ''),
+                v.name || '（未命名世界观）');
+            item.type = 'button';
+            item.setAttribute('role', 'listitem');
+            item.setAttribute('aria-current', v.id === State.worldviewId ? 'true' : 'false');
+            item.addEventListener('click', function () { switchWorldview(v.id); });
+            box.appendChild(item);
+        });
+    }
+
+    /* 兼容旧调用点 */
+    function renderWvSelect() { renderWvList(); }
+
+    function fillWorldview(v) {
+        Utils.$('#wvNameInput').value = v ? (v.name || '') : '';
+        Utils.$('#wvDetailInput').value = v ? (v.detail || '') : '';
+        Utils.$('#wvOtherInput').value = v ? (v.other || '') : '';
+        const disabled = !v;
+        ['#wvCopyPromptBtn', '#wvSendBtn', '#wvDelBtn'].forEach(function (sel) {
+            const n = Utils.$(sel); if (n) n.disabled = disabled;
+        });
+    }
+
+    async function openWorldview() {
+        await flushSave();
+        if (!State.worldviews.length) {
+            const v = await WorldviewService.create('新世界观');
+            State.worldviewId = v.id;
+        }
+        if (!State.worldviewId) State.worldviewId = State.worldviews[0].id;
+        renderWvSelect();
+        fillWorldview(WorldviewService.current());
+        // 内联面板：聚焦名称输入，不必再开关弹窗
+        const wvInput = Utils.$('#wvNameInput');
+        if (wvInput) wvInput.focus();
+    }
+
+    async function switchWorldview(id) {
+        const cur = WorldviewService.current();
+        if (cur) { readWvInto(cur); await WorldviewService.save(cur); }
+        State.worldviewId = id;
+        fillWorldview(WorldviewService.current());
+        renderWvList();
+    }
+
+    function readWvInto(v) {
+        v.name = Utils.$('#wvNameInput').value;
+        v.detail = Utils.$('#wvDetailInput').value;
+        v.other = Utils.$('#wvOtherInput').value;
+    }
+
+    /* 世界观提示词：不使用聊天记忆，修改要求取自底部共用输入框 */
+    function currentWvPrompt(interview) {
+        const v = WorldviewService.current();
+        if (!v) return null;
+        readWvInto(v);
+        const request = Utils.$('#requestInput').value;
+        const text = interview
+            ? WorldviewPrompt.buildInterview(v, request)
+            : WorldviewPrompt.build(v, request);
+        return text + FINALIZE_HINT;
+    }
+
+    async function copyWvPrompt(interview) {
+        const v = WorldviewService.current();
+        if (!v) { UI.toast('请先选择世界观', true); return; }
+        readWvInto(v);
+        await WorldviewService.save(v);
+        const ok = await Utils.copyText(currentWvPrompt(interview));
+        UI.toast(ok
+            ? (interview ? '世界观访谈提示词已复制' : '世界观提示词已复制')
+            : '复制失败', !ok);
+    }
+
+    /* 预览世界观提示词 */
+    function previewWvPrompt() {
+        const v = WorldviewService.current();
+        if (!v) { UI.toast('请先选择世界观', true); return; }
+        const text = currentWvPrompt(false);
+        if (!text) return;
+        Utils.$('#promptPreview').textContent = text;
+        UI.openModal('previewModal');
+    }
+
+    /* 世界观也支持内置发送：结果仍落到 AI 结果区，点「应用」时按当前
+       打开的是人设还是世界观决定写回哪里 —— 这里用独立标记 */
+
+    async function sendWvToAI(interview) {
+        const v = WorldviewService.current();
+        if (!v) { UI.toast('请先选择世界观', true); return; }
+        await WorldviewService.save(v);
+        const cfg = AIClient.config();
+        const isLocal = /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(cfg.baseUrl);
+        if (!cfg.apiKey && !isLocal) {
+            UI.toast('尚未配置 API Key，请先在「设置」里填写', true);
+            UI.openModal('settingsModal');
+            return;
+        }
+        const built = currentWvPrompt(interview);
+        if (!built) return;
+
+        const out = Utils.$('#resultInput');
+        out.value = '';
+        if (ResultPane.collapsed) ResultPane.toggle();
+        PaneService.switchTo('result');
+        AiSendService.begin();
+        try {
+            for await (const chunk of AIClient.stream(built, aiController.signal)) {
+                out.value += chunk;
+            }
+            UI.setSaved('AI 返回完成');
+            UI.toast('世界观结果已返回，点「应用」写入');
+            AiBadge.bump();
+        } catch (e) {
+            if (e && e.name === 'AbortError') {
+                UI.setSaved('已停止');
+                UI.toast('已停止');
+            } else {
+                UI.setSaved('请求失败');
+                UI.toast(e && e.message ? e.message : '请求失败', true);
+            }
+        } finally {
+            AiSendService.end();
+        }
+    }
+
+    /* ======================================================================
+     * 统一发送状态：人设与世界观共用同一套按钮禁用与 AbortController
+     * ==================================================================== */
+    const AiSendService = {
+        begin() {
+            aiController = new AbortController();
+            Utils.$('#sendAiBtn').disabled = true;
+            Utils.$('#stopAiBtn').disabled = false;
+            const wb = Utils.$('#wvSendBtn');
+            if (wb) wb.disabled = true;
+            UI.setSaved('正在请求 AI…');
+        },
+        end() {
+            aiController = null;
+            Utils.$('#sendAiBtn').disabled = false;
+            Utils.$('#stopAiBtn').disabled = true;
+            const wb = Utils.$('#wvSendBtn');
+            if (wb) wb.disabled = false;
+        }
+    };
+
+    /* AI 结果新内容徽标 */
+    const AiBadge = {
+        count: 0,
+        bump() {
+            this.count += 1;
+            const b = Utils.$('#aiBadge');
+            if (!b) return;
+            b.textContent = String(this.count);
+            b.hidden = false;
+        },
+        clear() {
+            this.count = 0;
+            const b = Utils.$('#aiBadge');
+            if (b) { b.hidden = true; b.textContent = '0'; }
+        }
+    };
+
+    /* 应用世界观结果（由 applyResult 在世界观模式下改道调用） */
+    async function applyWorldviewResult() {
+        const v = WorldviewService.current();
+        if (!v) return false;
+        const text = Utils.$('#resultInput').value.trim();
+        if (!text) return false;
+        readWvInto(v);
+        const parsed = parseWorldviewText(text);
+        if (parsed.parsed) {
+            if (parsed.name) v.name = parsed.name;
+            if (parsed.detail) v.detail = parsed.detail;
+        } else {
+            v.detail = text;
+            UI.toast('未识别出「名称/详细设定」格式，已整段写入详述');
+        }
+        await WorldviewService.save(v);
+        renderWvSelect();
+        fillWorldview(v);
+        Utils.$('#resultInput').value = '';
+        UI.toast('已写回世界观');
+        return true;
+    }
+
+    /* ======================================================================
+     * 18. 导出（拆分多文件 / 整包）
+     * ==================================================================== */
+    function renderExportWvSelect() {
+        const sel = Utils.$('#exportWvSelect');
+        sel.textContent = '';
+        const none = document.createElement('option');
+        none.value = '';
+        none.textContent = '（不附带世界观）';
+        sel.appendChild(none);
+        State.worldviews.forEach(function (v) {
+            const o = document.createElement('option');
+            o.value = v.id;
+            o.textContent = v.name || '（未命名世界观）';
+            sel.appendChild(o);
+        });
+        if (State.worldviewId) sel.value = State.worldviewId;
+    }
+
+    function personaCardText(card, worlds) {
+        const lines = ['人物卡片', '名称：' + (card.name || '')];
+        if (card.memoryScope === 'shared') lines.push('记忆归属：全卡共享');
+        lines.push('');
+        worlds.forEach(function (w, i) {
+            lines.push('—— 平行世界 ' + (i + 1) + '：' + (w.label || '未命名'));
+            lines.push('姓名：' + (w.name || ''));
+            lines.push('身份：' + (w.role || ''));
+            lines.push('一句话概括：' + (w.summary || ''));
+            lines.push('详细设定：');
+            lines.push(w.detail || '');
+            lines.push('');
+        });
+        return lines.join('\n');
+    }
+
+    function worldviewText(v) {
+        return '世界观卡片\n名称：' + (v.name || '') + '\n详细设定：\n' + (v.detail || '');
+    }
+
+    async function exportSplit(which) {
+        const card = PersonaService.current();
+        if (!card) { UI.toast('请先选择人物卡片', true); return; }
+
+        if (which === 'card') {
+            const worlds = WorldService.worldsOf(card.id);
+            Utils.download(Utils.sanitize(card.name || 'persona') + '_card.txt',
+                personaCardText(card, worlds), 'text/plain');
+            UI.toast('已导出人物卡片');
+            return;
+        }
+
+        if (which === 'wv') {
+            const id = Utils.$('#exportWvSelect').value;
+            if (!id) { UI.toast('未选择世界观', true); return; }
+            const v = State.worldviews.filter(function (x) { return x.id === id; })[0];
+            if (!v) { UI.toast('世界观不存在', true); return; }
+            Utils.download(Utils.sanitize(v.name || 'worldview') + '_worldview.txt',
+                worldviewText(v), 'text/plain');
+            UI.toast('已导出世界观卡片');
+            return;
+        }
+
+        if (which === 'mem') {
+            const n = await downloadMemories(card);
+            UI.toast(n ? '已导出 ' + n + ' 份记忆' : '当前没有记忆可导出', !n);
+        }
+    }
+
+    /* 记忆下载：返回实际写出的文件数 */
+    async function downloadMemories(card) {
+        const keys = card.memoryScope === 'shared'
+            ? [card.id]
+            : WorldService.worldsOf(card.id).map(function (w) { return w.id; });
+        let n = 0;
+        for (const k of keys) {
+            const mem = await MemoryService.load(k);
+            if (!mem || !mem.turns.length) continue;
+            const body = mem.turns.map(function (t) {
+                return (t.role === 'user' ? '用户：' : t.role === 'assistant' ? 'AI：' : '') + t.text;
+            }).join('\n\n');
+            Utils.download(Utils.sanitize(card.name || 'persona') + '_memory_' + (++n) + '.txt',
+                body, 'text/plain');
+        }
+        return n;
+    }
+
+    async function currentMemText(card) {
+        const keys = card.memoryScope === 'shared'
+            ? [card.id]
+            : WorldService.worldsOf(card.id).map(function (w) { return w.id; });
+        const blocks = [];
+        for (const k of keys) {
+            const mem = await MemoryService.load(k);
+            if (!mem || !mem.turns.length) continue;
+            blocks.push(mem.turns.map(function (t) {
+                return (t.role === 'user' ? '用户：' : t.role === 'assistant' ? 'AI：' : '') + t.text;
+            }).join('\n\n'));
+        }
+        return blocks.join('\n\n---\n\n');
+    }
+
+    /* 完整提示词：人物 + 世界观 + 记忆拼成一段，可直接投喂 AI */
+    async function buildBundlePrompt(card, wv, worlds) {
+        const parts = ['【人物卡片】', personaCardText(card, worlds)];
+        if (wv) { parts.push('', '【世界观卡片】', worldviewText(wv)); }
+        const memText = await currentMemText(card);
+        if (memText) { parts.push('', '【聊天记忆】', memText); }
+        return parts.join('\n');
+    }
+
+    /* 一键导出勾选的内容 */
+    async function exportChecked() {
+        const card = PersonaService.current();
+        if (!card) { UI.toast('请先选择人物卡片', true); return; }
+        const worlds = WorldService.worldsOf(card.id);
+        const wantCard = Utils.$('#exCard').checked;
+        const wantWv = Utils.$('#exWv').checked;
+        const wantMem = Utils.$('#exMem').checked;
+        const wantPrompt = Utils.$('#exPrompt').checked;
+
+        if (!wantCard && !wantWv && !wantMem && !wantPrompt) {
+            UI.toast('请至少勾选一项', true);
+            return;
+        }
+
+        const wvId = Utils.$('#exportWvSelect').value;
+        let wv = wvId ? State.worldviews.filter(function (x) { return x.id === wvId; })[0] : null;
+        // 勾了世界观但没选：自动回退到第一份；库里一份都没有就跳过世界观，
+        // 其余勾选照常导出（不因为这一项缺失就整单失败）
+        let wvSkipped = false;
+        if (wantWv && !wv) {
+            if (State.worldviews.length) {
+                wv = State.worldviews[0];
+                Utils.$('#exportWvSelect').value = wv.id;
+            } else {
+                wvSkipped = true;
+            }
+        }
+
+        const base = Utils.sanitize(card.name || 'persona');
+        const done = [];
+
+        if (wantCard) {
+            Utils.download(base + '_card.txt', personaCardText(card, worlds), 'text/plain');
+            done.push('人物卡片');
+        }
+        if (wantWv && wv) {
+            Utils.download(base + '_worldview.txt', worldviewText(wv), 'text/plain');
+            done.push('世界观');
+        } else if (wvSkipped) {
+            done.push('世界观（库为空，已跳过）');
+        }
+        if (wantMem) {
+            const n = await downloadMemories(card);
+            done.push(n ? n + ' 份记忆' : '记忆（无）');
+        }
+        if (wantPrompt) {
+            const text = await buildBundlePrompt(card, wv, worlds);
+            Utils.download(base + '_prompt.txt', text, 'text/plain');
+            done.push('完整提示词');
+        }
+
+        UI.toast('已导出：' + done.join('、'));
+        UI.closeModal('exportModal');
+    }
+
+    function refreshExportHint() {
+        const card = PersonaService.current();
+        const hint = Utils.$('#exportPreviewHint');
+        if (!hint) return;
+        if (!card) { hint.textContent = '未选择人物卡片'; return; }
+        const worlds = WorldService.worldsOf(card.id);
+        const wvId = Utils.$('#exportWvSelect').value;
+        const wv = wvId ? State.worldviews.filter(function (x) { return x.id === wvId; })[0] : null;
+        hint.textContent = '将导出：' + (card.name || '未命名') + ' · ' +
+            worlds.length + ' 个平行世界' + (wv ? ' · 世界观「' + (wv.name || '未命名') + '」' : ' · 不含世界观');
+    }
+
+    function bindEvents() {
+        Utils.$$('.mtab').forEach(function (b) {
+            b.addEventListener('click', function () {
+                PaneService.switchTo(b.getAttribute('data-pane'));
+            });
+        });
+        PaneService.switchTo('editor');
+        Utils.$$('.mode-btn').forEach(function (b) {
+            b.addEventListener('click', function () {
+                ModeService.switchTo(b.getAttribute('data-mode'));
+            });
+        });
+        Utils.$('#resultCollapseBtn').addEventListener('click', function () { ResultPane.toggle(); });
+        Utils.$('#resultToggleBtn').addEventListener('click', function () {
+            ResultPane.toggle();
+            AiBadge.clear();       // 用户主动查看 AI 栏即视为已读
+        });
+
+        Utils.$('#newPersonaBtn').addEventListener('click', newPersona);
+        Utils.$('#deletePersonaBtn').addEventListener('click', deletePersona);
+        Utils.$('#saveSnapBtn').addEventListener('click', saveSnapshotManual);
+
+        ['#worldLabelInput', '#nameInput', '#roleInput', '#summaryInput', '#detailInput', '#otherInput'].forEach(function (sel) {
+            Utils.$(sel).addEventListener('input', function () {
+                UI.setSaved('未保存…');
+                scheduleSave();
+                updateCounts();
+            });
+        });
+
+        Utils.$('#memoryBtn').addEventListener('click', function () {
+            if (!State.personaId) { UI.toast('请先选择人物卡片', true); return; }
+            renderMemoryMeta();
+            UI.openModal('memoryModal');
+        });
+
+        // 平行世界
+        Utils.$('#createWorldBtn').addEventListener('click', createWorld);
+        Utils.$('#deleteWorldBtn').addEventListener('click', deleteWorld);
+        Utils.$('#scopeSelect').addEventListener('change', function () {
+            changeScope(this.value);
+        });
+
+        // 世界观（已常驻左栏下部，无需入口按钮）
+        Utils.$('#wvNewBtn').addEventListener('click', async function () {
+            const name = window.prompt('新世界观名称：', '新世界观');
+            if (name === null) return;
+            const v = await WorldviewService.create(String(name).trim() || '新世界观');
+            State.worldviewId = v.id;
+            renderWvSelect();
+            fillWorldview(v);
+        });
+        Utils.$('#wvDelBtn').addEventListener('click', async function () {
+            const v = WorldviewService.current();
+            if (!v) return;
+            if (!window.confirm('删除世界观「' + (v.name || '未命名') + '」？')) return;
+            await WorldviewService.remove(v.id);
+            State.worldviewId = State.worldviews.length ? State.worldviews[0].id : null;
+            if (!State.worldviewId) {
+                const nv = await WorldviewService.create('新世界观');
+                State.worldviewId = nv.id;
+            }
+            renderWvSelect();
+            fillWorldview(WorldviewService.current());
+            UI.toast('已删除');
+        });
+        ['#wvNameInput', '#wvDetailInput', '#wvOtherInput'].forEach(function (sel) {
+            const node = Utils.$(sel);
+            if (!node) return;
+            node.addEventListener('input', Utils.debounce(function () {
+                const v = WorldviewService.current();
+                if (!v) return;
+                readWvInto(v);
+                WorldviewService.save(v);
+                renderWvList();     // 名称变化后同步左栏列表
+            }, 600));
+        });
+
+        // 导出
+        Utils.$('#exportBtn').addEventListener('click', function () {
+            renderExportWvSelect();
+            refreshExportHint();
+            UI.openModal('exportModal');
+        });
+        Utils.$('#exportBundleBtn').addEventListener('click', exportChecked);
+        Utils.$('#exportWvSelect').addEventListener('change', refreshExportHint);
+        Utils.$('#exportCardBtn').addEventListener('click', function () { exportSplit('card'); });
+        Utils.$('#exportWvBtn').addEventListener('click', function () { exportSplit('wv'); });
+        Utils.$('#exportMemBtn').addEventListener('click', function () { exportSplit('mem'); });
+        Utils.$('#exportJsonBtn').addEventListener('click', async function () {
+            await BackupService.exportAll();
+            UI.toast('已导出 JSON 整包');
+        });
+        Utils.$('#importMemoryBtn').addEventListener('click', importMemory);
+        Utils.$('#clearMemoryBtn').addEventListener('click', clearMemory);
+
+        Utils.$('#historyBtn').addEventListener('click', function () {
+            if (!State.personaId) { UI.toast('请先选择人设', true); return; }
+            renderSnapshots();
+            UI.openModal('historyModal');
+        });
+
+        // 底部提示词条：按当前模式分派到人设或世界观
+        Utils.$('#previewBtn').addEventListener('click', function () {
+            if (ModeService.isPersona()) previewPrompt(false); else previewWvPrompt();
+        });
+        Utils.$('#copyPromptBtn').addEventListener('click', function () {
+            if (ModeService.isPersona()) copyPrompt(false); else copyWvPrompt();
+        });
+        Utils.$('#sendAiBtn').addEventListener('click', function () {
+            if (ModeService.isPersona()) sendToAI(false); else sendWvToAI(false);
+        });
+        Utils.$('#interviewBtn').addEventListener('click', function () {
+            askInterview(ModeService.mode);
+        });
+        Utils.$$('#interviewModal [data-mode]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                const mode = b.getAttribute('data-mode');
+                const isP = interviewTarget === 'persona';
+                UI.closeModal('interviewModal');
+                if (mode === 'copy') {
+                    if (isP) copyPrompt(true); else copyWvPrompt(true);
+                } else {
+                    if (isP) sendToAI(true); else sendWvToAI(true);
+                }
+            });
+        });
+        Utils.$('#stopAiBtn').addEventListener('click', stopAI);
+        Utils.$('#previewCopyBtn').addEventListener('click', async function () {
+            const ok = await Utils.copyText(Utils.$('#promptPreview').textContent);
+            UI.toast(ok ? '已复制' : '复制失败', !ok);
+        });
+
+        Utils.$('#applyBtn').addEventListener('click', function () { applyResult(false); });
+        Utils.$('#appendBtn').addEventListener('click', function () { applyResult(true); });
+        Utils.$('#clearResultBtn').addEventListener('click', function () {
+            Utils.$('#resultInput').value = '';
+        });
+        Utils.$('#pasteResultBtn').addEventListener('click', async function () {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) { Utils.$('#resultInput').value = text; UI.toast('已粘贴'); }
+            } catch (e) {
+                UI.toast('读取剪贴板失败，请手动粘贴', true);
+            }
+        });
+
+        Utils.$('#settingsBtn').addEventListener('click', function () {
+            syncSettingsForm();
+            UI.openModal('settingsModal');
+        });
+        Utils.$('#saveSettingsBtn').addEventListener('click', saveSettings);
+        Utils.$('#brandBtn').addEventListener('click', function () { UI.openModal('aboutModal'); });
+        Utils.$('#aboutBtn').addEventListener('click', function () { UI.openModal('aboutModal'); });
+
+        // 关闭按钮
+        Utils.$$('[data-close]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                UI.closeModal(btn.getAttribute('data-close'));
+            });
+        });
+        Utils.$$('.modal').forEach(function (m) {
+            m.addEventListener('mousedown', function (ev) {
+                if (ev.target === m) UI.closeModal(m.id);
+            });
+        });
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape' && UI._modalStack.length) {
+                UI.closeModal(UI._modalStack[UI._modalStack.length - 1]);
+            }
+            if ((ev.ctrlKey || ev.metaKey) && ev.key === 's') {
+                ev.preventDefault();
+                flushSave().then(function () { UI.toast('已保存'); });
+            }
+        });
+
+        /* 脏检查：按当前模式比较对应存储对象（Φ8 修正：原来比的是已迁走的旧字段） */
+        window.addEventListener('beforeunload', function (ev) {
+            let changed = false;
+            if (ModeService.isPersona()) {
+                const w = WorldService.current();
+                if (w) {
+                    changed = (w.label || '') !== Utils.$('#worldLabelInput').value ||
+                        (w.name || '') !== Utils.$('#nameInput').value ||
+                        (w.role || '') !== Utils.$('#roleInput').value ||
+                        (w.summary || '') !== Utils.$('#summaryInput').value ||
+                        (w.detail || '') !== Utils.$('#detailInput').value ||
+                        (w.other || '') !== Utils.$('#otherInput').value;
+                }
+            } else {
+                const v = WorldviewService.current();
+                if (v) {
+                    changed = (v.name || '') !== Utils.$('#wvNameInput').value ||
+                        (v.detail || '') !== Utils.$('#wvDetailInput').value ||
+                        (v.other || '') !== Utils.$('#wvOtherInput').value;
+                }
+            }
+            if (changed) { ev.preventDefault(); ev.returnValue = ''; }
+        });
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden') flushSave();
+        });
+    }
+
+    /* ======================================================================
+     * 18. 启动
+     * ==================================================================== */
+    async function boot() {
+        await Storage.init();
+        await PrefsService.load();
+        // 旧版单层人设 → 新结构（人物卡片 + 平行世界），幂等
+        await Migration.run();
+        await PersonaService.loadAll();
+        await WorldService.loadAll();
+        await WorldviewService.loadAll();
+
+        const last = await Storage.get('prefs', 'last');
+        let pick = last && last.value && last.value.personaId
+            ? State.personas.filter(function (p) { return p.id === last.value.personaId; })[0]
+            : null;
+        if (!pick && State.personas.length) pick = State.personas[0];
+        // 恢复上次的世界
+        if (last && last.value && last.value.worldId) State.worldId = last.value.worldId;
+
+        bindEvents();
+
+        if (!State.personas.length) {
+            const card = await PersonaService.create('未命名人物');
+            await WorldService.create(card.id, '默认世界');
+            pick = card;
+        }
+        await selectPersona(pick.id);
+        ModeService.restore();
+        ResultPane.restore();
+        // 世界观面板常驻左栏下部：确保至少有一份并填入
+        await openWorldview();
+
+        let firstRun = false;
+        try { firstRun = !localStorage.getItem(LS_FIRST_RUN); } catch (e) { firstRun = true; }
+        if (firstRun) {
+            UI.openModal('aboutModal');
+            try { localStorage.setItem(LS_FIRST_RUN, '1'); } catch (e) { /* 忽略 */ }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', boot);
+    window.addEventListener('error', function (ev) {
+        console.error('[Persona] 未捕获错误', ev.error || ev.message);
+    });
+})();
+</script>
+</body>
+</html>
