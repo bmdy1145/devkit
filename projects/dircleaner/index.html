@@ -51,6 +51,43 @@
         box-shadow: 0 0 26px -16px rgba(187,243,81,.8);
     }
     .card h2 { margin: 0 0 6px; font-size: 1.1rem; }
+
+    /* ---------- 版本历史时间线 ---------- */
+    /* 本页没有 --tone / --tint / --radius，颜色一律用字面量，与本页 --accent 一致 */
+    .timeline { list-style: none; position: relative; padding-left: 22px; margin: 0; }
+    .timeline::before {
+        content: ''; position: absolute; left: 5px; top: 8px; bottom: 8px;
+        width: 1px; background: rgba(187, 243, 81, 0.28);
+    }
+    .tl-item { position: relative; }
+    .tl-item + .tl-item { margin-top: 10px; }
+    .tl-item::before {
+        content: ''; position: absolute; left: -21px; top: 15px;
+        width: 9px; height: 9px; border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 12px rgba(187, 243, 81, 0.85);
+    }
+    .tl-card {
+        display: block; text-decoration: none; color: inherit;
+        background: var(--surface);
+        border: 1px solid var(--edge);
+        border-radius: 12px;
+        padding: 12px 16px;
+        transition: border-color 0.2s, transform 0.2s;
+    }
+    .tl-card:hover { border-color: rgba(187, 243, 81, 0.55); transform: translateY(-1px); }
+    .tl-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .tl-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .tl-ver {
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        font-size: 0.92rem; font-weight: 600; color: var(--accent);
+    }
+    .tl-date { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
+    .tl-desc { display: block; font-size: 0.85rem; color: var(--muted); margin-top: 6px; }
+    .tl-go { font-size: 0.78rem; color: var(--muted); }
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
     .card p { color: var(--muted); margin: 0 0 14px; }
     .button {
         display: inline-block;
@@ -80,6 +117,22 @@
         <h2 id="versions-title">版本入口</h2>
         <p>A1_II_Φ8 · 关键目录阻止、白名单、可执行文件二次确认与操作统计。</p>
         <a class="button" href="code/">浏览版本分支 →</a>
+    </section>
+
+    <section aria-labelledby="sec-history">
+        <h2 id="sec-history">版本历史</h2>
+        <ol class="timeline">
+            <li class="tl-item">
+                <a class="tl-card" href="code/A1_II_%CE%A68/">
+                    <span class="tl-top">
+                        <span class="tl-ver">A1_II_Φ8</span>
+                        <span class="tl-date">2026-08-19</span>
+                    </span>
+                    <span class="tl-desc">关键目录阻止、白名单、可执行文件二次确认与操作统计。</span>
+                    <span class="tl-go">查看该版本 →</span>
+                </a>
+            </li>
+        </ol>
     </section>
 
     <aside class="warning" role="note">
