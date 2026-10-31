@@ -1,0 +1,49 @@
+# CodeQL advanced setup
+#
+# 本仓库原走 Default Setup（仓库设置页），但 Default Setup 不支持自定义配置
+# 文件，无法应用 .github/codeql/codeql-config.yml 里的 paths-ignore 与
+# query-filters，故切到 advanced setup。
+# 配置文件由下方 `config-file` 显式指定，扫描范围与排除规则见该文件头注释。
+
+name: "CodeQL Advanced"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '17 0 * * 4'
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      # required for all workflows
+      security-events: write
+
+      # required to fetch internal or private CodeQL packs
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+          # 仓库交付物为自包含单文件 HTML + 内联 JS，仅需 JS 分析
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
