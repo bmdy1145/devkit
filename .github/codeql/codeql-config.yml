@@ -1,10 +1,8 @@
 # CodeQL 扫描范围与规则排除
 #
-# 本仓库的 CodeQL 走 GitHub 仓库设置里的 **Default Setup**（不是仓库内的
-# workflow 文件）。Default Setup 支持读取 Repo 里这个位置的配置文件：
+# 本仓库的 CodeQL 走 **advanced setup**（仓库内 workflow：
+# .github/workflows/codeql.yml），通过其中的 `config-file` 指定读取本文件：
 #     .github/codeql/codeql-config.yml
-# 只要文件存在，Default Setup 的每次扫描都会应用这里的 paths / paths-ignore
-# 与 query-filters。
 #
 # ---------------------------------------------------------------------------
 # 一、为什么排除历史目录
@@ -44,11 +42,12 @@ paths-ignore:
   - "projects/devkit/code/A1_V_Φ8_fix-archive"
   - "projects/devkit/code/A1_V_Φ9_fix-archive"
 
-  # 已冻结的历史主干（当前受支持的是 A1_V_Φ9，见 projects/devkit/code/index.html）
+  # 已冻结的历史主干（当前受支持的是 A1_V_Φ9_Fix_Fix，见 projects/devkit/code/index.html）
   - "projects/devkit/code/A1_V_Φ4"
   - "projects/devkit/code/A1_V_Φ5"
   - "projects/devkit/code/A1_V_Φ7"
   - "projects/devkit/code/A1_V_Φ8"
+  - "projects/devkit/code/A1_V_Φ9"
 
   # submerge-pro 的原始归档件：文件名与内容都按「导入时的原样」保留，
   # 修它会破坏归档语义。其中 3 条 XSS 告警属此例，已知不做修改。
