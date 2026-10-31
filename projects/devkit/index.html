@@ -30,9 +30,11 @@
               顶部的「九款皮肤 · 直接打开」区块把进入应用压缩为两次点击
               （站点首页 → 本页 → 皮肤文件），每次主干升级时需同步更新该区块
               里的路径与版本号。
-              下载直达条指向的是 Releases 页而非某个具体文件——同一主干下九款
-              皮肤版本号相同，「最新版本」指哪一个都是武断的；指 Releases 则
-              每次自动发布都会自动更新，无需手工维护。
+              下载直达条指向该主干在 Releases 里的**标签页**（releases/tag/<主干>），
+              而不是仓库的 Release 总列表——总列表混着 writer 与多语言 EXE，
+              访客要自己辨认。同一主干下九款皮肤版本号相同，「最新版本」指哪
+              一个文件都是武断的，所以指到标签页（九个附件一屏列全）最合适。
+              注意：主干升级时需同步改这里的 tag（与上方皮肤网格同一处维护）。
     约定：href 中的 Φ 一律用百分号编码 %CE%A6，避免个别浏览器/服务器对
           非 ASCII 路径处理不一致；页面显示文字仍写 Φ。
     ============================================================
@@ -336,12 +338,12 @@
 
     <section aria-labelledby="sec-quick">
         <h2 id="sec-quick">下载</h2>
-        <a class="quick" href="https://github.com/bmdy1145/devkit/releases">
+        <a class="quick" href="https://github.com/bmdy1145/devkit/releases/tag/A1_V_%CE%A69_Fix_Fix">
             <span class="quick-text">
-                <span class="quick-name">Releases · 按主干打包下载</span>
-                <span class="quick-meta">每次 main 更新自动发布 · 一个主干的全部皮肤打包附上 · 点一下就下载，不必逐层点进目录</span>
+                <span class="quick-name">Releases · A1_V_Φ9_Fix_Fix（当前主干，九款皮肤）</span>
+                <span class="quick-meta">直接打开这一版的下载页，九个皮肤文件一次列全 · 不必在全部 Release 里翻找</span>
             </span>
-            <span class="quick-cta">前往 Releases →</span>
+            <span class="quick-cta">前往下载 →</span>
         </a>
         <a class="quick" href="code/A1_V_%CE%A69_Fix_Fix/">
             <span class="quick-text">
