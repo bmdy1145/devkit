@@ -56,7 +56,7 @@ jobs:
           targets: x86_64-pc-windows-gnu
 
       - name: 缓存 Cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
