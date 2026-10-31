@@ -188,7 +188,10 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │       ├── index.html               # 项目落地页（打开入口 + 数据安全提示）
 │       └── code/
 │           ├── index.html           # 代码 / 分支索引
-│           ├── A1_II_Φ8/            # 当前版本（人设/世界观滑块）
+│           ├── A1_II_Φ9/            # 当前版本（缺陷修复：导入入口 / 存储提示）
+│           │   ├── index.html
+│           │   └── deepseek_A1_II_Φ9_CN.html
+│           ├── A1_II_Φ8/            # 人设/世界观滑块
 │           │   ├── index.html
 │           │   └── deepseek_A1_II_Φ8_CN.html
 │           ├── A1_II_Φ7/            # 世界观在左侧栏
@@ -260,7 +263,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 应用文件（历史参照） |
 | `/projects/persona/` | Persona 人设编辑器项目页 |
 | `/projects/persona/code/` | Persona 代码分支索引 |
-| `/projects/persona/code/A1_II_Φ8/` | A1_II_Φ8 应用文件（当前版本 · 人设/世界观滑块） |
+| `/projects/persona/code/A1_II_Φ9/` | A1_II_Φ9 应用文件（当前版本 · 缺陷修复：导入入口 / 存储提示） |
+| `/projects/persona/code/A1_II_Φ8/` | A1_II_Φ8 应用文件（人设/世界观滑块） |
 | `/projects/persona/code/A1_II_Φ7/` | A1_II_Φ7 应用文件（世界观在左侧栏） |
 | `/projects/persona/code/A1_II_Φ6/` | A1_II_Φ6 应用文件（界面调整） |
 | `/projects/persona/code/A1_II_Φ5/` | A1_II_Φ5 应用文件（导出增强） |
