@@ -188,7 +188,10 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │       ├── index.html               # 项目落地页（打开入口 + 数据安全提示）
 │       └── code/
 │           ├── index.html           # 代码 / 分支索引
-│           ├── A1_II_Φ2/            # 当前版本（完善人设访谈模式）
+│           ├── A1_II_Φ3/            # 当前版本（多比例屏幕适配）
+│           │   ├── index.html
+│           │   └── deepseek_A1_II_Φ3_CN.html
+│           ├── A1_II_Φ2/            # 完善人设访谈模式
 │           │   ├── index.html
 │           │   └── deepseek_A1_II_Φ2_CN.html
 │           └── A1_II_Φ1/            # 首版
@@ -242,7 +245,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 应用文件（历史参照） |
 | `/projects/persona/` | Persona 人设编辑器项目页 |
 | `/projects/persona/code/` | Persona 代码分支索引 |
-| `/projects/persona/code/A1_II_Φ2/` | A1_II_Φ2 应用文件（当前版本 · 完善人设访谈模式） |
+| `/projects/persona/code/A1_II_Φ3/` | A1_II_Φ3 应用文件（当前版本 · 多比例屏幕适配） |
+| `/projects/persona/code/A1_II_Φ2/` | A1_II_Φ2 应用文件（完善人设访谈模式） |
 | `/projects/persona/code/A1_II_Φ1/` | A1_II_Φ1 应用文件（首版） |
 
 Pages 之外还有一个**下载入口**：仓库的 Releases 页（`/releases`）由 `.github/workflows/release-on-main.yml` 自动维护——每次 `main` 更新就按**项目**分别判定，只给真正做到改动的项目 · 主干打一个包，附上该代全部交付物。想拿文件下载走这里最省事，想在线阅读走 Pages。
