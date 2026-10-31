@@ -188,9 +188,17 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │       ├── index.html               # 项目落地页（打开入口 + 数据安全提示）
 │       └── code/
 │           ├── index.html           # 代码 / 分支索引
-│           ├── A1_II_Φ9/            # 当前版本（缺陷修复：导入入口 / 存储提示）
+│           ├── A1_II_Φ9/            # 当前版本（缺陷修复 + 8 款皮肤，每款含深浅双主题）
 │           │   ├── index.html
-│           │   └── deepseek_A1_II_Φ9_CN.html
+│           │   ├── deepseek_A1_II_Φ9_CN.html          # 默认皮肤
+│           │   ├── deepseek_A1_II_Φ9_Clean_CN.html
+│           │   ├── deepseek_A1_II_Φ9_Glass_CN.html
+│           │   ├── deepseek_A1_II_Φ9_Material_CN.html
+│           │   ├── deepseek_A1_II_Φ9_Minimal_CN.html
+│           │   ├── deepseek_A1_II_Φ9_Mono_CN.html
+│           │   ├── deepseek_A1_II_Φ9_Neon_CN.html
+│           │   ├── deepseek_A1_II_Φ9_Premium_CN.html
+│           │   └── deepseek_A1_II_Φ9_Shadcn_CN.html
 │           ├── A1_II_Φ8/            # 人设/世界观滑块
 │           │   ├── index.html
 │           │   └── deepseek_A1_II_Φ8_CN.html

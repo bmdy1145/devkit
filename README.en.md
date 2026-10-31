@@ -188,9 +188,17 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │       ├── index.html               # Landing page (open entry + data-safety notice)
 │       └── code/
 │           ├── index.html           # Code / branch index
-│           ├── A1_II_Φ9/            # Current version (defect fixes: import entry / storage notice)
+│           ├── A1_II_Φ9/            # Current version (defect fixes + 8 skins, each with dark/light themes)
 │           │   ├── index.html
-│           │   └── deepseek_A1_II_Φ9_CN.html
+│           │   ├── deepseek_A1_II_Φ9_CN.html          # Default skin
+│           │   ├── deepseek_A1_II_Φ9_Clean_CN.html
+│           │   ├── deepseek_A1_II_Φ9_Glass_CN.html
+│           │   ├── deepseek_A1_II_Φ9_Material_CN.html
+│           │   ├── deepseek_A1_II_Φ9_Minimal_CN.html
+│           │   ├── deepseek_A1_II_Φ9_Mono_CN.html
+│           │   ├── deepseek_A1_II_Φ9_Neon_CN.html
+│           │   ├── deepseek_A1_II_Φ9_Premium_CN.html
+│           │   └── deepseek_A1_II_Φ9_Shadcn_CN.html
 │           ├── A1_II_Φ8/            # Persona/worldview switch
 │           │   ├── index.html
 │           │   └── deepseek_A1_II_Φ8_CN.html
