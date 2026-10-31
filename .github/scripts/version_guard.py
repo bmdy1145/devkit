@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 # 且文件内带 CURRENT_VERSION / 版本代号 / 结构块。dircleaner 与 submerge-pro
 # 的产物文件名是 deepseek_html_<日期>_<随机>.html、也没有 CURRENT_VERSION，
 # 硬套会全是误报，等它们的版本规范对齐再纳入。
-CHECKED_PROJECTS = ("devkit", "writer")
+CHECKED_PROJECTS = ("devkit", "writer", "persona")
 
 
 def code_dir(project: str) -> Path:

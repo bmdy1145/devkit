@@ -184,6 +184,13 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │           └── A1_I_Φ1/             # 首版（历史参照）
 │               ├── index.html
 │               └── deepseek_A1_I_Φ1_CN.html
+│   └── persona/                     # 项目：人设编辑器
+│       ├── index.html               # 项目落地页（打开入口 + 数据安全提示）
+│       └── code/
+│           ├── index.html           # 代码 / 分支索引
+│           └── A1_II_Φ1/            # 当前版本（首版）
+│               ├── index.html
+│               └── deepseek_A1_II_Φ1_CN.html
 └── .claude/skills/devkit-spec/      # Claude Code 技能（版本与协作规范 + 版本相关模板）
 ```
 
@@ -195,8 +202,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 
 - 每个项目自带一个 `index.html` 作为该项目落地页；项目内部的目录结构与版本号规则**由该项目自定**，仓库不为它们设统一规范。
 - 仓库根 `index.html` 是**项目选择台**，只负责列出全部项目入口。
-- `docs/`（协作约定）与 `.github/`（自动化）是**跨项目通用**的。`auto_release.py` 与 `make_release_notes.py` 已按项目分别发布：DevKit 的标签沿用裸主干名（`A1_V_Φ9.4`），其他项目的标签加项目前缀（`writer/A1_I_Φ4`）避免 Φ 号相撞；`version_guard.py` 覆盖 DevKit 与 Writer，`size_guard.py` 与 `smoke_test.py` 通过 `OTHER_APPS` 显式登记各项目的应用文件。新增项目若要复用这些检查，按同样方式登记即可。
-- 当前托管 `devkit`、`submerge-pro`、`dircleaner` 与 `writer` 四个项目；新增项目放入 `projects/<名称>/`，并更新根目录项目选择台和 `projects/index.html`。
+- `docs/`（协作约定）与 `.github/`（自动化）是**跨项目通用**的。`auto_release.py` 与 `make_release_notes.py` 已按项目分别发布：DevKit 的标签沿用裸主干名（`A1_V_Φ9.4`），其他项目的标签加项目前缀（`writer/A1_I_Φ4`）避免 Φ 号相撞；`version_guard.py` 覆盖 DevKit、Writer 与 Persona；`size_guard.py` 与 `smoke_test.py` 已改为按 `projects/*/code/*/deepseek_*.html` 自动发现，新增项目无需登记。
+- 当前托管 `devkit`、`submerge-pro`、`dircleaner`、`writer` 与 `persona` 五个项目；新增项目放入 `projects/<名称>/`，并更新根目录项目选择台和 `projects/index.html`。
 
 ### Pages 部署说明
 
@@ -230,6 +237,9 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/writer/code/A1_I_Φ3/` | A1_I_Φ3 应用文件（逻辑与健壮性修复） |
 | `/projects/writer/code/A1_I_Φ2/` | A1_I_Φ2 应用文件（布局重构） |
 | `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 应用文件（历史参照） |
+| `/projects/persona/` | Persona 人设编辑器项目页 |
+| `/projects/persona/code/` | Persona 代码分支索引 |
+| `/projects/persona/code/A1_II_Φ1/` | A1_II_Φ1 应用文件（当前版本） |
 
 Pages 之外还有一个**下载入口**：仓库的 Releases 页（`/releases`）由 `.github/workflows/release-on-main.yml` 自动维护——每次 `main` 更新就按**项目**分别判定，只给真正做到改动的项目 · 主干打一个包，附上该代全部交付物。想拿文件下载走这里最省事，想在线阅读走 Pages。
 

@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Persona · 人设编辑器</title>
+<meta name="description" content="Persona（人设编辑器）的静态版本分发入口：单文件 HTML，存放人设与聊天记忆，拼成提示词交给 AI，再把 AI 返回的新人设写回编辑器。">
+<!--
+    ============================================================
+    项目名称：Persona（人设编辑器）· 项目落地页
+    文件性质：GitHub Pages 页面（/projects/persona/）。不属于 Persona 应用的
+              版本架构，不占用版本号。
+    职责：说明项目、给出打开入口与数据安全提示。
+    日期：2026-10-31
+    版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+    许可证：GPLv3
+    ============================================================
+    维护提示：新增主干时复制一个 <a class="card"> 块并改 href / 文案。
+    约定：href 中的 Φ 一律用百分号编码 %CE%A6，页面显示文字仍写 Φ。
+    ============================================================
+-->
+<style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --tone: 127, 209, 193;      /* 暖铜 */
+        --tone2: 0, 188, 255;      /* 电光青 */
+        --tint: 10, 12, 17;        /* 面板底色 */
+        --text: #eceff4;
+        --text2: #98a2b3;
+        --primary: #7fd1c1;
+        --primary-fg: #08201c;
+        --warning: #ffd58a;
+        --edge: 0.24;
+        --radius: 10px;
+    }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+        min-height: 100vh;
+        font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+        color: var(--text);
+        background:
+            radial-gradient(1100px 700px at 10% -14%, rgba(127,209,193,0.10), transparent 58%),
+            radial-gradient(900px 620px at 96% 2%, rgba(0,188,255,0.07), transparent 60%),
+            #0f1115;
+        background-attachment: fixed;
+        line-height: 1.6;
+        padding: 56px 24px 72px;
+        display: flex;
+        justify-content: center;
+    }
+
+    .wrap { width: 100%; max-width: 880px; }
+
+    /* ---------- 页头 ---------- */
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .brand-mark {
+        width: 34px; height: 34px; flex-shrink: 0;
+        display: grid; place-items: center;
+        border: 1px solid rgba(var(--tone), 0.5);
+        border-radius: 8px;
+        color: var(--primary);
+        font-size: 18px; font-weight: 700;
+        box-shadow: 0 0 20px -6px rgba(var(--tone), 1), inset 0 0 18px -10px rgba(var(--tone), 1);
+        text-shadow: 0 0 14px rgba(var(--tone), 0.75);
+    }
+    h1 {
+        font-size: 1.5rem; font-weight: 600; letter-spacing: 0.01em;
+        text-shadow: 0 0 18px rgba(var(--tone), 0.45);
+    }
+    .tagline { color: var(--text2); font-size: 0.9rem; margin-bottom: 32px; }
+
+    /* ---------- 说明段 ---------- */
+    .lede {
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone), var(--edge)), 0 0 26px -16px rgba(var(--tone), 1);
+        font-size: 0.9rem;
+        color: var(--text2);
+        margin-bottom: 20px;
+    }
+    .lede strong { color: var(--text); font-weight: 600; }
+
+    .warning {
+        background: rgba(255, 213, 138, 0.07);
+        border: 1px solid rgba(255, 213, 138, 0.32);
+        border-radius: var(--radius);
+        padding: 14px 18px;
+        font-size: 0.85rem;
+        color: var(--warning);
+        margin-bottom: 36px;
+        line-height: 1.7;
+    }
+    .warning strong { color: #ffe7bb; }
+
+    /* ---------- 区块标题 ---------- */
+    h2 {
+        font-size: 0.78rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.12em;
+        color: var(--text2);
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 10px;
+    }
+    h2::after {
+        content: ''; flex: 1; height: 1px;
+        background: linear-gradient(90deg, rgba(var(--tone), 0.4), transparent);
+    }
+    section { margin-bottom: 36px; }
+
+    .note { font-size: 0.85rem; color: var(--text2); }
+    .note code {
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        font-size: 0.95em; color: var(--text);
+        background: rgba(var(--tone), 0.10);
+        border: 1px solid rgba(var(--tone), 0.22);
+        border-radius: 4px; padding: 1px 6px;
+    }
+
+    /* ---------- 分支卡片 ---------- */
+    .card {
+        display: block; text-decoration: none; color: inherit;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone), var(--edge)), 0 0 26px -16px rgba(var(--tone), 1);
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    .card + .card { margin-top: 12px; }
+    .card:hover {
+        border-color: rgba(var(--tone), 0.55);
+        box-shadow: 0 0 0 1px rgba(var(--tone), 0.55), 0 0 34px -12px rgba(var(--tone), 1);
+        transform: translateY(-2px);
+    }
+    .card:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
+    .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .card-name {
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        font-size: 1rem; font-weight: 600; color: var(--primary);
+        text-shadow: 0 0 14px rgba(var(--tone), 0.55);
+        word-break: break-all;
+    }
+    .card-go { font-size: 0.8rem; color: var(--text2); white-space: nowrap; }
+    .card:hover .card-go { color: var(--primary); }
+    /* 注意：这些是 span，必须显式转块级，否则垂直 margin 不生效 */
+    .card-desc { display: block; font-size: 0.85rem; color: var(--text2); margin-top: 6px; }
+
+    /* ---------- 直达条 ---------- */
+    .quick {
+        display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone2), 0.28);
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone2), 0.20), 0 0 30px -16px rgba(var(--tone2), 1);
+        text-decoration: none; color: inherit;
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    .quick:hover {
+        border-color: rgba(var(--tone2), 0.55);
+        box-shadow: 0 0 0 1px rgba(var(--tone2), 0.45), 0 0 36px -12px rgba(var(--tone2), 1);
+        transform: translateY(-2px);
+    }
+    .quick:focus-visible { outline: 2px solid rgb(var(--tone2)); outline-offset: 3px; }
+    .quick-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .quick-name {
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        font-weight: 600; color: #7fd8ff; word-break: break-all;
+    }
+    .quick-meta { font-size: 0.8rem; color: var(--text2); }
+    .quick-cta {
+        font-size: 0.85rem; font-weight: 600; color: var(--primary-fg);
+        background: var(--primary); border-radius: 6px; padding: 7px 16px; white-space: nowrap;
+        box-shadow: 0 0 20px -6px rgba(var(--tone), 1);
+    }
+
+    /* ---------- 功能列表 ---------- */
+    .features { list-style: none; }
+    .features li {
+        position: relative;
+        padding-left: 18px;
+        font-size: 0.88rem;
+        color: var(--text2);
+        margin-bottom: 8px;
+    }
+    .features li::before {
+        content: '';
+        position: absolute; left: 0; top: 0.65em;
+        width: 6px; height: 6px; border-radius: 50%;
+        background: var(--primary);
+        box-shadow: 0 0 10px -2px rgba(var(--tone), 1);
+    }
+    .features strong { color: var(--text); font-weight: 600; }
+
+    /* ---------- 页脚 ---------- */
+    footer {
+        margin-top: 48px; padding-top: 20px;
+        border-top: 1px solid rgba(var(--tone), 0.16);
+        font-size: 0.78rem; color: var(--text2);
+        display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    footer a { color: var(--text2); text-decoration: none; border-bottom: 1px solid rgba(var(--tone), 0.35); }
+    footer a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+    footer a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+    /* ---------- 版本历史时间线 ---------- */
+    .timeline { list-style: none; position: relative; padding-left: 22px; }
+    .timeline::before {
+        content: ''; position: absolute; left: 5px; top: 8px; bottom: 8px;
+        width: 1px; background: rgba(var(--tone), 0.28);
+    }
+    .tl-item { position: relative; }
+    .tl-item + .tl-item { margin-top: 10px; }
+    .tl-item::before {
+        content: ''; position: absolute; left: -21px; top: 15px;
+        width: 9px; height: 9px; border-radius: 50%;
+        background: var(--primary);
+        box-shadow: 0 0 12px rgba(var(--tone), 0.85);
+    }
+    .tl-card {
+        display: block; text-decoration: none; color: inherit;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 12px 16px;
+        transition: border-color 0.2s, transform 0.2s;
+    }
+    .tl-card:hover { border-color: rgba(var(--tone), 0.55); transform: translateY(-1px); }
+    .tl-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+    .tl-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .tl-ver {
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        font-size: 0.92rem; font-weight: 600; color: var(--primary);
+    }
+    .tl-date { font-size: 0.78rem; color: var(--text2); white-space: nowrap; }
+    .tl-desc { display: block; font-size: 0.85rem; color: var(--text2); margin-top: 6px; }
+    .tl-go { font-size: 0.78rem; color: var(--text2); }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+    @media (max-width: 560px) {
+        body { padding: 36px 16px 48px; }
+        h1 { font-size: 1.25rem; }
+        .quick-cta { width: 100%; text-align: center; }
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+    <header>
+        <div class="brand">
+            <span class="brand-mark">P</span>
+            <h1>Persona · 人设编辑器</h1>
+        </div>
+        <p class="tagline">人与 AI 之间的一层桥：存人设、存聊天记忆，拼成提示词交给 AI，再把 AI 返回的新人设写回来。</p>
+    </header>
+
+    <p class="lede">
+        这个工具<strong>本身不聊天</strong>。它只负责四件事：
+        存放多份人设、存放每份人设的聊天记忆、
+        把「系统提示词 + 人设当前状态 + 待总结的聊天记录 + 修改要求」拼成一段文本、
+        接收 AI 返回的新人设并写回编辑器。
+        <strong>记忆的用途是把聊过之后产生的新变化总结进人设</strong>，不是用来参考语气。
+    </p>
+
+    <p class="warning">
+        数据保存在<strong>本浏览器的 IndexedDB</strong> 中，不随网页文件走。
+        清除站点数据、换浏览器或换访问地址都会看不到旧内容，请定期用「导出 JSON」备份。
+        用地址栏打开（Pages）与直接双击文件（file://）看到的是两份互不相通的数据，迁移请用导出 / 导入。
+    </p>
+
+    <section aria-labelledby="sec-quick">
+        <h2 id="sec-quick">打开</h2>
+        <a class="quick" href="code/A1_II_%CE%A61/deepseek_A1_II_%CE%A61_CN.html">
+            <span class="quick-text">
+                <span class="quick-name">在线使用 · A1_II_Φ1（当前版本）</span>
+                <span class="quick-meta">单文件应用 · 无需安装 · 数据自动保存在本浏览器</span>
+            </span>
+            <span class="quick-cta">打开编辑器 →</span>
+        </a>
+        <a class="quick" href="https://github.com/bmdy1145/devkit/releases/tag/persona/A1_II_%CE%A61">
+            <span class="quick-text">
+                <span class="quick-name">Releases · A1_II_Φ1（当前版本）</span>
+                <span class="quick-meta">直接打开这一版的下载页 · 不必在全部 Release 里翻找</span>
+            </span>
+            <span class="quick-cta">前往下载 →</span>
+        </a>
+    </section>
+
+    <section aria-labelledby="sec-features">
+        <h2 id="sec-features">功能</h2>
+        <ul class="features">
+            <li><strong>多人设库</strong>：左侧列表切换，每份人设各自一份记忆与历史。</li>
+            <li><strong>人设文档</strong>：姓名 / 身份 / 一句话概括三个关键字段 + 自由文本详述。</li>
+            <li><strong>记忆文档</strong>：粘贴聊天记录，自动识别 JSON（OpenAI messages）与纯文本两种格式。</li>
+            <li><strong>四段式提示词</strong>：系统提示词 / 人设当前状态 / 待总结聊天记录 / 修改要求，可预览与一键复制。</li>
+            <li><strong>双协议流式 AI</strong>：OpenAI 兼容与 Anthropic Messages，也可只复制提示词去外部网站。</li>
+            <li><strong>AI 结果区独立</strong>：结果先落在右侧，手动点「应用」才写回人设，不会误改。</li>
+            <li><strong>快照历史</strong>：每次应用或手动存快照都留记录，可回退到任意版本。</li>
+            <li><strong>备份与导出</strong>：JSON 整包导入导出、人设纯文本导出。</li>
+        </ul>
+    </section>
+
+    <section aria-labelledby="sec-branch">
+        <h2 id="sec-branch">按分支浏览</h2>
+        <a class="card" href="code/">
+            <span class="card-top">
+                <span class="card-name">A1_II_Φ1</span>
+                <span class="card-go">浏览版本分支 →</span>
+            </span>
+            <span class="card-desc">当前版本：首版。多人设库、每份人设独立记忆、四段式提示词拼合、双协议流式 AI、快照历史与回退、JSON 导入导出。</span>
+        </a>
+    </section>
+
+    <section aria-labelledby="sec-history">
+        <h2 id="sec-history">版本历史</h2>
+        <ol class="timeline">
+            <li class="tl-item">
+                <a class="tl-card" href="code/A1_II_%CE%A61/">
+                    <span class="tl-top">
+                        <span class="tl-ver">A1_II_Φ1</span>
+                        <span class="tl-date">2026-10-31</span>
+                    </span>
+                    <span class="tl-desc">首版：多人设库、每份人设独立记忆、四段式提示词、双协议流式 AI、快照历史、JSON 导入导出。</span>
+                    <span class="tl-go">查看该版本 →</span>
+                </a>
+            </li>
+        </ol>
+    </section>
+
+    <section aria-labelledby="sec-about">
+        <h2 id="sec-about">关于版本号</h2>
+        <p class="note">
+            版本号采用四层基础 + 循环扩展：<code>分支代号 / 罗马数字 / Φ+数字 / 英文标识</code>。
+            末位 <code>_CN</code> 为中文版语言后缀。Persona 与仓库中的其他项目相互独立，各自维护版本。
+        </p>
+    </section>
+
+    <footer>
+        <span>Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3</span>
+        <span>
+            <a href="code/">浏览全部代码文件</a> &nbsp;·&nbsp;
+            <a href="../">← 所有项目</a>
+        </span>
+    </footer>
+
+</div>
+</body>
+</html>

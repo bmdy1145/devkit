@@ -1,0 +1,2002 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<!--
+    ============================================================
+    项目名称：Persona（人设编辑器 · 中文版）
+    版本代号：A1_II_Φ1_CN
+    基于分支：A1 分支（初始开发主线）
+    父版本：无（首版）
+    修改说明：首版。人与 AI 之间的一层桥，本身不聊天，只负责：
+              1) 存放多份人设（姓名 / 身份 / 一句话概括 / 详细设定）；
+              2) 存放每份人设各自的「记忆」——即该人设与 AI 聊过之后
+                 产生、但尚未总结进人设的聊天记录；
+              3) 把「系统提示词 + 人设当前状态 + 待总结的聊天记录 +
+                 本次修改要求」拼成一段文本，供复制或直接发送给 AI；
+              4) 接收 AI 返回的新人设，经手动「应用」写回编辑器；
+              5) 每次应用或手动保存都留快照，可回退到任意历史版本。
+              支持 OpenAI 兼容与 Anthropic Messages 两种协议的流式调用。
+    日期：2026-10-31
+    版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+    许可证：GPLv3
+    ============================================================
+-->
+<!--
+    ============================================================
+    以下是当前项目的完整版本结构文字表述，供维护参考
+    当前最新版本：A1_II_Φ1_CN
+
+    Beta（基线版本，2026-10-31创建）
+    └── A1 分支（初始开发分支，2026-10-31创建）
+        └── A1_II（人设编辑器主线，2026-10-31创建，基于Beta）
+            └── A1_II_Φ1（首版：多人设库、每份人设独立记忆、
+                          四段式提示词拼合、双协议流式 AI、
+                          快照历史与回退、JSON 导入导出，
+                          2026-10-31创建，基于A1_II）
+                └── A1_II_Φ1_CN（中文版 · 默认皮肤）
+    ============================================================
+-->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Persona · 人设编辑器</title>
+<meta name="description" content="Persona 人设编辑器：存放人设与聊天记忆，拼合成提示词交给 AI，把 AI 返回的新人设写回编辑器。单文件网页应用。">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src *; base-uri 'self'; object-src 'none'; form-action 'self';">
+<style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        color-scheme: dark;
+        --bg: #0f1115;
+        --surface: #151922;
+        --surface-2: #1b202b;
+        --surface-3: #222836;
+        --border: #2a3140;
+        --text: #e6e9ef;
+        --text-2: #98a2b3;
+        --text-3: #6f7a8c;
+        --accent: #7fd1c1;
+        --accent-soft: rgba(127, 209, 193, 0.14);
+        --accent-fg: #08201c;
+        --danger: #ef6b6b;
+        --ok: #63c68a;
+        --radius: 10px;
+        --radius-sm: 6px;
+        --left-w: 240px;
+        --result-w: 380px;
+        --font-ui: 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+        --font-serif: 'Songti SC', 'Noto Serif SC', 'Source Han Serif SC', SimSun, serif;
+        --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+        --titlebar-h: 50px;
+        --shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.9);
+    }
+
+    html, body { height: 100%; }
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+        font-family: var(--font-ui);
+        color: var(--text);
+        background:
+            radial-gradient(1000px 600px at 12% -12%, rgba(127,209,193,0.08), transparent 60%),
+            radial-gradient(900px 600px at 94% 4%, rgba(0,188,255,0.05), transparent 62%),
+            var(--bg);
+        font-size: 14px;
+        line-height: 1.5;
+        overflow: hidden;
+    }
+
+    button, input, select, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* ================= 顶栏 ================= */
+    .app { display: flex; flex-direction: column; height: 100dvh; min-height: 0; }
+
+    .topbar {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 8px;
+        height: var(--titlebar-h);
+        padding: 0 12px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .topbar::-webkit-scrollbar { display: none; }
+
+    .brand {
+        display: flex; align-items: center; gap: 7px;
+        font-family: var(--font-mono); font-weight: 700;
+        color: var(--accent); white-space: nowrap;
+        padding: 4px 8px; border-radius: var(--radius-sm);
+        border: none; background: transparent;
+    }
+    .brand:hover { background: var(--surface-2); }
+    .brand-mark {
+        display: grid; place-items: center;
+        width: 24px; height: 24px; border-radius: 6px;
+        background: var(--accent); color: var(--accent-fg);
+        font-size: 13px; font-weight: 800;
+    }
+    .topbar .spacer { flex: 1 1 auto; min-width: 8px; }
+    .top-meta { font-size: 0.75rem; color: var(--text-3); white-space: nowrap; }
+
+    .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+        min-height: 32px; padding: 5px 11px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-2);
+        color: var(--text);
+        font-size: 0.82rem;
+        white-space: nowrap;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .btn:hover { background: var(--surface-3); border-color: #3a4355; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+    .btn.primary:hover:not(:disabled) { filter: brightness(1.06); }
+    .btn.danger { color: var(--danger); border-color: rgba(239,107,107,0.5); }
+    .btn.danger:hover { background: rgba(239,107,107,0.12); }
+    .btn.ghost { background: transparent; }
+    .btn.sm { min-height: 26px; padding: 2px 8px; font-size: 0.75rem; }
+
+    /* ================= 工作区三栏 ================= */
+    .workspace { flex: 1 1 auto; display: flex; min-height: 0; }
+
+    /* ---------- 左：人设列表 ---------- */
+    .sidebar {
+        flex: 0 0 var(--left-w);
+        display: flex; flex-direction: column;
+        min-height: 0;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+    }
+    .side-head {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 6px;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+    }
+    .side-head .title {
+        font-size: 0.74rem; color: var(--text-3);
+        text-transform: uppercase; letter-spacing: 0.1em;
+        flex: 1 1 auto;
+    }
+    .persona-list { flex: 1 1 auto; overflow-y: auto; padding: 6px; }
+    .persona-item {
+        display: block; width: 100%;
+        text-align: left;
+        padding: 8px 10px;
+        margin-bottom: 4px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--text-2);
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .persona-item:hover { background: var(--surface-2); color: var(--text); }
+    .persona-item.on {
+        background: var(--accent-soft);
+        border-color: rgba(127,209,193,0.55);
+        color: var(--text);
+    }
+    .persona-item .p-name {
+        display: block;
+        font-weight: 600; font-size: 0.86rem;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .persona-item .p-sub {
+        display: block;
+        font-size: 0.72rem; color: var(--text-3);
+        margin-top: 2px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .side-foot {
+        flex: 0 0 auto;
+        display: flex; flex-direction: column; gap: 5px;
+        padding: 8px;
+        border-top: 1px solid var(--border);
+    }
+    .side-foot .btn { width: 100%; }
+
+    /* ---------- 中：人设编辑 ---------- */
+    .editor {
+        flex: 1 1 auto;
+        display: flex; flex-direction: column;
+        min-width: 0; min-height: 0;
+        background: var(--bg);
+    }
+    .editor-head {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--border);
+    }
+    .editor-head .title { font-size: 0.9rem; font-weight: 600; flex: 1 1 auto; min-width: 0;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .editor-body { flex: 1 1 auto; overflow-y: auto; padding: 14px; min-height: 0; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+    .field label { font-size: 0.74rem; color: var(--text-2); }
+    .field input[type="text"], .field input[type="password"], .field input[type="number"], .field select, .field textarea {
+        width: 100%;
+        padding: 7px 9px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 0.86rem;
+        outline: none;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+    .field textarea { resize: vertical; line-height: 1.65; }
+    #detailInput { min-height: 320px; font-family: var(--font-serif); font-size: 0.95rem; }
+    .field .check-line {
+        display: flex; align-items: flex-start; gap: 6px;
+        font-size: 0.76rem; color: var(--text-3);
+        line-height: 1.5; cursor: pointer;
+    }
+    .field .check-line input { margin: 2px 0 0; flex: 0 0 auto; accent-color: var(--accent); }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* ---------- 右：AI 结果区 ---------- */
+    .result {
+        flex: 0 0 var(--result-w);
+        display: flex; flex-direction: column;
+        min-height: 0;
+        background: var(--surface);
+        border-left: 1px solid var(--border);
+    }
+    .result-head {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 6px;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+    }
+    .result-head .title { font-size: 0.74rem; color: var(--text-3);
+        text-transform: uppercase; letter-spacing: 0.1em; flex: 1 1 auto; }
+    .result-body { flex: 1 1 auto; display: flex; flex-direction: column; padding: 8px; min-height: 0; }
+    #resultInput {
+        flex: 1 1 auto;
+        width: 100%; min-height: 120px;
+        padding: 9px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font-mono);
+        font-size: 0.78rem;
+        line-height: 1.65;
+        resize: none;
+        outline: none;
+    }
+    #resultInput:focus { border-color: var(--accent); }
+    .result-actions { flex: 0 0 auto; display: flex; gap: 6px; flex-wrap: wrap; padding-top: 8px; }
+    .result-actions .btn { flex: 1 1 auto; }
+
+    /* ---------- 底：提示词条 ---------- */
+    .promptbar {
+        flex: 0 0 auto;
+        display: flex; align-items: flex-end; gap: 8px;
+        padding: 8px 12px;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+    }
+    .promptbar .grow { flex: 1 1 auto; min-width: 0; }
+    .promptbar textarea {
+        width: 100%; min-height: 38px; max-height: 96px;
+        padding: 7px 9px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 0.84rem;
+        resize: vertical;
+        outline: none;
+    }
+    .promptbar textarea:focus { border-color: var(--accent); }
+    .promptbar .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* ---------- 状态栏 ---------- */
+    .statusbar {
+        flex: 0 0 auto;
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 4px 14px;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        font-size: 0.72rem; color: var(--text-3);
+        font-family: var(--font-mono);
+    }
+    #countStatus { min-width: 0; text-align: right; }
+
+    /* ---------- 预览 / 记忆 ---------- */
+    .preview {
+        width: 100%; min-height: 200px;
+        padding: 10px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        line-height: 1.7;
+        white-space: pre-wrap;
+        word-break: break-word;
+        color: var(--text-2);
+        overflow: auto;
+    }
+    .hint { font-size: 0.74rem; color: var(--text-3); line-height: 1.6; }
+    .hint strong { color: var(--text-2); }
+
+    /* ---------- 模态框 ---------- */
+    .modal {
+        position: fixed; inset: 0; z-index: 100;
+        display: none; align-items: center; justify-content: center;
+        padding: 20px;
+        background: rgba(0,0,0,0.62);
+    }
+    .modal.open { display: flex; }
+    .modal-box {
+        display: flex; flex-direction: column;
+        width: min(100%, 720px); max-height: 88vh;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+    .modal-head {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 8px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+    }
+    .modal-head h2 { font-size: 0.95rem; flex: 1 1 auto; }
+    .modal-close {
+        width: 28px; height: 28px;
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        background: var(--surface-2); color: var(--text-2);
+        font-size: 1rem; line-height: 1;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { flex: 1 1 auto; overflow-y: auto; padding: 14px; min-height: 0; }
+    .modal-foot {
+        flex: 0 0 auto;
+        display: flex; justify-content: flex-end; gap: 8px;
+        padding: 10px 14px;
+        border-top: 1px solid var(--border);
+    }
+
+    /* ---------- 快照列表 ---------- */
+    .snap-list { display: flex; flex-direction: column; gap: 6px; }
+    .snap-item {
+        display: flex; align-items: center; gap: 10px;
+        padding: 9px 11px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-2);
+    }
+    .snap-item .s-main { flex: 1 1 auto; min-width: 0; }
+    .snap-item .s-time { font-size: 0.78rem; color: var(--text-2); font-family: var(--font-mono); }
+    .snap-item .s-reason { font-size: 0.7rem; color: var(--text-3); margin-left: 6px; }
+    .snap-item .s-preview {
+        font-size: 0.74rem; color: var(--text-3); margin-top: 3px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* ---------- Toast ---------- */
+    .toast {
+        position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+        z-index: 200;
+        padding: 9px 16px;
+        background: var(--surface-3);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        font-size: 0.82rem;
+        box-shadow: var(--shadow);
+        opacity: 0; pointer-events: none;
+        transition: opacity 0.2s, transform 0.2s;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+    .toast.err { border-color: rgba(239,107,107,0.6); color: var(--danger); }
+
+    /* ---------- 窄屏 ---------- */
+    @media (max-width: 1000px) {
+        .workspace { flex-direction: column; }
+        .sidebar { flex: 0 0 auto; max-height: 180px; border-right: none; border-bottom: 1px solid var(--border); }
+        .persona-list { display: flex; flex-wrap: wrap; gap: 4px; }
+        .persona-item { width: auto; margin-bottom: 0; }
+        .result { flex: 0 0 auto; height: 300px; border-left: none; border-top: 1px solid var(--border); }
+        .promptbar { flex-direction: column; align-items: stretch; }
+        .statusbar { flex-direction: column; align-items: flex-start; gap: 2px; }
+        #countStatus { text-align: left; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+</style>
+</head>
+<body class="app">
+
+<!-- ========== 顶栏 ========== -->
+<header class="topbar">
+    <button class="brand" id="brandBtn" type="button" title="关于 Persona">
+        <span class="brand-mark">P</span>
+        <span>Persona</span>
+    </button>
+    <span class="top-meta" id="topMeta"></span>
+    <span class="spacer"></span>
+    <button class="btn sm" id="settingsBtn" type="button">设置</button>
+    <button class="btn sm" id="aboutBtn" type="button">关于</button>
+</header>
+
+<!-- ========== 三栏工作区 ========== -->
+<div class="workspace">
+
+    <!-- 左：人设列表 -->
+    <aside class="sidebar" aria-label="人设列表">
+        <div class="side-head">
+            <span class="title">人设</span>
+            <button class="btn sm" id="newPersonaBtn" type="button">+ 新建</button>
+        </div>
+        <div class="persona-list" id="personaList" role="list"></div>
+        <div class="side-foot">
+            <button class="btn sm" id="memoryBtn" type="button">记忆文档</button>
+            <button class="btn sm" id="historyBtn" type="button">版本历史</button>
+        </div>
+    </aside>
+
+    <!-- 中：人设编辑 -->
+    <section class="editor" aria-label="人设编辑">
+        <div class="editor-head">
+            <span class="title" id="editorTitle">未选择人设</span>
+            <button class="btn sm" id="saveSnapBtn" type="button">存快照</button>
+            <button class="btn sm danger" id="deletePersonaBtn" type="button">删除</button>
+        </div>
+        <div class="editor-body" id="editorBody">
+            <div class="grid-2">
+                <div class="field">
+                    <label for="nameInput">姓名</label>
+                    <input type="text" id="nameInput" placeholder="角色名" autocomplete="off">
+                </div>
+                <div class="field">
+                    <label for="roleInput">身份</label>
+                    <input type="text" id="roleInput" placeholder="例如：机械师 / 帝国公主" autocomplete="off">
+                </div>
+            </div>
+            <div class="field">
+                <label for="summaryInput">一句话概括</label>
+                <input type="text" id="summaryInput" placeholder="用一句话点出这个角色的核心" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="detailInput">详细设定</label>
+                <textarea id="detailInput" placeholder="外貌、性格、说话方式、背景经历、与其他角色的关系、禁忌与弱点……"></textarea>
+            </div>
+        </div>
+        <div class="statusbar">
+            <span id="saveStatus" aria-live="polite">就绪</span>
+            <span id="countStatus"></span>
+        </div>
+    </section>
+
+    <!-- 右：AI 结果区 -->
+    <section class="result" aria-label="AI 结果区">
+        <div class="result-head">
+            <span class="title">AI 结果</span>
+            <button class="btn sm ghost" id="pasteResultBtn" type="button">粘贴</button>
+            <button class="btn sm ghost" id="clearResultBtn" type="button">清空</button>
+        </div>
+        <div class="result-body">
+            <textarea id="resultInput" placeholder="AI 返回的新人设粘贴在这里，或点底部「发送到 AI」自动填入。&#10;&#10;格式：&#10;姓名：…&#10;身份：…&#10;一句话概括：…&#10;详细设定：&#10;…" spellcheck="false"></textarea>
+            <div class="result-actions">
+                <button class="btn primary" id="applyBtn" type="button">应用</button>
+                <button class="btn" id="appendBtn" type="button">追加到详述</button>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- ========== 底部提示词条 ========== -->
+<div class="promptbar">
+    <div class="grow">
+        <textarea id="requestInput" placeholder="本次修改要求（可选）。例如：把她的说话方式改得更冷淡。留空则只把记忆里的新变化总结进人设。" aria-label="本次修改要求"></textarea>
+    </div>
+    <div class="btns">
+        <button class="btn sm" id="previewBtn" type="button">预览提示词</button>
+        <button class="btn sm" id="copyPromptBtn" type="button">复制提示词</button>
+        <button class="btn primary sm" id="sendAiBtn" type="button">发送到 AI</button>
+        <button class="btn sm" id="stopAiBtn" type="button" disabled>停止</button>
+    </div>
+</div>
+
+<!-- ========== 记忆弹窗 ========== -->
+<div class="modal" id="memoryModal" role="dialog" aria-modal="true" aria-label="记忆文档">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>记忆文档</h2>
+            <button class="modal-close" type="button" data-close="memoryModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <p class="hint" id="memoryMeta" style="margin-bottom:10px;"></p>
+            <div class="field">
+                <label for="memoryInput">粘贴聊天记录</label>
+                <textarea id="memoryInput" rows="10" placeholder="支持两种：&#10;1) OpenAI messages 格式的 JSON（[{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;…&quot;}, …]）&#10;2) 纯文本（整段原样保存，不区分角色）&#10;&#10;内容会自动识别。导入后可在下方查看与清空。"></textarea>
+            </div>
+            <div class="field">
+                <label>当前记忆 <span id="memoryCount" class="hint"></span></label>
+                <pre class="preview" id="memoryPreview"></pre>
+            </div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn danger" id="clearMemoryBtn" type="button">清空记忆</button>
+            <button class="btn primary" id="importMemoryBtn" type="button">导入</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 提示词预览弹窗 ========== -->
+<div class="modal" id="previewModal" role="dialog" aria-modal="true" aria-label="提示词预览">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>提示词预览</h2>
+            <button class="modal-close" type="button" data-close="previewModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <pre class="preview" id="promptPreview" style="min-height:380px;"></pre>
+        </div>
+        <div class="modal-foot">
+            <button class="btn primary" id="previewCopyBtn" type="button">复制</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 版本历史弹窗 ========== -->
+<div class="modal" id="historyModal" role="dialog" aria-modal="true" aria-label="版本历史">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>版本历史</h2>
+            <button class="modal-close" type="button" data-close="historyModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <p class="hint" style="margin-bottom:10px;">每次「应用」「追加」或手动存快照都会留下一条记录。恢复旧版也会新增一条，历史不会丢失。</p>
+            <div class="snap-list" id="snapList"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 设置弹窗 ========== -->
+<div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-label="设置">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>设置</h2>
+            <button class="modal-close" type="button" data-close="settingsModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="field">
+                <label for="protocolSel">协议</label>
+                <select id="protocolSel">
+                    <option value="openai">OpenAI 兼容（DeepSeek / OpenAI / 本机代理）</option>
+                    <option value="anthropic">Anthropic Messages</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="baseUrlInput">接口地址</label>
+                <input type="text" id="baseUrlInput" placeholder="https://api.deepseek.com/v1" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="modelInput">模型</label>
+                <input type="text" id="modelInput" placeholder="deepseek-chat" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="apiKeyInput">API Key</label>
+                <input type="password" id="apiKeyInput" placeholder="sk-…" autocomplete="off">
+                <label class="check-line" for="rememberKeyChk">
+                    <input type="checkbox" id="rememberKeyChk">
+                    <span>记住 Key（保存在本机浏览器；不勾则仅本次会话有效）</span>
+                </label>
+            </div>
+            <div class="grid-2">
+                <div class="field">
+                    <label for="tempInput">温度（0–2）</label>
+                    <input type="number" id="tempInput" min="0" max="2" step="0.1">
+                </div>
+                <div class="field">
+                    <label for="memTurnsInput">记忆发送条数</label>
+                    <input type="number" id="memTurnsInput" min="1" max="50" step="1">
+                </div>
+            </div>
+            <p class="hint">直连第三方接口可能受浏览器跨域（CORS）限制；可用本机代理或支持 CORS 的端点。</p>
+        </div>
+        <div class="modal-foot">
+            <button class="btn primary" id="saveSettingsBtn" type="button">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 关于弹窗 ========== -->
+<div class="modal" id="aboutModal" role="dialog" aria-modal="true" aria-label="关于 Persona">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>关于 Persona</h2>
+            <button class="modal-close" type="button" data-close="aboutModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <p><strong>Persona · 人设编辑器</strong>　版本 <code>A1_II_Φ1_CN</code></p>
+            <ul style="margin:10px 0 10px 18px; line-height:1.9;">
+                <li>多人设库，每份人设各自一份记忆</li>
+                <li>四段式提示词：系统提示词 / 人设当前状态 / 待总结聊天记录 / 修改要求</li>
+                <li>OpenAI 兼容与 Anthropic Messages 双协议流式 AI</li>
+                <li>AI 结果区独立，手动「应用」才写回人设</li>
+                <li>快照历史，可回退到任意版本</li>
+                <li>JSON 备份与导入、人设纯文本导出</li>
+            </ul>
+            <p class="hint">数据只保存在本机浏览器。用地址栏打开（Pages）与直接双击文件（file://）看到的是两份互不相通的数据，迁移请用 JSON 导出 / 导入。</p>
+            <p class="hint">这个工具本身不聊天。它只负责把「人设 + 聊天记录」拼成一段文本交给 AI，再把 AI 返回的新人设写回来。</p>
+            <p style="font-size:0.78rem;color:var(--text-3);margin-top:10px;">Persona  Copyright (C) 2026-至今 北冥的鱼, DeepSeek<br>本程序是自由软件，基于 GPLv3 发布，无任何担保。</p>
+        </div>
+        <div class="modal-foot"><button class="btn primary" type="button" data-close="aboutModal">知道了</button></div>
+    </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============================================================================
+ * Persona · 人设编辑器（A1_II_Φ1_CN）
+ * ----------------------------------------------------------------------------
+ * 分层：Utils / Storage / State / PrefsService / PersonaService /
+ *       MemoryService / SnapshotService / PromptService / AIClient /
+ *       BackupService / UI
+ * 数据全部保存在浏览器 IndexedDB（不可用时降级 localStorage）。
+ * 所有用户数据一律通过 textContent 渲染，不拼 innerHTML。
+ * ========================================================================== */
+(function () {
+    'use strict';
+
+    /* ======================================================================
+     * 0. 常量
+     * ==================================================================== */
+    const APP_ID = 'persona';
+    const DB_NAME = 'persona_db';
+    const DB_VERSION = 1;
+    const CURRENT_VERSION = 'A1_II_Φ1_CN';
+    const LS_FALLBACK_KEY = 'persona_db_fallback';
+    const LS_FIRST_RUN = 'persona_first_run';
+    const MAX_IMPORT_BYTES = 20 * 1024 * 1024;
+    const MAX_MEMORY_CHARS = 8000;
+
+    const STORES = {
+        meta:     { keyPath: 'key', indexes: [] },
+        personas: { keyPath: 'id', indexes: [] },
+        memories: { keyPath: 'id', indexes: [{ name: 'byPersona', keyPath: 'personaId' }] },
+        snapshots:{ keyPath: 'id', indexes: [{ name: 'byPersona', keyPath: 'personaId' }] },
+        prefs:    { keyPath: 'key', indexes: [] }
+    };
+
+    const AI_PRESETS = {
+        deepseek:  { protocol: 'openai',    baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+        anthropic: { protocol: 'anthropic', baseUrl: 'https://api.anthropic.com',   model: 'claude-sonnet-5-5' },
+        openai:    { protocol: 'openai',    baseUrl: 'https://api.openai.com/v1',   model: 'gpt-4o-mini' }
+    };
+
+    const DEFAULT_AI = Object.assign(
+        { apiKey: '', rememberKey: false, temperature: 0.7, memTurns: 10 },
+        AI_PRESETS.deepseek
+    );
+
+    const REASON_LABEL = {
+        manual: '手动快照',
+        'ai-apply': '应用 AI 结果',
+        'ai-append': '追加 AI 结果',
+        edit: '编辑'
+    };
+
+    /* ======================================================================
+     * 1. Utils
+     * ==================================================================== */
+    const Utils = {
+        $(sel, root) { return (root || document).querySelector(sel); },
+        $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); },
+
+        uid(prefix) {
+            return (prefix || 'id') + '_' + Date.now().toString(36) + '_' +
+                Math.random().toString(36).slice(2, 8);
+        },
+
+        debounce(fn, wait) {
+            let t = null;
+            const wrapped = function () {
+                const args = arguments, ctx = this;
+                clearTimeout(t);
+                t = setTimeout(function () { fn.apply(ctx, args); }, wait);
+            };
+            wrapped.cancel = function () { clearTimeout(t); };
+            return wrapped;
+        },
+
+        async copyText(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (e) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+                document.body.removeChild(ta);
+                return ok;
+            }
+        },
+
+        download(filename, text, mime) {
+            const blob = new Blob([text], { type: (mime || 'text/plain') + ';charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        },
+
+        fmtTime(ts) {
+            const d = new Date(ts);
+            const p = function (n) { return String(n).padStart(2, '0'); };
+            return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+                ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+        },
+
+        today() {
+            const d = new Date();
+            const p = function (n) { return String(n).padStart(2, '0'); };
+            return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+        }
+    };
+
+    /* ======================================================================
+     * 2. Storage（IndexedDB，不可用时降级 localStorage）
+     * ==================================================================== */
+    const Storage = {
+        mode: null,
+        db: null,
+        _mem: null,
+
+        async init() {
+            try {
+                this.db = await this._open();
+                this.mode = 'idb';
+            } catch (e) {
+                console.warn('[Storage] IndexedDB 不可用，降级 localStorage', e);
+                this.mode = 'ls';
+                let raw = null;
+                try { raw = localStorage.getItem(LS_FALLBACK_KEY); } catch (e2) { raw = null; }
+                this._mem = raw ? JSON.parse(raw) : {};
+                Object.keys(STORES).forEach((name) => {
+                    if (!this._mem[name]) this._mem[name] = {};
+                });
+            }
+        },
+
+        _open() {
+            return new Promise(function (resolve, reject) {
+                if (!window.indexedDB) { reject(new Error('no indexedDB')); return; }
+                let req;
+                try { req = indexedDB.open(DB_NAME, DB_VERSION); }
+                catch (e) { reject(e); return; }
+
+                req.onupgradeneeded = function (ev) {
+                    const db = req.result;
+                    const oldV = ev.oldVersion || 0;
+                    Object.keys(STORES).forEach(function (name) {
+                        const def = STORES[name];
+                        if (db.objectStoreNames.contains(name)) return;
+                        const store = db.createObjectStore(name, { keyPath: def.keyPath });
+                        (def.indexes || []).forEach(function (idx) {
+                            store.createIndex(idx.name, idx.keyPath, { unique: false });
+                        });
+                    });
+                    void oldV;
+                };
+                req.onsuccess = function () { resolve(req.result); };
+                req.onerror = function () { reject(req.error || new Error('open failed')); };
+            });
+        },
+
+        _tx(store, mode) {
+            const tx = this.db.transaction(store, mode);
+            return tx.objectStore(store);
+        },
+
+        _lsPersist() {
+            try { localStorage.setItem(LS_FALLBACK_KEY, JSON.stringify(this._mem)); }
+            catch (e) { /* 超配额时忽略 */ }
+        },
+
+        async get(store, key) {
+            if (this.mode === 'ls') {
+                return this._mem[store] && this._mem[store][key] ? this._mem[store][key] : null;
+            }
+            return new Promise((resolve, reject) => {
+                const req = this._tx(store, 'readonly').get(key);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => reject(req.error);
+            });
+        },
+
+        async getAll(store) {
+            if (this.mode === 'ls') {
+                return Object.values(this._mem[store] || {});
+            }
+            return new Promise((resolve, reject) => {
+                const req = this._tx(store, 'readonly').getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+        },
+
+        async getAllByIndex(store, indexName, value) {
+            if (this.mode === 'ls') {
+                const keyPath = (STORES[store].indexes || [])
+                    .filter((i) => i.name === indexName)[0].keyPath;
+                return Object.values(this._mem[store] || {}).filter((r) => r[keyPath] === value);
+            }
+            return new Promise((resolve, reject) => {
+                const req = this._tx(store, 'readonly').index(indexName).getAll(value);
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+        },
+
+        async put(store, record) {
+            if (this.mode === 'ls') {
+                this._mem[store][record[STORES[store].keyPath]] = record;
+                this._lsPersist();
+                return;
+            }
+            return new Promise((resolve, reject) => {
+                const req = this._tx(store, 'readwrite').put(record);
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            });
+        },
+
+        async bulkPut(store, records) {
+            if (this.mode === 'ls') {
+                records.forEach((r) => { this._mem[store][r[STORES[store].keyPath]] = r; });
+                this._lsPersist();
+                return;
+            }
+            return new Promise((resolve, reject) => {
+                const tx = this.db.transaction(store, 'readwrite');
+                const os = tx.objectStore(store);
+                records.forEach((r) => os.put(r));
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        },
+
+        async del(store, key) {
+            if (this.mode === 'ls') {
+                delete this._mem[store][key];
+                this._lsPersist();
+                return;
+            }
+            return new Promise((resolve, reject) => {
+                const req = this._tx(store, 'readwrite').delete(key);
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            });
+        },
+
+        async clearStore(store) {
+            if (this.mode === 'ls') {
+                this._mem[store] = {};
+                this._lsPersist();
+                return;
+            }
+            return new Promise((resolve, reject) => {
+                const req = this._tx(store, 'readwrite').clear();
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            });
+        },
+
+        async clearAll() {
+            for (const name of Object.keys(STORES)) {
+                if (name === 'meta') continue;
+                await this.clearStore(name);
+            }
+        }
+    };
+
+    /* ======================================================================
+     * 3. State
+     * ==================================================================== */
+    const State = {
+        personas: [],
+        personaId: null,
+        memory: null,          // 当前人设的 Memory 记录
+        snapshots: [],
+        prefs: { ai: Object.assign({}, DEFAULT_AI) },
+        sessionApiKey: '',
+        dirty: false,
+        saveTimer: null
+    };
+
+    /* ======================================================================
+     * 4. PrefsService
+     * ==================================================================== */
+    const PrefsService = {
+        async load() {
+            const ai = await Storage.get('prefs', 'ai');
+            const last = await Storage.get('prefs', 'last');
+            State.prefs.ai = Object.assign({}, DEFAULT_AI, ai && ai.value ? ai.value : {});
+            if (!State.prefs.ai.rememberKey) State.prefs.ai.apiKey = '';
+            return last && last.value ? last.value : null;
+        },
+        async saveAI() {
+            await Storage.put('prefs', { key: 'ai', value: State.prefs.ai });
+        },
+        async saveLast() {
+            await Storage.put('prefs', { key: 'last', value: { personaId: State.personaId } });
+        }
+    };
+
+    /* ======================================================================
+     * 5. PersonaService
+     * ==================================================================== */
+    const PersonaService = {
+        empty() {
+            return {
+                id: Utils.uid('per'),
+                name: '',
+                role: '',
+                summary: '',
+                detail: '',
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
+        },
+
+        current() {
+            return State.personas.filter((p) => p.id === State.personaId)[0] || null;
+        },
+
+        async loadAll() {
+            State.personas = (await Storage.getAll('personas'))
+                .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        },
+
+        async create() {
+            const p = this.empty();
+            p.name = '新人设';
+            await Storage.put('personas', p);
+            State.personas.push(p);
+            return p;
+        },
+
+        async save(p) {
+            p.updatedAt = Date.now();
+            await Storage.put('personas', p);
+            const idx = State.personas.findIndex((x) => x.id === p.id);
+            if (idx >= 0) State.personas[idx] = p;
+            else State.personas.push(p);
+        },
+
+        async remove(id) {
+            await Storage.del('personas', id);
+            State.personas = State.personas.filter((p) => p.id !== id);
+            const mem = await Storage.getAllByIndex('memories', 'byPersona', id);
+            for (const m of mem) await Storage.del('memories', m.id);
+            const snaps = await Storage.getAllByIndex('snapshots', 'byPersona', id);
+            for (const s of snaps) await Storage.del('snapshots', s.id);
+        }
+    };
+
+    /* ======================================================================
+     * 6. MemoryService
+     * ==================================================================== */
+    const MemoryService = {
+        empty(personaId) {
+            return {
+                id: Utils.uid('mem'),
+                personaId: personaId,
+                raw: '',
+                turns: [],
+                importedAt: Date.now()
+            };
+        },
+
+        /** 解析粘贴内容：JSON（OpenAI messages）或纯文本 */
+        parse(raw) {
+            const text = String(raw || '').trim();
+            if (!text) return { turns: [], kind: 'empty' };
+
+            if (text[0] === '{' || text[0] === '[') {
+                try {
+                    const data = JSON.parse(text);
+                    const list = Array.isArray(data) ? data
+                        : (data && Array.isArray(data.messages) ? data.messages : null);
+                    if (list) {
+                        const turns = list.map(function (m) {
+                            const role = (m && m.role) === 'user' ? 'user'
+                                : (m && m.role) === 'assistant' ? 'assistant' : 'other';
+                            let content = m && m.content;
+                            if (Array.isArray(content)) {
+                                content = content.map(function (c) {
+                                    return c && typeof c.text === 'string' ? c.text : '';
+                                }).join('');
+                            }
+                            return { role: role, text: String(content == null ? '' : content) };
+                        }).filter((t) => t.text.trim() !== '');
+                        if (turns.length) return { turns: turns, kind: 'json' };
+                    }
+                } catch (e) { /* 回落纯文本 */ }
+            }
+
+            // 纯文本：整段作为一条 other，不区分角色
+            return { turns: [{ role: 'other', text: text }], kind: 'text' };
+        },
+
+        async load(personaId) {
+            const list = await Storage.getAllByIndex('memories', 'byPersona', personaId);
+            list.sort((a, b) => (a.importedAt || 0) - (b.importedAt || 0));
+            return list.length ? list[list.length - 1] : null;
+        },
+
+        async save(mem) {
+            await Storage.put('memories', mem);
+            State.memory = mem;
+        },
+
+        async clear(personaId) {
+            const list = await Storage.getAllByIndex('memories', 'byPersona', personaId);
+            for (const m of list) await Storage.del('memories', m.id);
+            State.memory = null;
+        },
+
+        /** 取最近 N 条，并按字符上限从最旧处截断 */
+        recent(mem, n) {
+            if (!mem || !mem.turns || !mem.turns.length) {
+                return { text: '', count: 0, truncated: false };
+            }
+            const take = mem.turns.slice(Math.max(0, mem.turns.length - n));
+            let out = '';
+            let truncated = false;
+            // 从最新往前累加，保证留下的是最近的
+            const parts = [];
+            for (let i = take.length - 1; i >= 0; i--) {
+                const t = take[i];
+                const block = (t.role === 'user' ? '用户：' : t.role === 'assistant' ? 'AI：' : '') + t.text;
+                if (out.length + block.length > MAX_MEMORY_CHARS) { truncated = true; break; }
+                parts.unshift(block);
+                out = block + (out ? '\n\n' + out : '');
+            }
+            return { text: parts.join('\n\n'), count: parts.length, truncated: truncated };
+        }
+    };
+
+    /* ======================================================================
+     * 7. SnapshotService
+     * ==================================================================== */
+    const SnapshotService = {
+        async capture(persona, reason) {
+            const snap = {
+                id: Utils.uid('snap'),
+                personaId: persona.id,
+                persona: {
+                    id: persona.id, name: persona.name, role: persona.role,
+                    summary: persona.summary, detail: persona.detail,
+                    createdAt: persona.createdAt, updatedAt: persona.updatedAt
+                },
+                reason: reason || 'manual',
+                createdAt: Date.now()
+            };
+            await Storage.put('snapshots', snap);
+            return snap;
+        },
+
+        async load(personaId) {
+            const list = await Storage.getAllByIndex('snapshots', 'byPersona', personaId);
+            list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            return list;
+        },
+
+        async remove(id) {
+            await Storage.del('snapshots', id);
+        }
+    };
+
+    /* ======================================================================
+     * 8. PromptService（四段式拼合）
+     * ==================================================================== */
+    const PromptService = {
+        build(persona, memoryText, memCount, request) {
+            const req = String(request || '').trim();
+            const parts = [];
+
+            parts.push(
+                '你是一个人物设定维护助手。用户会给你一份「人物当前设定」（第 2 段），' +
+                '以及该人物与用户此前的对话记录（第 3 段）。\n\n' +
+                '你的任务：把对话记录里体现出的**新变化**总结并合并进人物设定。\n' +
+                '新变化包括但不限于：新发生的事件与经历、新暴露的性格侧面、' +
+                '新的称呼与关系进展、新的说话习惯、新的能力或限制。\n\n' +
+                '要求：\n' +
+                '- 保留原设定中未被对话推翻的部分\n' +
+                '- 只做增量合并，不要凭空发挥\n' +
+                '- 若第 3 段为空，则只按第 4 段的修改要求调整\n' +
+                '- 严格按下方格式输出完整人设，不要省略未改动的段落，不要加解释\n\n' +
+                '输出格式：\n' +
+                '姓名：…\n身份：…\n一句话概括：…\n详细设定：\n…'
+            );
+
+            parts.push(
+                '【第 2 段 · 人设当前状态】\n' +
+                '姓名：' + (persona.name || '（未填）') + '\n' +
+                '身份：' + (persona.role || '（未填）') + '\n' +
+                '一句话概括：' + (persona.summary || '（未填）') + '\n' +
+                '详细设定：\n' + (persona.detail || '（未填）')
+            );
+
+            if (memoryText) {
+                parts.push(
+                    '【第 3 段 · 待总结的新增聊天记录（最近 ' + memCount + ' 条）】\n' +
+                    '以下内容来自该人物此前的真实对话，混杂了用户与 AI 的发言。' +
+                    '这些对话里产生的新变化尚未写进上面的设定，请提炼归纳：\n\n' +
+                    memoryText
+                );
+            } else {
+                parts.push('【第 3 段 · 待总结的新增聊天记录】\n（暂无）');
+            }
+
+            parts.push(
+                '【第 4 段 · 本次修改要求】\n' + (req || '（未填写，仅做第 3 段的总结合并）')
+            );
+
+            return parts.join('\n\n────────────────────\n\n');
+        }
+    };
+
+    /* ======================================================================
+     * 9. AIClient（OpenAI 兼容 / Anthropic Messages，SSE 流式）
+     * ==================================================================== */
+    const AIClient = {
+        config() {
+            const ai = State.prefs.ai;
+            return {
+                protocol: ai.protocol || 'openai',
+                baseUrl: (ai.baseUrl || AI_PRESETS.deepseek.baseUrl).replace(/\/+$/, ''),
+                model: ai.model || AI_PRESETS.deepseek.model,
+                apiKey: ai.rememberKey ? (ai.apiKey || '') : (State.sessionApiKey || ''),
+                temperature: typeof ai.temperature === 'number' ? ai.temperature : 0.7
+            };
+        },
+
+        endpoint(cfg) {
+            if (cfg.protocol === 'anthropic') {
+                return /\/v1$/.test(cfg.baseUrl) ? cfg.baseUrl + '/messages' : cfg.baseUrl + '/v1/messages';
+            }
+            return /\/chat\/completions$/.test(cfg.baseUrl)
+                ? cfg.baseUrl
+                : cfg.baseUrl + '/chat/completions';
+        },
+
+        headers(cfg) {
+            const headers = { 'Content-Type': 'application/json' };
+            if (cfg.protocol === 'anthropic') {
+                if (cfg.apiKey) headers['x-api-key'] = cfg.apiKey;
+                headers['anthropic-version'] = '2023-06-01';
+                headers['anthropic-dangerous-direct-browser-access'] = 'true';
+            } else if (cfg.apiKey) {
+                headers['Authorization'] = 'Bearer ' + cfg.apiKey;
+            }
+            return headers;
+        },
+
+        body(cfg, prompt) {
+            if (cfg.protocol === 'anthropic') {
+                return {
+                    model: cfg.model,
+                    max_tokens: 4096,
+                    temperature: cfg.temperature,
+                    stream: true,
+                    messages: [{ role: 'user', content: prompt }]
+                };
+            }
+            return {
+                model: cfg.model,
+                temperature: cfg.temperature,
+                stream: true,
+                messages: [{ role: 'user', content: prompt }]
+            };
+        },
+
+        async *stream(prompt, signal) {
+            const cfg = this.config();
+            const url = this.endpoint(cfg);
+            let response;
+            try {
+                response = await fetch(url, {
+                    method: 'POST',
+                    headers: this.headers(cfg),
+                    body: JSON.stringify(this.body(cfg, prompt)),
+                    signal: signal
+                });
+            } catch (e) {
+                if (e && e.name === 'AbortError') throw e;
+                throw new AIError('网络请求失败。可能是跨域（CORS）限制、地址不可达或本地代理未启动。', e);
+            }
+
+            if (!response.ok) {
+                let detail = '';
+                try {
+                    const text = await response.text();
+                    try {
+                        const data = JSON.parse(text);
+                        detail = (data.error && (data.error.message || data.error.type)) || '';
+                    } catch (e2) { detail = text.slice(0, 240); }
+                } catch (e3) { /* 忽略 */ }
+                throw new AIError('接口返回 HTTP ' + response.status + (detail ? '：' + detail : ''), null);
+            }
+
+            const ctype = (response.headers.get('content-type') || '').toLowerCase();
+            if (ctype.indexOf('text/event-stream') === -1 && response.body) {
+                const text = await response.text();
+                if (text) yield text;
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+
+            while (true) {
+                const chunk = await reader.read();
+                if (chunk.done) break;
+                buffer += decoder.decode(chunk.value, { stream: true });
+                buffer = buffer.replace(/\r\n/g, '\n');
+
+                let sep;
+                while ((sep = buffer.indexOf('\n\n')) >= 0) {
+                    const block = buffer.slice(0, sep);
+                    buffer = buffer.slice(sep + 2);
+                    const delta = this.parseBlock(block, cfg.protocol);
+                    if (delta === null) return;
+                    if (delta) yield delta;
+                }
+            }
+
+            buffer += decoder.decode();
+            if (buffer.trim()) {
+                const delta = this.parseBlock(buffer, cfg.protocol);
+                if (delta) yield delta;
+            }
+        },
+
+        parseBlock(block, protocol) {
+            const lines = block.split('\n');
+            let out = '';
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.indexOf('data:') !== 0) continue;
+                const payload = line.slice(5).trim();
+                if (!payload) continue;
+                if (payload === '[DONE]') return null;
+                let data;
+                try { data = JSON.parse(payload); } catch (e) { continue; }
+
+                if (protocol === 'anthropic') {
+                    if (data.type === 'message_stop') return null;
+                    if (data.type === 'error' && data.error) {
+                        throw new AIError('接口返回错误：' + (data.error.message || data.error.type || '未知'), null);
+                    }
+                    if (data.type === 'content_block_delta' && data.delta &&
+                        typeof data.delta.text === 'string') {
+                        out += data.delta.text;
+                    }
+                } else {
+                    const choice = data.choices && data.choices[0];
+                    if (!choice) continue;
+                    if (choice.delta && typeof choice.delta.content === 'string') out += choice.delta.content;
+                    else if (choice.message && typeof choice.message.content === 'string') out += choice.message.content;
+                }
+            }
+            return out;
+        }
+    };
+
+    function AIError(message, cause) {
+        this.name = 'AIError';
+        this.message = message;
+        this.cause = cause || null;
+    }
+    AIError.prototype = Object.create(Error.prototype);
+    AIError.prototype.constructor = AIError;
+
+    /* ======================================================================
+     * 10. 结果解析
+     * ==================================================================== */
+    const ResultParser = {
+        /** 从 AI 返回文本里提取四段；识别不到就原样放 detail */
+        parse(text) {
+            const src = String(text || '');
+            const grab = function (label) {
+                const re = new RegExp(label + '\\s*[：:]\\s*([\\s\\S]*?)(?=\\n\\s*(?:姓名|身份|一句话概括|详细设定)\\s*[：:]|$)');
+                const m = src.match(re);
+                return m ? m[1].trim() : '';
+            };
+            const name = grab('姓名');
+            const role = grab('身份');
+            const summary = grab('一句话概括');
+            const detail = grab('详细设定');
+            const any = name || role || summary || detail;
+            if (!any) return { name: '', role: '', summary: '', detail: src.trim(), parsed: false };
+            return { name: name, role: role, summary: summary, detail: detail, parsed: true };
+        }
+    };
+
+    /* ======================================================================
+     * 11. BackupService
+     * ==================================================================== */
+    const BackupService = {
+        async exportAll() {
+            const personas = await Storage.getAll('personas');
+            const memories = await Storage.getAll('memories');
+            const snapshots = await Storage.getAll('snapshots');
+            const data = {
+                app: APP_ID,
+                schema: DB_VERSION,
+                version: CURRENT_VERSION,
+                exportedAt: new Date().toISOString(),
+                personas: personas,
+                memories: memories,
+                snapshots: snapshots
+            };
+            Utils.download('persona_backup_' + Utils.today() + '.json',
+                JSON.stringify(data, null, 2), 'application/json');
+        },
+
+        async importAll(text) {
+            if (text.length > MAX_IMPORT_BYTES) throw new Error('文件超过 20MB');
+            const data = JSON.parse(text);
+            if (!data || data.app !== APP_ID) throw new Error('不是 Persona 的备份文件');
+            if (typeof data.schema === 'number' && data.schema > DB_VERSION) {
+                throw new Error('备份来自更新的版本（schema ' + data.schema + '），请先升级页面。');
+            }
+            const personas = Array.isArray(data.personas) ? data.personas : [];
+            const memories = Array.isArray(data.memories) ? data.memories : [];
+            const snapshots = Array.isArray(data.snapshots) ? data.snapshots : [];
+
+            // 字段级校验
+            for (const p of personas) {
+                if (!p || typeof p.id !== 'string' || !p.id) throw new Error('人设缺少 id');
+                if (typeof p.name !== 'string') throw new Error('人设 name 不是字符串');
+            }
+            for (const m of memories) {
+                if (!m || typeof m.id !== 'string' || typeof m.personaId !== 'string') {
+                    throw new Error('记忆记录缺少 id / personaId');
+                }
+                if (!Array.isArray(m.turns)) throw new Error('记忆 turns 不是数组');
+            }
+            for (const s of snapshots) {
+                if (!s || typeof s.id !== 'string' || typeof s.personaId !== 'string') {
+                    throw new Error('快照记录缺少 id / personaId');
+                }
+                if (!s.persona || typeof s.persona !== 'object') throw new Error('快照缺少 persona');
+            }
+
+            // 覆盖导入：先快照内存，再清库写入，失败则回滚
+            const prev = {
+                personas: await Storage.getAll('personas'),
+                memories: await Storage.getAll('memories'),
+                snapshots: await Storage.getAll('snapshots')
+            };
+            try {
+                await Storage.clearAll();
+                if (personas.length) await Storage.bulkPut('personas', personas);
+                if (memories.length) await Storage.bulkPut('memories', memories);
+                if (snapshots.length) await Storage.bulkPut('snapshots', snapshots);
+            } catch (e) {
+                try {
+                    await Storage.clearAll();
+                    if (prev.personas.length) await Storage.bulkPut('personas', prev.personas);
+                    if (prev.memories.length) await Storage.bulkPut('memories', prev.memories);
+                    if (prev.snapshots.length) await Storage.bulkPut('snapshots', prev.snapshots);
+                } catch (e2) {
+                    throw new Error('导入失败且回滚失败，数据可能不完整');
+                }
+                throw new Error('导入失败，已回滚：' + (e && e.message ? e.message : e));
+            }
+            return { personas: personas.length, memories: memories.length, snapshots: snapshots.length };
+        },
+
+        personaText(persona) {
+            return '姓名：' + (persona.name || '') + '\n' +
+                '身份：' + (persona.role || '') + '\n' +
+                '一句话概括：' + (persona.summary || '') + '\n' +
+                '详细设定：\n' + (persona.detail || '');
+        }
+    };
+
+    /* ======================================================================
+     * 12. UI
+     * ==================================================================== */
+    const UI = {
+        _lastFocus: null,
+        _modalStack: [],
+
+        toast(msg, isErr) {
+            const el = Utils.$('#toast');
+            el.textContent = msg;
+            el.className = 'toast show' + (isErr ? ' err' : '');
+            clearTimeout(this._toastTimer);
+            this._toastTimer = setTimeout(function () { el.className = 'toast'; }, 2600);
+        },
+
+        openModal(id) {
+            const m = document.getElementById(id);
+            if (!m) return;
+            this._lastFocus = document.activeElement;
+            m.classList.add('open');
+            this._modalStack.push(id);
+            setTimeout(function () {
+                const f = m.querySelector('input, textarea, select, button');
+                if (f) f.focus();
+            }, 30);
+        },
+
+        closeModal(id) {
+            const m = document.getElementById(id);
+            if (!m) return;
+            m.classList.remove('open');
+            this._modalStack = this._modalStack.filter(function (x) { return x !== id; });
+            if (this._lastFocus && this._lastFocus.focus) {
+                try { this._lastFocus.focus(); } catch (e) { /* 忽略 */ }
+            }
+        },
+
+        setSaved(text) {
+            const el = Utils.$('#saveStatus');
+            el.textContent = text;
+        }
+    };
+
+    /* ======================================================================
+     * 13. 渲染
+     * ==================================================================== */
+    function el(tag, cls, text) {
+        const node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text != null) node.textContent = text;
+        return node;
+    }
+
+    function renderPersonaList() {
+        const box = Utils.$('#personaList');
+        box.textContent = '';
+        if (!State.personas.length) {
+            box.appendChild(el('p', 'hint', '还没有人设，点右上「+ 新建」。'));
+            return;
+        }
+        State.personas.forEach(function (p) {
+            const item = el('button', 'persona-item' + (p.id === State.personaId ? ' on' : ''));
+            item.type = 'button';
+            item.setAttribute('role', 'listitem');
+            item.appendChild(el('span', 'p-name', p.name || '（未命名）'));
+            item.appendChild(el('span', 'p-sub', p.role || p.summary || '—'));
+            item.addEventListener('click', function () { selectPersona(p.id); });
+            box.appendChild(item);
+        });
+    }
+
+    function fillEditor(p) {
+        Utils.$('#nameInput').value = p ? p.name : '';
+        Utils.$('#roleInput').value = p ? p.role : '';
+        Utils.$('#summaryInput').value = p ? p.summary : '';
+        Utils.$('#detailInput').value = p ? p.detail : '';
+        Utils.$('#editorTitle').textContent = p ? (p.name || '（未命名）') : '未选择人设';
+        Utils.$('#topMeta').textContent = p
+            ? '当前：' + (p.name || '（未命名）') + (p.role ? ' · ' + p.role : '')
+            : '';
+        const disabled = !p;
+        ['#saveSnapBtn', '#deletePersonaBtn', '#copyPromptBtn', '#sendAiBtn', '#previewBtn']
+            .forEach(function (sel) { Utils.$(sel).disabled = disabled; });
+        updateCounts();
+    }
+
+    function updateCounts() {
+        const detail = Utils.$('#detailInput').value || '';
+        const chars = detail.length;
+        const lines = detail ? detail.split('\n').length : 0;
+        const paras = detail ? detail.split('\n').filter(function (l) { return l.trim() !== ''; }).length : 0;
+        Utils.$('#countStatus').textContent = '详述 ' + chars + ' 字符 · ' + lines + ' 行 · ' + paras + ' 段';
+    }
+
+    function renderMemoryMeta() {
+        const mem = State.memory;
+        const meta = Utils.$('#memoryMeta');
+        const count = Utils.$('#memoryCount');
+        const preview = Utils.$('#memoryPreview');
+        if (!mem || !mem.turns.length) {
+            meta.textContent = '当前人设还没有记忆。粘贴聊天记录后点「导入」。';
+            count.textContent = '';
+            preview.textContent = '（空）';
+            return;
+        }
+        const totalChars = mem.turns.reduce(function (s, t) { return s + t.text.length; }, 0);
+        meta.textContent = '已导入 ' + mem.turns.length + ' 条 · 共 ' + totalChars +
+            ' 字符 · 导入于 ' + Utils.fmtTime(mem.importedAt);
+        const n = State.prefs.ai.memTurns || 10;
+        const recent = MemoryService.recent(mem, n);
+        count.textContent = '（发送时取最近 ' + n + ' 条，实际 ' + recent.count + ' 条' +
+            (recent.truncated ? '，已按 8000 字符截断' : '') + '）';
+        preview.textContent = recent.text || '（空）';
+    }
+
+    function renderSnapshots() {
+        const box = Utils.$('#snapList');
+        box.textContent = '';
+        if (!State.snapshots.length) {
+            box.appendChild(el('p', 'hint', '还没有快照。'));
+            return;
+        }
+        State.snapshots.forEach(function (s) {
+            const row = el('div', 'snap-item');
+            const main = el('div', 's-main');
+            const time = el('span', 's-time', Utils.fmtTime(s.createdAt));
+            const reason = el('span', 's-reason', REASON_LABEL[s.reason] || s.reason || '');
+            const head = el('div');
+            head.appendChild(time);
+            head.appendChild(reason);
+            main.appendChild(head);
+            const name = s.persona && s.persona.name ? s.persona.name : '（未命名）';
+            const detail = s.persona && s.persona.detail ? s.persona.detail : '';
+            main.appendChild(el('div', 's-preview',
+                name + (detail ? ' · ' + detail.slice(0, 60).replace(/\n/g, ' ') : '')));
+            row.appendChild(main);
+            const btn = el('button', 'btn sm', '恢复');
+            btn.type = 'button';
+            btn.addEventListener('click', function () { restoreSnapshot(s); });
+            row.appendChild(btn);
+            box.appendChild(row);
+        });
+    }
+
+    /* ======================================================================
+     * 14. 业务动作
+     * ==================================================================== */
+    async function selectPersona(id) {
+        await flushSave();
+        State.personaId = id;
+        const p = PersonaService.current();
+        State.memory = await MemoryService.load(id);
+        State.snapshots = await SnapshotService.load(id);
+        fillEditor(p);
+        renderPersonaList();
+        renderMemoryMeta();
+        renderSnapshots();
+        await PrefsService.saveLast();
+    }
+
+    const scheduleSave = Utils.debounce(async function () {
+        const p = PersonaService.current();
+        if (!p) return;
+        p.name = Utils.$('#nameInput').value;
+        p.role = Utils.$('#roleInput').value;
+        p.summary = Utils.$('#summaryInput').value;
+        p.detail = Utils.$('#detailInput').value;
+        await PersonaService.save(p);
+        UI.setSaved('已保存 ' + Utils.fmtTime(Date.now()).slice(11));
+        renderPersonaList();
+        Utils.$('#editorTitle').textContent = p.name || '（未命名）';
+        Utils.$('#topMeta').textContent = '当前：' + (p.name || '（未命名）') +
+            (p.role ? ' · ' + p.role : '');
+    }, 900);
+
+    async function flushSave() {
+        scheduleSave.cancel();
+        const p = PersonaService.current();
+        if (!p) return;
+        p.name = Utils.$('#nameInput').value;
+        p.role = Utils.$('#roleInput').value;
+        p.summary = Utils.$('#summaryInput').value;
+        p.detail = Utils.$('#detailInput').value;
+        await PersonaService.save(p);
+        renderPersonaList();
+    }
+
+    function readEditorInto(p) {
+        p.name = Utils.$('#nameInput').value;
+        p.role = Utils.$('#roleInput').value;
+        p.summary = Utils.$('#summaryInput').value;
+        p.detail = Utils.$('#detailInput').value;
+    }
+
+    async function newPersona() {
+        await flushSave();
+        const p = await PersonaService.create();
+        await selectPersona(p.id);
+        Utils.$('#nameInput').focus();
+        Utils.$('#nameInput').select();
+        UI.toast('已新建人设');
+    }
+
+    async function deletePersona() {
+        const p = PersonaService.current();
+        if (!p) return;
+        const ok = window.confirm('确定删除人设「' + (p.name || '未命名') + '」？其记忆与快照也会一并删除，无法恢复。');
+        if (!ok) return;
+        await PersonaService.remove(p.id);
+        State.personaId = State.personas.length ? State.personas[0].id : null;
+        if (State.personaId) await selectPersona(State.personaId);
+        else {
+            State.memory = null;
+            State.snapshots = [];
+            fillEditor(null);
+            renderPersonaList();
+            renderMemoryMeta();
+            renderSnapshots();
+        }
+        UI.toast('已删除');
+    }
+
+    async function saveSnapshotManual() {
+        await flushSave();
+        const p = PersonaService.current();
+        if (!p) return;
+        await SnapshotService.capture(p, 'manual');
+        State.snapshots = await SnapshotService.load(p.id);
+        renderSnapshots();
+        UI.toast('已保存快照');
+    }
+
+    async function restoreSnapshot(snap) {
+        const p = PersonaService.current();
+        if (!p) return;
+        const ok = window.confirm('恢复到这个版本？当前内容会先存为新快照，不会丢失。');
+        if (!ok) return;
+        await flushSave();
+        await SnapshotService.capture(p, 'manual');   // 先保存当前
+        p.name = snap.persona.name;
+        p.role = snap.persona.role;
+        p.summary = snap.persona.summary;
+        p.detail = snap.persona.detail;
+        await PersonaService.save(p);
+        State.snapshots = await SnapshotService.load(p.id);
+        fillEditor(p);
+        renderPersonaList();
+        renderSnapshots();
+        UI.closeModal('historyModal');
+        UI.toast('已恢复到 ' + Utils.fmtTime(snap.createdAt));
+    }
+
+    function currentPrompt() {
+        const p = PersonaService.current();
+        if (!p) return null;
+        readEditorInto(p);
+        const n = State.prefs.ai.memTurns || 10;
+        const recent = MemoryService.recent(State.memory, n);
+        const request = Utils.$('#requestInput').value;
+        return {
+            text: PromptService.build(p, recent.text, recent.count, request),
+            hasMemory: !!recent.text,
+            hasRequest: !!String(request || '').trim()
+        };
+    }
+
+    async function copyPrompt() {
+        const built = currentPrompt();
+        if (!built) { UI.toast('请先选择人设', true); return; }
+        if (!built.hasMemory && !built.hasRequest) {
+            UI.toast('记忆与修改要求都为空，至少填一个', true);
+            return;
+        }
+        const ok = await Utils.copyText(built.text);
+        UI.toast(ok ? '提示词已复制' : '复制失败，请手动选择', !ok);
+    }
+
+    function previewPrompt() {
+        const built = currentPrompt();
+        if (!built) { UI.toast('请先选择人设', true); return; }
+        Utils.$('#promptPreview').textContent = built.text;
+        UI.openModal('previewModal');
+    }
+
+    let aiController = null;
+
+    async function sendToAI() {
+        const built = currentPrompt();
+        if (!built) { UI.toast('请先选择人设', true); return; }
+        if (!built.hasMemory && !built.hasRequest) {
+            UI.toast('记忆与修改要求都为空，至少填一个', true);
+            return;
+        }
+        const cfg = AIClient.config();
+        const isLocal = /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(cfg.baseUrl);
+        if (!cfg.apiKey && !isLocal) {
+            UI.toast('尚未配置 API Key，请先在「设置」里填写', true);
+            UI.openModal('settingsModal');
+            return;
+        }
+
+        const out = Utils.$('#resultInput');
+        out.value = '';
+        Utils.$('#sendAiBtn').disabled = true;
+        Utils.$('#stopAiBtn').disabled = false;
+        UI.setSaved('正在请求 AI…');
+        aiController = new AbortController();
+
+        try {
+            for await (const chunk of AIClient.stream(built.text, aiController.signal)) {
+                out.value += chunk;
+                out.scrollTop = out.scrollHeight;
+            }
+            UI.setSaved('AI 返回完成');
+            UI.toast('已收到 AI 结果，确认后点「应用」');
+        } catch (e) {
+            if (e && e.name === 'AbortError') {
+                UI.setSaved('已停止');
+                UI.toast('已停止');
+            } else {
+                UI.setSaved('请求失败');
+                UI.toast(e && e.message ? e.message : '请求失败', true);
+            }
+        } finally {
+            aiController = null;
+            Utils.$('#sendAiBtn').disabled = false;
+            Utils.$('#stopAiBtn').disabled = true;
+        }
+    }
+
+    function stopAI() {
+        if (aiController) aiController.abort();
+    }
+
+    async function applyResult(appendMode) {
+        const p = PersonaService.current();
+        if (!p) { UI.toast('请先选择人设', true); return; }
+        const text = Utils.$('#resultInput').value.trim();
+        if (!text) { UI.toast('AI 结果区为空', true); return; }
+
+        await flushSave();
+        await SnapshotService.capture(p, appendMode ? 'ai-append' : 'ai-apply');
+
+        if (appendMode) {
+            p.detail = (p.detail ? p.detail.replace(/\s+$/, '') + '\n\n' : '') + text;
+        } else {
+            const parsed = ResultParser.parse(text);
+            if (parsed.parsed) {
+                if (parsed.name) p.name = parsed.name;
+                if (parsed.role) p.role = parsed.role;
+                if (parsed.summary) p.summary = parsed.summary;
+                if (parsed.detail) p.detail = parsed.detail;
+            } else {
+                // 没识别出四段，整段放进详述
+                p.detail = text;
+                UI.toast('未识别出「姓名/身份/…」格式，已整段写入详述');
+            }
+        }
+        await PersonaService.save(p);
+        State.snapshots = await SnapshotService.load(p.id);
+        fillEditor(p);
+        renderPersonaList();
+        renderSnapshots();
+        Utils.$('#resultInput').value = '';
+        UI.setSaved('已应用');
+
+        // 询问是否清空已总结的记忆
+        if (State.memory && State.memory.turns.length) {
+            const clear = window.confirm('这段记忆已总结进人设，是否清空？\n\n选「取消」则保留，下次发送会重复带上。');
+            if (clear) {
+                await MemoryService.clear(p.id);
+                State.memory = null;
+                renderMemoryMeta();
+                UI.toast('已应用并清空记忆');
+                return;
+            }
+        }
+        UI.toast('已应用');
+    }
+
+    /* ======================================================================
+     * 15. 记忆导入
+     * ==================================================================== */
+    async function importMemory() {
+        const p = PersonaService.current();
+        if (!p) { UI.toast('请先选择人设', true); return; }
+        const raw = Utils.$('#memoryInput').value;
+        if (!String(raw || '').trim()) { UI.toast('请先粘贴内容', true); return; }
+        const parsed = MemoryService.parse(raw);
+        if (!parsed.turns.length) { UI.toast('没有解析出任何内容', true); return; }
+
+        const mem = MemoryService.empty(p.id);
+        mem.raw = raw;
+        mem.turns = parsed.turns;
+        await MemoryService.save(mem);
+        Utils.$('#memoryInput').value = '';
+        renderMemoryMeta();
+        UI.toast('已导入 ' + parsed.turns.length + ' 条（' +
+            (parsed.kind === 'json' ? 'JSON' : '纯文本') + '）');
+    }
+
+    async function clearMemory() {
+        const p = PersonaService.current();
+        if (!p) return;
+        if (!State.memory) { UI.toast('当前没有记忆'); return; }
+        const ok = window.confirm('清空当前人设的全部记忆？');
+        if (!ok) return;
+        await MemoryService.clear(p.id);
+        State.memory = null;
+        renderMemoryMeta();
+        UI.toast('已清空记忆');
+    }
+
+    /* ======================================================================
+     * 16. 设置
+     * ==================================================================== */
+    function syncSettingsForm() {
+        const ai = State.prefs.ai;
+        Utils.$('#protocolSel').value = ai.protocol || 'openai';
+        Utils.$('#baseUrlInput').value = ai.baseUrl || '';
+        Utils.$('#modelInput').value = ai.model || '';
+        Utils.$('#apiKeyInput').value = ai.rememberKey ? (ai.apiKey || '') : (State.sessionApiKey || '');
+        Utils.$('#rememberKeyChk').checked = !!ai.rememberKey;
+        Utils.$('#tempInput').value = typeof ai.temperature === 'number' ? ai.temperature : 0.7;
+        Utils.$('#memTurnsInput').value = ai.memTurns || 10;
+    }
+
+    async function saveSettings() {
+        const ai = State.prefs.ai;
+        ai.protocol = Utils.$('#protocolSel').value;
+        ai.baseUrl = Utils.$('#baseUrlInput').value.trim();
+        ai.model = Utils.$('#modelInput').value.trim();
+        ai.rememberKey = Utils.$('#rememberKeyChk').checked;
+        const key = Utils.$('#apiKeyInput').value;
+        if (ai.rememberKey) { ai.apiKey = key; State.sessionApiKey = ''; }
+        else { ai.apiKey = ''; State.sessionApiKey = key; }
+        const t = parseFloat(Utils.$('#tempInput').value);
+        ai.temperature = isNaN(t) ? 0.7 : Math.min(2, Math.max(0, t));
+        const n = parseInt(Utils.$('#memTurnsInput').value, 10);
+        ai.memTurns = isNaN(n) ? 10 : Math.min(50, Math.max(1, n));
+        await PrefsService.saveAI();
+        renderMemoryMeta();
+        UI.closeModal('settingsModal');
+        UI.toast('设置已保存');
+    }
+
+    /* ======================================================================
+     * 17. 事件绑定
+     * ==================================================================== */
+    function bindEvents() {
+        Utils.$('#newPersonaBtn').addEventListener('click', newPersona);
+        Utils.$('#deletePersonaBtn').addEventListener('click', deletePersona);
+        Utils.$('#saveSnapBtn').addEventListener('click', saveSnapshotManual);
+
+        ['#nameInput', '#roleInput', '#summaryInput', '#detailInput'].forEach(function (sel) {
+            Utils.$(sel).addEventListener('input', function () {
+                UI.setSaved('未保存…');
+                scheduleSave();
+                updateCounts();
+            });
+        });
+
+        Utils.$('#memoryBtn').addEventListener('click', function () {
+            if (!State.personaId) { UI.toast('请先选择人设', true); return; }
+            renderMemoryMeta();
+            UI.openModal('memoryModal');
+        });
+        Utils.$('#importMemoryBtn').addEventListener('click', importMemory);
+        Utils.$('#clearMemoryBtn').addEventListener('click', clearMemory);
+
+        Utils.$('#historyBtn').addEventListener('click', function () {
+            if (!State.personaId) { UI.toast('请先选择人设', true); return; }
+            renderSnapshots();
+            UI.openModal('historyModal');
+        });
+
+        Utils.$('#previewBtn').addEventListener('click', previewPrompt);
+        Utils.$('#copyPromptBtn').addEventListener('click', copyPrompt);
+        Utils.$('#sendAiBtn').addEventListener('click', sendToAI);
+        Utils.$('#stopAiBtn').addEventListener('click', stopAI);
+        Utils.$('#previewCopyBtn').addEventListener('click', async function () {
+            const ok = await Utils.copyText(Utils.$('#promptPreview').textContent);
+            UI.toast(ok ? '已复制' : '复制失败', !ok);
+        });
+
+        Utils.$('#applyBtn').addEventListener('click', function () { applyResult(false); });
+        Utils.$('#appendBtn').addEventListener('click', function () { applyResult(true); });
+        Utils.$('#clearResultBtn').addEventListener('click', function () {
+            Utils.$('#resultInput').value = '';
+        });
+        Utils.$('#pasteResultBtn').addEventListener('click', async function () {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) { Utils.$('#resultInput').value = text; UI.toast('已粘贴'); }
+            } catch (e) {
+                UI.toast('读取剪贴板失败，请手动粘贴', true);
+            }
+        });
+
+        Utils.$('#settingsBtn').addEventListener('click', function () {
+            syncSettingsForm();
+            UI.openModal('settingsModal');
+        });
+        Utils.$('#saveSettingsBtn').addEventListener('click', saveSettings);
+        Utils.$('#brandBtn').addEventListener('click', function () { UI.openModal('aboutModal'); });
+        Utils.$('#aboutBtn').addEventListener('click', function () { UI.openModal('aboutModal'); });
+
+        // 关闭按钮
+        Utils.$$('[data-close]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                UI.closeModal(btn.getAttribute('data-close'));
+            });
+        });
+        Utils.$$('.modal').forEach(function (m) {
+            m.addEventListener('mousedown', function (ev) {
+                if (ev.target === m) UI.closeModal(m.id);
+            });
+        });
+        document.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Escape' && UI._modalStack.length) {
+                UI.closeModal(UI._modalStack[UI._modalStack.length - 1]);
+            }
+            if ((ev.ctrlKey || ev.metaKey) && ev.key === 's') {
+                ev.preventDefault();
+                flushSave().then(function () { UI.toast('已保存'); });
+            }
+        });
+
+        window.addEventListener('beforeunload', function (ev) {
+            const p = PersonaService.current();
+            if (!p) return;
+            const changed = p.name !== Utils.$('#nameInput').value ||
+                p.role !== Utils.$('#roleInput').value ||
+                p.summary !== Utils.$('#summaryInput').value ||
+                p.detail !== Utils.$('#detailInput').value;
+            if (changed) { ev.preventDefault(); ev.returnValue = ''; }
+        });
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden') flushSave();
+        });
+    }
+
+    /* ======================================================================
+     * 18. 启动
+     * ==================================================================== */
+    async function boot() {
+        await Storage.init();
+        await PrefsService.load();
+        await PersonaService.loadAll();
+
+        const last = await Storage.get('prefs', 'last');
+        let pick = last && last.value && last.value.personaId
+            ? State.personas.filter(function (p) { return p.id === last.value.personaId; })[0]
+            : null;
+        if (!pick && State.personas.length) pick = State.personas[0];
+
+        bindEvents();
+
+        if (!State.personas.length) {
+            const p = await PersonaService.create();
+            pick = p;
+        }
+        await selectPersona(pick.id);
+
+        let firstRun = false;
+        try { firstRun = !localStorage.getItem(LS_FIRST_RUN); } catch (e) { firstRun = true; }
+        if (firstRun) {
+            UI.openModal('aboutModal');
+            try { localStorage.setItem(LS_FIRST_RUN, '1'); } catch (e) { /* 忽略 */ }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', boot);
+    window.addEventListener('error', function (ev) {
+        console.error('[Persona] 未捕获错误', ev.error || ev.message);
+    });
+})();
+</script>
+</body>
+</html>
