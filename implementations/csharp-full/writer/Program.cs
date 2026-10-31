@@ -1,7 +1,7 @@
 // Writer 全功能版（C# / WinForms）
 //
-// 版本：A1_I_Φ3_CSharp_CN
-// 对应 HTML 版：projects/writer/code/A1_I_Φ3/deepseek_A1_I_Φ3_CN.html
+// 版本：A1_I_Φ5_CSharp_CN
+// 对应 HTML 版：projects/writer/code/A1_I_Φ5/deepseek_A1_I_Φ5_CN.html
 //
 // 图形界面版：左侧章节树、中间正文编辑、右侧资料与提示词、字数统计、自动保存。
 //
@@ -128,7 +128,9 @@ internal sealed class MainForm : Form
         addEntBtn.Click += (_, _) => AddEntity();
         var promptBtn = new Button { Text = "生成提示词", AutoSize = true };
         promptBtn.Click += (_, _) => BuildPrompt();
-        entBtns.Controls.AddRange(new Control[] { addEntBtn, promptBtn });
+        var povBtn = new Button { Text = "人称转换", AutoSize = true };
+        povBtn.Click += (_, _) => BuildPovDialog();
+        entBtns.Controls.AddRange(new Control[] { addEntBtn, promptBtn, povBtn });
         entPanel.Controls.Add(_prompt);
         entPanel.Controls.Add(_ents);
         entPanel.Controls.Add(entBtns);
@@ -322,6 +324,75 @@ internal sealed class MainForm : Form
             ? string.Join("\n", ents.Select(e => $"- {e.Name}（{e.Kind}）：{e.Description}"))
             : "（未填写）";
         _prompt.Text = $"你是一位与作者合写的小说作者。请续写下一段情节。\n\n【设定】\n{chars}\n\n【上一章结尾】\n{prev}\n\n【本章已有正文】\n{(string.IsNullOrEmpty(ch.Text) ? "（当前章为空）" : ch.Text)}";
+    }
+
+    // 人称转换的目标人称。key 与 HTML 版 A1_I_Φ5_CN 的 #povTarget option
+    // value 一一对应。
+    private static readonly (string Key, string Label)[] PovTargets =
+    {
+        ("first", "第一人称（我）"),
+        ("second", "第二人称（你）"),
+        ("third", "第三人称（他 / 她 / 它）"),
+    };
+
+    // 合成「人称转换」提示词，与 HTML 版 A1_I_Φ5_CN 的 pov 模板一致。
+    private static string BuildPovPrompt(string body, string chars, string target, bool keepInner)
+    {
+        var inner = keepInner
+            ? "保留：原视角的内心活动改写为目标视角可知的部分（用表情、动作、语气或外部观察替代直接叙述他人内心）"
+            : "不保留：删去目标视角无法感知的心理描写，只保留外在可见的行为与对白";
+        return string.Join("\n", new[]
+        {
+            $"你是一位精通叙述视角的小说编辑。请把下面的正文转换为【{target}】，情节、人物、场景与对白内容一律不变，只换叙述人称与视角。",
+            "",
+            $"【目标人称】{target}",
+            "",
+            $"【心理描写处理】{inner}",
+            "",
+            "【相关设定】",
+            chars,
+            "",
+            "【需要转换的正文】",
+            body,
+            "",
+            "【转换规则】",
+            "1) 只改人称代词与由此引起的视角变化，不增删情节、不改变人物性格与说话方式；",
+            "2) 第一人称：叙述者用「我」，只能写出「我」能感知到的内容（看到、听到、想到），不能直接叙述旁人心里在想什么；",
+            "3) 第二人称：叙述者用「你」，把读者带入场景，动作与感受都落在「你」身上；",
+            "4) 第三人称：叙述者用「他 / 她 / 它」或人物姓名，人物之间用姓名或称谓区分，避免代词指向不明；",
+            "5) 时间线、场景顺序、对白内容保持原样，对白中人物自称按其在故事中的实际人称调整；",
+            "6) 转换后通读一遍，确保没有残留的原人称代词、没有视角越界、没有半途切换人称。",
+            "",
+            "【输出要求】直接输出转换后的完整正文，不要加解释、不要加标题、不要用「以下是」之类的开场白，便于直接替换当前章。",
+        });
+    }
+
+    // 人称转换：先用对话框问目标人称与是否保留心理描写，再生成提示词。
+    private void BuildPovDialog()
+    {
+        if (_selChapter is null) { MessageBox.Show("请先选择章节"); return; }
+        using var f = new Form { Text = "人称转换", Width = 420, Height = 220, StartPosition = FormStartPosition.CenterParent };
+        var lbl = new Label { Text = "目标人称：", Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 10, 0, 0) };
+        var combo = new ComboBox { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDownList };
+        foreach (var (key, label) in PovTargets) combo.Items.Add($"{key} · {label}");
+        combo.SelectedIndex = 2;
+        var chk = new CheckBox { Text = "保留心理描写", Dock = DockStyle.Top, Checked = true, Padding = new Padding(10, 4, 0, 0) };
+        var ok = new Button { Text = "生成", Dock = DockStyle.Bottom, DialogResult = DialogResult.OK };
+        f.Controls.Add(combo);
+        f.Controls.Add(chk);
+        f.Controls.Add(ok);
+        f.Controls.Add(lbl);
+        f.AcceptButton = ok;
+        if (f.ShowDialog() != DialogResult.OK) return;
+
+        var ch = _lib.Chapters.First(c => c.Id == _selChapter);
+        var ents = _lib.Entities.Where(e => e.BookId == ch.BookId).ToList();
+        var chars = ents.Count > 0
+            ? string.Join("\n", ents.Select(e => $"- {e.Name}（{e.Kind}）：{e.Description}"))
+            : "（未填写）";
+        var body = string.IsNullOrEmpty(ch.Text) ? "（当前章为空）" : ch.Text;
+        var target = PovTargets[Math.Max(0, combo.SelectedIndex)].Label;
+        _prompt.Text = BuildPovPrompt(body, chars, target, chk.Checked);
     }
 
     private string? Prompt(string title, string label)

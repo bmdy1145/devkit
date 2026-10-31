@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """Writer 全功能版（Python / tkinter）
 
-版本：A1_I_Φ3_Python_CN
-对应 HTML 版：projects/writer/code/A1_I_Φ3/deepseek_A1_I_Φ3_CN.html
+版本：A1_I_Φ5_Python_CN
+对应 HTML 版：projects/writer/code/A1_I_Φ5/deepseek_A1_I_Φ5_CN.html
 
 图形界面版：左侧章节树（书/卷/章）、中间正文编辑、右侧资料库与提示词预览、
 字数统计、自动保存，与浏览器版的左侧单列四页签形态对应。
@@ -20,6 +20,55 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 COUNTER = [0]
+
+# 人称转换的目标人称。key 与 HTML 版 A1_I_Φ5_CN 的 #povTarget option
+# value 一一对应。
+POV_TARGETS = {
+    "first": "第一人称（我）",
+    "second": "第二人称（你）",
+    "third": "第三人称（他 / 她 / 它）",
+}
+
+
+def build_pov_prompt(body, chars, target, keep_inner):
+    """合成「人称转换」提示词，与 HTML 版 A1_I_Φ5_CN 的 pov 模板一致。"""
+    inner = (
+        "保留：原视角的内心活动改写为目标视角可知的部分"
+        "（用表情、动作、语气或外部观察替代直接叙述他人内心）"
+        if keep_inner
+        else "不保留：删去目标视角无法感知的心理描写，只保留外在可见的行为与对白"
+    )
+    return "\n".join([
+        f"你是一位精通叙述视角的小说编辑。请把下面的正文转换为【{target}】，"
+        "情节、人物、场景与对白内容一律不变，只换叙述人称与视角。",
+        "",
+        "【目标人称】" + target,
+        "",
+        "【心理描写处理】" + inner,
+        "",
+        "【相关设定】",
+        chars,
+        "",
+        "【需要转换的正文】",
+        body,
+        "",
+        "【转换规则】",
+        "1) 只改人称代词与由此引起的视角变化，不增删情节、"
+        "不改变人物性格与说话方式；",
+        "2) 第一人称：叙述者用「我」，只能写出「我」能感知到的内容"
+        "（看到、听到、想到），不能直接叙述旁人心里在想什么；",
+        "3) 第二人称：叙述者用「你」，把读者带入场景，"
+        "动作与感受都落在「你」身上；",
+        "4) 第三人称：叙述者用「他 / 她 / 它」或人物姓名，"
+        "人物之间用姓名或称谓区分，避免代词指向不明；",
+        "5) 时间线、场景顺序、对白内容保持原样，"
+        "对白中人物自称按其在故事中的实际人称调整；",
+        "6) 转换后通读一遍，确保没有残留的原人称代词、"
+        "没有视角越界、没有半途切换人称。",
+        "",
+        "【输出要求】直接输出转换后的完整正文，不要加解释、不要加标题、"
+        "不要用「以下是」之类的开场白，便于直接替换当前章。",
+    ])
 
 
 def gen_id(prefix):
@@ -143,6 +192,16 @@ class WriterApp:
         promptFrame = ttk.Frame(right)
         right.add(promptFrame, text="提示词")
         ttk.Button(promptFrame, text="生成续写提示词", command=self.gen_prompt).pack(anchor="w", padx=4, pady=4)
+        povRow = ttk.Frame(promptFrame)
+        povRow.pack(fill="x", padx=4, pady=2)
+        ttk.Label(povRow, text="目标人称").pack(side="left")
+        self.povVar = tk.StringVar(value="third")
+        ttk.Combobox(povRow, textvariable=self.povVar, width=20, state="readonly",
+                     values=["first", "second", "third"]).pack(side="left", padx=4)
+        self.povInnerVar = tk.BooleanVar(value=True)
+        ttk.Checkbutton(povRow, text="保留心理描写",
+                        variable=self.povInnerVar).pack(side="left")
+        ttk.Button(povRow, text="人称转换", command=self.gen_pov).pack(side="left", padx=4)
         self.promptText = tk.Text(promptFrame, height=20, wrap="word")
         self.promptText.pack(fill="both", expand=True, padx=4, pady=4)
 
@@ -323,6 +382,24 @@ class WriterApp:
         body = ch.get("text") or "（当前章为空）"
         prompt = (f"你是一位与作者合写的小说作者。请续写下一段情节。\n\n"
                   f"【设定】\n{chars}\n\n【上一章结尾】\n{prev}\n\n【本章已有正文】\n{body}")
+        self.promptText.delete("1.0", "end")
+        self.promptText.insert("1.0", prompt)
+
+
+    def gen_pov(self):
+        """人称转换：与 core 版 pov 子命令输出同一套提示词。"""
+        if not self.chapterId:
+            messagebox.showinfo("提示", "请先选择一个章节")
+            return
+        ch = next((c for c in self.lib["chapters"] if c["id"] == self.chapterId), None)
+        if not ch:
+            return
+        ents = [e for e in self.lib["entities"] if e["book_id"] == self.bookId]
+        chars = "\n".join(f"- {e['name']}（{e.get('kind', '')}）：{e.get('description', '')}"
+                          for e in ents) or "（未填写）"
+        body = ch.get("text") or "（当前章为空）"
+        target = POV_TARGETS.get(self.povVar.get(), POV_TARGETS["third"])
+        prompt = build_pov_prompt(body, chars, target, self.povInnerVar.get())
         self.promptText.delete("1.0", "end")
         self.promptText.insert("1.0", prompt)
 

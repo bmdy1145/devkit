@@ -1,7 +1,7 @@
 // Writer 内核版（C# / .NET 8）
 //
-// 版本：A1_I_Φ3_CSharp_CN
-// 对应 HTML 版：projects/writer/code/A1_I_Φ3/deepseek_A1_I_Φ3_CN.html
+// 版本：A1_I_Φ5_CSharp_CN
+// 对应 HTML 版：projects/writer/code/A1_I_Φ5/deepseek_A1_I_Φ5_CN.html
 //
 // 只实现纯逻辑内核：书籍 / 卷 / 章节结构、字数统计、章节排序、
 // 跨卷移动、引用管理、提示词模板合成。
@@ -160,7 +160,50 @@ internal static class Program
         Console.WriteLine("  move-chapter <章节ID> <目标卷ID>");
         Console.WriteLine("  add-entity <书籍ID> <名称> [类型] [描述]");
         Console.WriteLine("  prompt <书籍ID> <章节ID>");
+        Console.WriteLine("  pov <书籍ID> <章节ID> [--target first|second|third] [--no-inner]");
         Console.WriteLine("  reindex <书籍ID>");
+    }
+
+    // 人称转换的目标人称。key 与 --target 取值、HTML 版 A1_I_Φ5_CN 的
+    // #povTarget option value 一一对应。
+    private static readonly Dictionary<string, string> PovTargets = new()
+    {
+        ["first"] = "第一人称（我）",
+        ["second"] = "第二人称（你）",
+        ["third"] = "第三人称（他 / 她 / 它）",
+    };
+
+    // 合成「人称转换」提示词，与 HTML 版 A1_I_Φ5_CN 的 pov 模板一致。
+    private static string BuildPovPrompt(string body, string chars, string target, bool keepInner)
+    {
+        var inner = keepInner
+            ? "保留：原视角的内心活动改写为目标视角可知的部分（用表情、动作、语气或外部观察替代直接叙述他人内心）"
+            : "不保留：删去目标视角无法感知的心理描写，只保留外在可见的行为与对白";
+        var lines = new[]
+        {
+            $"你是一位精通叙述视角的小说编辑。请把下面的正文转换为【{target}】，情节、人物、场景与对白内容一律不变，只换叙述人称与视角。",
+            "",
+            $"【目标人称】{target}",
+            "",
+            $"【心理描写处理】{inner}",
+            "",
+            "【相关设定】",
+            chars,
+            "",
+            "【需要转换的正文】",
+            body,
+            "",
+            "【转换规则】",
+            "1) 只改人称代词与由此引起的视角变化，不增删情节、不改变人物性格与说话方式；",
+            "2) 第一人称：叙述者用「我」，只能写出「我」能感知到的内容（看到、听到、想到），不能直接叙述旁人心里在想什么；",
+            "3) 第二人称：叙述者用「你」，把读者带入场景，动作与感受都落在「你」身上；",
+            "4) 第三人称：叙述者用「他 / 她 / 它」或人物姓名，人物之间用姓名或称谓区分，避免代词指向不明；",
+            "5) 时间线、场景顺序、对白内容保持原样，对白中人物自称按其在故事中的实际人称调整；",
+            "6) 转换后通读一遍，确保没有残留的原人称代词、没有视角越界、没有半途切换人称。",
+            "",
+            "【输出要求】直接输出转换后的完整正文，不要加解释、不要加标题、不要用「以下是」之类的开场白，便于直接替换当前章。",
+        };
+        return string.Join("\n", lines);
     }
 
     private static int Main(string[] args)
@@ -288,6 +331,38 @@ internal static class Program
                     Console.WriteLine();
                     Console.WriteLine("【本章已有正文】");
                     Console.WriteLine(string.IsNullOrEmpty(ch.Text) ? "（当前章为空）" : ch.Text);
+                }
+                break;
+
+            case "pov":
+                if (rest.Length < 2) { Console.Error.WriteLine("缺少参数"); return 1; }
+                {
+                    var targetKey = "third";
+                    var keepInner = true;
+                    for (var i = 2; i < rest.Length; i++)
+                    {
+                        if (rest[i] == "--target")
+                        {
+                            if (i + 1 >= rest.Length) { Console.Error.WriteLine("--target 缺少取值"); return 1; }
+                            targetKey = rest[i + 1];
+                            i++;
+                        }
+                        else if (rest[i] == "--no-inner") { keepInner = false; }
+                        else { Console.Error.WriteLine($"无法识别的参数: {rest[i]}"); return 1; }
+                    }
+                    if (!PovTargets.TryGetValue(targetKey, out var target))
+                    {
+                        Console.Error.WriteLine($"目标人称无效：{targetKey}（可选 first / second / third）");
+                        return 1;
+                    }
+                    var ch = lib.Chapters.FirstOrDefault(c => c.Id == rest[1]);
+                    if (ch is null) { Console.Error.WriteLine("找不到章节"); return 1; }
+                    var ents = lib.Entities.Where(e => e.BookId == rest[0]).ToList();
+                    var chars = ents.Count > 0
+                        ? string.Join("\n", ents.Select(e => $"- {e.Name}（{e.Kind}）：{e.Description}"))
+                        : "（未填写）";
+                    var body = string.IsNullOrEmpty(ch.Text) ? "（当前章为空）" : ch.Text;
+                    Console.WriteLine(BuildPovPrompt(body, chars, target, keepInner));
                 }
                 break;
 

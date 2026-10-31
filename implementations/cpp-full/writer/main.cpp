@@ -1,7 +1,7 @@
 // Writer 全功能版（C++ / Win32 API）
 //
-// 版本：A1_I_Φ3_Cpp_CN
-// 对应 HTML 版：projects/writer/code/A1_I_Φ3/deepseek_A1_I_Φ3_CN.html
+// 版本：A1_I_Φ5_Cpp_CN
+// 对应 HTML 版：projects/writer/code/A1_I_Φ5/deepseek_A1_I_Φ5_CN.html
 //
 // 图形界面版：左侧章节树、正文编辑、资料与提示词、字数统计。
 // 纯 Win32 API，无第三方依赖。
@@ -42,6 +42,9 @@
 #define ID_DELCH    3010
 #define ID_ADDENT   3011
 #define ID_GENPROMPT 3012
+#define ID_POVSEL   3013
+#define ID_POVINNER 3014
+#define ID_GENPOV   3015
 
 struct Chapter { std::wstring id, bookId, volumeId, title, text; int order = 0; long long wc = 0; };
 struct Volume { std::wstring id, bookId, title; int order = 0; };
@@ -52,6 +55,7 @@ static std::vector<Chapter> g_chs;
 static std::vector<Entity> g_ents;
 static std::wstring g_bookId, g_path, g_selId;
 static HWND g_tree, g_title, g_body, g_entList, g_prompt, g_status;
+static HWND g_povSel, g_povInner;
 static long long g_ctr = 0;
 
 static long long nowTs() {
@@ -303,6 +307,60 @@ static void doAddCh() {
     saveLib();
 }
 
+// 人称转换的目标人称。索引与下拉框顺序、HTML 版 A1_I_Φ5_CN 的
+// #povTarget option 顺序一一对应。
+static const wchar_t* POV_TARGETS[] = {
+    L"第一人称（我）", L"第二人称（你）", L"第三人称（他 / 她 / 它）"
+};
+
+// 合成「人称转换」提示词，与 HTML 版 A1_I_Φ5_CN 的 pov 模板一致。
+// Win32 的 EDIT 用 \r\n 换行，与 doGenPrompt 保持一致。
+static std::wstring buildPovPrompt(const std::wstring& body, const std::wstring& chars,
+                                   const std::wstring& target, bool keepInner) {
+    std::wstring inner = keepInner
+        ? L"保留：原视角的内心活动改写为目标视角可知的部分"
+          L"（用表情、动作、语气或外部观察替代直接叙述他人内心）"
+        : L"不保留：删去目标视角无法感知的心理描写，只保留外在可见的行为与对白";
+    std::wostringstream o;
+    o << L"你是一位精通叙述视角的小说编辑。请把下面的正文转换为【" << target
+      << L"】，情节、人物、场景与对白内容一律不变，只换叙述人称与视角。\r\n\r\n"
+      << L"【目标人称】" << target << L"\r\n\r\n"
+      << L"【心理描写处理】" << inner << L"\r\n\r\n"
+      << L"【相关设定】\r\n" << chars << L"\r\n\r\n"
+      << L"【需要转换的正文】\r\n" << body << L"\r\n\r\n"
+      << L"【转换规则】\r\n"
+      << L"1) 只改人称代词与由此引起的视角变化，不增删情节、不改变人物性格与说话方式；\r\n"
+      << L"2) 第一人称：叙述者用「我」，只能写出「我」能感知到的内容"
+         L"（看到、听到、想到），不能直接叙述旁人心里在想什么；\r\n"
+      << L"3) 第二人称：叙述者用「你」，把读者带入场景，动作与感受都落在「你」身上；\r\n"
+      << L"4) 第三人称：叙述者用「他 / 她 / 它」或人物姓名，"
+         L"人物之间用姓名或称谓区分，避免代词指向不明；\r\n"
+      << L"5) 时间线、场景顺序、对白内容保持原样，"
+         L"对白中人物自称按其在故事中的实际人称调整；\r\n"
+      << L"6) 转换后通读一遍，确保没有残留的原人称代词、"
+         L"没有视角越界、没有半途切换人称。\r\n\r\n"
+      << L"【输出要求】直接输出转换后的完整正文，不要加解释、不要加标题、"
+         L"不要用「以下是」之类的开场白，便于直接替换当前章。";
+    return o.str();
+}
+
+static void doGenPov() {
+    if (g_selId.empty()) { SetWindowTextW(g_status, L"请先选择章节"); return; }
+    Chapter* ch = findChapter(g_selId);
+    if (!ch) return;
+    std::wstring chars;
+    for (auto& e : g_ents)
+        if (e.bookId == ch->bookId)
+            chars += L"- " + e.name + L"（" + e.kind + L"）：" + e.desc + L"\r\n";
+    if (chars.empty()) chars = L"（未填写）";
+    std::wstring body = ch->text.empty() ? L"（当前章为空）" : ch->text;
+    int idx = (int)SendMessageW(g_povSel, CB_GETCURSEL, 0, 0);
+    if (idx < 0 || idx > 2) idx = 2;
+    bool keepInner = SendMessageW(g_povInner, BM_GETCHECK, 0, 0) == BST_CHECKED;
+    SetWindowTextW(g_prompt, buildPovPrompt(body, chars, POV_TARGETS[idx], keepInner).c_str());
+    SetWindowTextW(g_status, L"已生成人称转换提示词");
+}
+
 static void doGenPrompt() {
     if (g_selId.empty()) { SetWindowTextW(g_status, L"请先选择章节"); return; }
     Chapter* ch = findChapter(g_selId);
@@ -355,9 +413,19 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                                  736, y, 240, 180, hwnd, (HMENU)ID_ENTS, NULL, NULL);
         CreateWindowW(L"BUTTON", L"+ 资料", WS_CHILD | WS_VISIBLE, 736, y + 186, 80, 26, hwnd, (HMENU)ID_ADDENT, NULL, NULL);
         CreateWindowW(L"BUTTON", L"生成提示词", WS_CHILD | WS_VISIBLE, 820, y + 186, 110, 26, hwnd, (HMENU)ID_GENPROMPT, NULL, NULL);
+        g_povSel = CreateWindowW(WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+                                 736, y + 218, 240, 120, hwnd, (HMENU)ID_POVSEL, NULL, NULL);
+        for (int i = 0; i < 3; ++i)
+            SendMessageW(g_povSel, CB_ADDSTRING, 0, (LPARAM)POV_TARGETS[i]);
+        SendMessageW(g_povSel, CB_SETCURSEL, 2, 0);
+        g_povInner = CreateWindowW(L"BUTTON", L"保留心理描写",
+                                   WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+                                   736, y + 246, 120, 22, hwnd, (HMENU)ID_POVINNER, NULL, NULL);
+        SendMessageW(g_povInner, BM_SETCHECK, BST_CHECKED, 0);
+        CreateWindowW(L"BUTTON", L"人称转换", WS_CHILD | WS_VISIBLE, 860, y + 246, 116, 22, hwnd, (HMENU)ID_GENPOV, NULL, NULL);
         g_prompt = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
                                    WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
-                                   736, y + 218, 240, 314, hwnd, (HMENU)ID_PROMPT, NULL, NULL);
+                                   736, y + 274, 240, 258, hwnd, (HMENU)ID_PROMPT, NULL, NULL);
         return 0;
     }
     case WM_SIZE: {
@@ -367,7 +435,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             MoveWindow(g_title, 276, 44, w - 540, 26, TRUE);
             MoveWindow(g_body, 276, 76, w - 540, h - 156, TRUE);
             MoveWindow(g_entList, w - 256, 44, 248, 180, TRUE);
-            MoveWindow(g_prompt, w - 256, 258, 248, h - 338, TRUE);
+            MoveWindow(g_prompt, w - 256, 314, 248, h - 394, TRUE);
             MoveWindow(g_status, 184, 14, w - 200, 20, TRUE);
         }
         return 0;
@@ -422,6 +490,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             break;
         }
         case ID_GENPROMPT: doGenPrompt(); break;
+        case ID_GENPOV: doGenPov(); break;
         }
         return 0;
     case WM_DESTROY:

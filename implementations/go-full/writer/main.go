@@ -1,7 +1,7 @@
 // Writer 全功能版（Go / Fyne）
 //
-// 版本：A1_I_Φ3_Go_CN
-// 对应 HTML 版：projects/writer/code/A1_I_Φ3/deepseek_A1_I_Φ3_CN.html
+// 版本：A1_I_Φ5_Go_CN
+// 对应 HTML 版：projects/writer/code/A1_I_Φ5/deepseek_A1_I_Φ5_CN.html
 //
 // 图形界面版：左侧章节树、中间正文编辑、右侧资料与提示词、字数统计。
 //
@@ -76,6 +76,54 @@ func countWords(text string) int64 {
 		}
 	}
 	return total
+}
+
+// 人称转换的目标人称。key 与 HTML 版 A1_I_Φ5_CN 的 #povTarget option
+// value 一一对应。
+var povTargets = []string{"first", "second", "third"}
+var povLabels = map[string]string{
+	"first":  "第一人称（我）",
+	"second": "第二人称（你）",
+	"third":  "第三人称（他 / 她 / 它）",
+}
+
+// 合成「人称转换」提示词，与 HTML 版 A1_I_Φ5_CN 的 pov 模板一致。
+func buildPovPrompt(body, chars, target string, keepInner bool) string {
+	inner := "不保留：删去目标视角无法感知的心理描写，只保留外在可见的行为与对白"
+	if keepInner {
+		inner = "保留：原视角的内心活动改写为目标视角可知的部分" +
+			"（用表情、动作、语气或外部观察替代直接叙述他人内心）"
+	}
+	lines := []string{
+		"你是一位精通叙述视角的小说编辑。请把下面的正文转换为【" + target + "】，" +
+			"情节、人物、场景与对白内容一律不变，只换叙述人称与视角。",
+		"",
+		"【目标人称】" + target,
+		"",
+		"【心理描写处理】" + inner,
+		"",
+		"【相关设定】",
+		chars,
+		"",
+		"【需要转换的正文】",
+		body,
+		"",
+		"【转换规则】",
+		"1) 只改人称代词与由此引起的视角变化，不增删情节、不改变人物性格与说话方式；",
+		"2) 第一人称：叙述者用「我」，只能写出「我」能感知到的内容" +
+			"（看到、听到、想到），不能直接叙述旁人心里在想什么；",
+		"3) 第二人称：叙述者用「你」，把读者带入场景，动作与感受都落在「你」身上；",
+		"4) 第三人称：叙述者用「他 / 她 / 它」或人物姓名，" +
+			"人物之间用姓名或称谓区分，避免代词指向不明；",
+		"5) 时间线、场景顺序、对白内容保持原样，" +
+			"对白中人物自称按其在故事中的实际人称调整；",
+		"6) 转换后通读一遍，确保没有残留的原人称代词、" +
+			"没有视角越界、没有半途切换人称。",
+		"",
+		"【输出要求】直接输出转换后的完整正文，不要加解释、不要加标题、" +
+			"不要用「以下是」之类的开场白，便于直接替换当前章。",
+	}
+	return strings.Join(lines, "\n")
 }
 
 func main() {
@@ -245,6 +293,46 @@ func main() {
 		saveLib()
 	})
 
+	// 人称转换：把取好的正文与设定喂给 buildPovPrompt，选中的人称由下拉框决定
+	povSelect := widget.NewSelect(povTargets, nil)
+	povSelect.SetSelected("third")
+	povInner := widget.NewCheck("保留心理描写", nil)
+	povInner.SetChecked(true)
+	povBtn := widget.NewButton("生成人称转换提示词", func() {
+		if selID == "" {
+			return
+		}
+		var ch *Chapter
+		for i := range lib.Chapters {
+			if lib.Chapters[i].ID == selID {
+				ch = &lib.Chapters[i]
+			}
+		}
+		if ch == nil {
+			return
+		}
+		chars := "（未填写）"
+		var es []string
+		for _, e := range lib.Entities {
+			if e.BookID == ch.BookID {
+				es = append(es, fmt.Sprintf("- %s（%s）：%s", e.Name, e.Kind, e.Description))
+			}
+		}
+		if len(es) > 0 {
+			chars = strings.Join(es, "\n")
+		}
+		body := ch.Text
+		if body == "" {
+			body = "（当前章为空）"
+		}
+		key := povSelect.Selected
+		label, ok := povLabels[key]
+		if !ok {
+			label = povLabels["third"]
+		}
+		promptArea.SetText(buildPovPrompt(body, chars, label, povInner.Checked))
+	})
+
 	promptBtn := widget.NewButton("生成续写提示词", func() {
 		if selID == "" {
 			return
@@ -313,7 +401,8 @@ func main() {
 	right := container.NewBorder(
 		container.NewVBox(widget.NewLabelWithStyle("资料", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), entList,
 			widget.NewSeparator(), entName, entKind, entDesc, addEntBtn,
-			widget.NewSeparator(), promptBtn),
+			widget.NewSeparator(), promptBtn,
+			widget.NewSeparator(), povSelect, povInner, povBtn),
 		nil, nil, nil,
 		container.NewVScroll(promptArea),
 	)

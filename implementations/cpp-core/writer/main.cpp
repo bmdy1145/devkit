@@ -1,7 +1,7 @@
 // Writer 内核版（C++17）
 //
-// 版本：A1_I_Φ3_Cpp_CN
-// 对应 HTML 版：projects/writer/code/A1_I_Φ3/deepseek_A1_I_Φ3_CN.html
+// 版本：A1_I_Φ5_Cpp_CN
+// 对应 HTML 版：projects/writer/code/A1_I_Φ5/deepseek_A1_I_Φ5_CN.html
 //
 // 只实现纯逻辑内核：书籍 / 卷 / 章节结构、字数统计、章节排序、
 // 跨卷移动、引用管理、提示词模板合成。
@@ -180,12 +180,52 @@ static void reorderVolume(Library& lib, const std::string& volId) {
     for (size_t i = 0; i < list.size(); ++i) list[i]->order = (int)i;
 }
 
+// 人称转换的目标人称。key 与 --target 取值、HTML 版 A1_I_Φ5_CN 的
+// #povTarget option value 一一对应。
+static std::string povTarget(const std::string& key) {
+    if (key == "first") return "第一人称（我）";
+    if (key == "second") return "第二人称（你）";
+    if (key == "third") return "第三人称（他 / 她 / 它）";
+    return "";
+}
+
+// 合成「人称转换」提示词，与 HTML 版 A1_I_Φ5_CN 的 pov 模板一致。
+static std::string buildPovPrompt(const std::string& body, const std::string& chars,
+                                  const std::string& target, bool keepInner) {
+    std::string inner = keepInner
+        ? "保留：原视角的内心活动改写为目标视角可知的部分"
+          "（用表情、动作、语气或外部观察替代直接叙述他人内心）"
+        : "不保留：删去目标视角无法感知的心理描写，只保留外在可见的行为与对白";
+    std::ostringstream o;
+    o << "你是一位精通叙述视角的小说编辑。请把下面的正文转换为【" << target
+      << "】，情节、人物、场景与对白内容一律不变，只换叙述人称与视角。\n\n"
+      << "【目标人称】" << target << "\n\n"
+      << "【心理描写处理】" << inner << "\n\n"
+      << "【相关设定】\n" << chars << "\n\n"
+      << "【需要转换的正文】\n" << body << "\n\n"
+      << "【转换规则】\n"
+      << "1) 只改人称代词与由此引起的视角变化，不增删情节、不改变人物性格与说话方式；\n"
+      << "2) 第一人称：叙述者用「我」，只能写出「我」能感知到的内容"
+         "（看到、听到、想到），不能直接叙述旁人心里在想什么；\n"
+      << "3) 第二人称：叙述者用「你」，把读者带入场景，动作与感受都落在「你」身上；\n"
+      << "4) 第三人称：叙述者用「他 / 她 / 它」或人物姓名，"
+         "人物之间用姓名或称谓区分，避免代词指向不明；\n"
+      << "5) 时间线、场景顺序、对白内容保持原样，"
+         "对白中人物自称按其在故事中的实际人称调整；\n"
+      << "6) 转换后通读一遍，确保没有残留的原人称代词、"
+         "没有视角越界、没有半途切换人称。\n\n"
+      << "【输出要求】直接输出转换后的完整正文，不要加解释、不要加标题、"
+         "不要用「以下是」之类的开场白，便于直接替换当前章。";
+    return o.str();
+}
+
 static void usage() {
     printf("Writer 内核版（C++）\n用法: writer <库文件> <子命令> [参数]\n\n");
     printf("子命令:\n  init <书名>\n  add-volume <书籍ID> <卷名>\n"
            "  add-chapter <书籍ID> <卷ID> <章节名> [正文文件]\n  list <书籍ID>\n"
            "  stats <书籍ID>\n  move-chapter <章节ID> <目标卷ID>\n"
            "  add-entity <书籍ID> <名称> [类型] [描述]\n  prompt <书籍ID> <章节ID>\n"
+           "  pov <书籍ID> <章节ID> [--target first|second|third] [--no-inner]\n"
            "  reindex <书籍ID>\n");
 }
 
@@ -307,6 +347,47 @@ int main(int argc, char** argv) {
         if (chars.empty()) chars = "（未填写）";
         printf("你是一位与作者合写的小说作者。请续写下一段情节。\n\n【设定】\n%s\n【上一章结尾】\n%s\n\n【本章已有正文】\n%s\n",
                chars.c_str(), prev.c_str(), ch->text.empty() ? "（当前章为空）" : ch->text.c_str());
+    } else if (cmd == "pov") {
+        if (args.size() < 2) { fprintf(stderr, "缺少参数\n"); return 1; }
+        std::string targetKey = "third";
+        bool keepInner = true;
+        for (size_t i = 2; i < args.size(); ++i) {
+            if (args[i] == "--target") {
+                if (i + 1 >= args.size()) { fprintf(stderr, "--target 缺少取值\n"); return 1; }
+                targetKey = args[i + 1];
+                ++i;
+            } else if (args[i] == "--no-inner") {
+                keepInner = false;
+            } else {
+                fprintf(stderr, "无法识别的参数: %s\n", args[i].c_str());
+                return 1;
+            }
+        }
+        std::string target = povTarget(targetKey);
+        if (target.empty()) {
+            fprintf(stderr, "目标人称无效：%s（可选 first / second / third）\n", targetKey.c_str());
+            return 1;
+        }
+        Chapter* ch = nullptr;
+        for (auto& c : lib.chapters) if (c.id == args[1]) ch = &c;
+        if (!ch) { fprintf(stderr, "找不到章节\n"); return 1; }
+        std::vector<std::string> charsList;
+        for (auto& e : lib.entities) {
+            if (e.bookId == args[0]) {
+                charsList.push_back("- " + e.name + "（" + e.kind + "）：" + e.description);
+            }
+        }
+        std::string chars = "（未填写）";
+        if (!charsList.empty()) {
+            std::ostringstream co;
+            for (size_t ci = 0; ci < charsList.size(); ++ci) {
+                if (ci) co << "\n";
+                co << charsList[ci];
+            }
+            chars = co.str();
+        }
+        std::string body = ch->text.empty() ? "（当前章为空）" : ch->text;
+        printf("%s\n", buildPovPrompt(body, chars, target, keepInner).c_str());
     } else if (cmd == "reindex") {
         if (args.empty()) { fprintf(stderr, "缺少书籍ID\n"); return 1; }
         std::vector<std::string> ids;
