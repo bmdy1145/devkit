@@ -91,7 +91,7 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: 安装 Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
