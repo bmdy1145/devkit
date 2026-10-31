@@ -117,7 +117,9 @@ def check_js_syntax(path: Path, rel: str) -> None:
     # 大小写不敏感：HTML 中 <SCRIPT> 与 <script> 等价。原先只匹配小写，
     # CodeQL 的 py/bad-tag-filter 会报「漏掉大写标签」；本仓库交付物一律
     # 小写，但脚本不应依赖这一点。
-    blocks = re.findall(r"<script\b[^>]*>(.*?)</script\s*>", text, re.S | re.I)
+    # 闭合标签用 [^>]* 而非 \s*：\s* 只认空白，漏掉 </script foo>、
+    # </script/>、</script\nbar> 这些带内容的形态，会整块漏检。
+    blocks = re.findall(r"<script\b[^>]*>(.*?)</script[^>]*>", text, re.S | re.I)
     if not blocks:
         warn(rel, "未找到 <script> 块")
         return
