@@ -188,7 +188,10 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │       ├── index.html               # Landing page (open entry + data-safety notice)
 │       └── code/
 │           ├── index.html           # Code / branch index
-│           ├── A1_II_Φ5/            # Current version (export)
+│           ├── A1_II_Φ6/            # Current version (UI)
+│           │   ├── index.html
+│           │   └── deepseek_A1_II_Φ6_CN.html
+│           ├── A1_II_Φ5/            # Export
 │           │   ├── index.html
 │           │   └── deepseek_A1_II_Φ5_CN.html
 │           ├── A1_II_Φ4/            # Parallel worlds & worldviews
@@ -250,7 +253,8 @@ The site entry is the **root-level** `index.html`, a **project picker**; each pr
 | `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 application file (historical reference) |
 | `/projects/persona/` | Persona character-profile editor project page |
 | `/projects/persona/code/` | Persona code/branch index |
-| `/projects/persona/code/A1_II_Φ5/` | A1_II_Φ5 application file (current · export) |
+| `/projects/persona/code/A1_II_Φ6/` | A1_II_Φ6 application file (current · UI) |
+| `/projects/persona/code/A1_II_Φ5/` | A1_II_Φ5 application file (export) |
 | `/projects/persona/code/A1_II_Φ4/` | A1_II_Φ4 application file (parallel worlds & worldviews) |
 | `/projects/persona/code/A1_II_Φ3/` | A1_II_Φ3 application file (responsive layout) |
 | `/projects/persona/code/A1_II_Φ2/` | A1_II_Φ2 application file (interview mode) |
