@@ -192,6 +192,39 @@
     footer a:hover { color: var(--primary); border-bottom-color: var(--primary); }
     footer a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
+    /* ---------- 版本历史时间线 ---------- */
+    .timeline { list-style: none; position: relative; padding-left: 22px; }
+    .timeline::before {
+        content: ''; position: absolute; left: 5px; top: 8px; bottom: 8px;
+        width: 1px; background: rgba(var(--tone), 0.28);
+    }
+    .tl-item { position: relative; }
+    .tl-item + .tl-item { margin-top: 10px; }
+    .tl-item::before {
+        content: ''; position: absolute; left: -21px; top: 15px;
+        width: 9px; height: 9px; border-radius: 50%;
+        background: var(--primary);
+        box-shadow: 0 0 12px rgba(var(--tone), 0.85);
+    }
+    .tl-card {
+        display: block; text-decoration: none; color: inherit;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 12px 16px;
+        transition: border-color 0.2s, transform 0.2s;
+    }
+    .tl-card:hover { border-color: rgba(var(--tone), 0.55); transform: translateY(-1px); }
+    .tl-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+    .tl-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .tl-ver {
+        font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+        font-size: 0.92rem; font-weight: 600; color: var(--primary);
+    }
+    .tl-date { font-size: 0.78rem; color: var(--text2); white-space: nowrap; }
+    .tl-desc { display: block; font-size: 0.85rem; color: var(--text2); margin-top: 6px; }
+    .tl-go { font-size: 0.78rem; color: var(--text2); }
+
     @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { transition-duration: 0.01ms !important; }
     }
@@ -226,6 +259,32 @@
             </span>
             <span class="card-desc">A1_II_Φ10 原始归档及 A1_II_Φ10_Fix 修订版；修复本地文件名按 HTML 解析的问题。</span>
         </a>
+    </section>
+
+    <section aria-labelledby="sec-history">
+        <h2 id="sec-history">版本历史</h2>
+        <ol class="timeline">
+            <li class="tl-item">
+                <a class="tl-card" href="code/A1_II_%CE%A610/deepseek_html_20261006_d1ca99_Fix.html">
+                    <span class="tl-top">
+                        <span class="tl-ver">A1_II_Φ10_Fix</span>
+                        <span class="tl-date">2026-10-06</span>
+                    </span>
+                    <span class="tl-desc">将本地字幕文件名改用 textContent 输出，避免特殊文件名被当作 HTML 执行。</span>
+                    <span class="tl-go">打开该版本 →</span>
+                </a>
+            </li>
+            <li class="tl-item">
+                <a class="tl-card" href="code/A1_II_%CE%A610/deepseek_html_20260705_d1ca99.html">
+                    <span class="tl-top">
+                        <span class="tl-ver">A1_II_Φ10</span>
+                        <span class="tl-date">2026-07-07</span>
+                    </span>
+                    <span class="tl-desc">新增撤销功能；应用翻译后自动禁止智能拼装，以防语言不对齐。</span>
+                    <span class="tl-go">打开该版本 →</span>
+                </a>
+            </li>
+        </ol>
     </section>
 
     <footer>
