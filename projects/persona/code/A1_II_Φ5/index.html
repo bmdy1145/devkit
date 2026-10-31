@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A1_II_Φ5 · Persona</title>
+<meta name="description" content="Persona A1_II_Φ5 版本文件。">
+<!--
+    ============================================================
+    项目名称：Persona（人设编辑器）· 站点外壳
+    文件性质：GitHub Pages 目录索引（/projects/persona/code/A1_II_Φ5/）。
+              不属于 Persona 应用的版本架构，不占用版本号。
+    职责：列出本主干下的版本文件，供逐层浏览。
+    日期：2026-10-31
+    版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+    许可证：GPLv3
+    ============================================================
+    维护提示：新增版本时，复制一个 <a class="card"> 块，改 href / 版本号 /
+              说明 / 日期 / 大小即可。若新版本成为最新，把 .latest 徽标
+              移到新卡片上，并更新项目落地页对应的版本说明。
+    约定：href 中的 Φ 一律用百分号编码 %CE%A6，页面显示文字仍写 Φ。
+    ============================================================
+-->
+<style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --tone: 127, 209, 193;
+        --tone2: 0, 188, 255;
+        --tint: 15, 17, 21;
+        --text: #eceff4;
+        --text2: #98a2b3;
+        --primary: #7fd1c1;
+        --primary-fg: #08201c;
+        --warning: #ffd58a;
+        --edge: 0.24;
+        --radius: 10px;
+        --mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+    }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+        min-height: 100vh;
+        font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+        color: var(--text);
+        background:
+            radial-gradient(1100px 700px at 10% -14%, rgba(127,209,193,0.10), transparent 58%),
+            radial-gradient(900px 620px at 96% 2%, rgba(0,188,255,0.07), transparent 60%),
+            #0f1115;
+        background-attachment: fixed;
+        line-height: 1.6;
+        padding: 56px 24px 72px;
+        display: flex; justify-content: center;
+    }
+
+    .wrap { width: 100%; max-width: 880px; }
+
+    nav.crumbs {
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        color: var(--text2);
+        margin-bottom: 20px;
+        letter-spacing: 0.02em;
+    }
+    nav.crumbs a { color: var(--text2); text-decoration: none; }
+    nav.crumbs a:hover { color: var(--primary); }
+    nav.crumbs a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    nav.crumbs .sep { opacity: 0.45; margin: 0 6px; }
+    nav.crumbs .here { color: var(--primary); }
+
+    h1 {
+        font-family: var(--mono);
+        font-size: 1.35rem; font-weight: 600;
+        color: var(--primary);
+        text-shadow: 0 0 18px rgba(var(--tone), 0.55);
+        margin-bottom: 6px;
+        word-break: break-all;
+    }
+    .sub { color: var(--text2); font-size: 0.88rem; margin-bottom: 20px; }
+
+    .warning {
+        background: rgba(255, 213, 138, 0.07);
+        border: 1px solid rgba(255, 213, 138, 0.32);
+        border-radius: var(--radius);
+        padding: 12px 16px;
+        font-size: 0.82rem;
+        color: var(--warning);
+        margin-bottom: 32px;
+        line-height: 1.7;
+    }
+
+    h2 {
+        font-size: 0.78rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.12em;
+        color: var(--text2);
+        font-family: var(--mono);
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 10px;
+    }
+    h2::after {
+        content: ''; flex: 1; height: 1px;
+        background: linear-gradient(90deg, rgba(var(--tone), 0.4), transparent);
+    }
+
+    .card {
+        display: block; text-decoration: none; color: inherit;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone), var(--edge)), 0 0 26px -16px rgba(var(--tone), 1);
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    .card:hover {
+        border-color: rgba(var(--tone), 0.55);
+        box-shadow: 0 0 0 1px rgba(var(--tone), 0.55), 0 0 34px -12px rgba(var(--tone), 1);
+        transform: translateY(-2px);
+    }
+    .card:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
+    .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .ver {
+        font-family: var(--mono);
+        font-size: 1rem; font-weight: 600; color: var(--primary);
+        text-shadow: 0 0 14px rgba(var(--tone), 0.55);
+        word-break: break-all;
+    }
+    .latest {
+        font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
+        color: var(--primary-fg); background: var(--primary);
+        border-radius: 999px; padding: 1px 9px; margin-left: 8px;
+        vertical-align: middle; white-space: nowrap;
+        box-shadow: 0 0 16px -4px rgba(var(--tone), 1);
+    }
+    .card-go { font-size: 0.8rem; color: var(--text2); white-space: nowrap; }
+    .card:hover .card-go { color: var(--primary); }
+    /* 注意：这是 span，必须显式转块级，否则垂直 margin 不生效 */
+    .card-desc { display: block; font-size: 0.85rem; color: var(--text2); margin-top: 6px; }
+
+    .meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .chip {
+        font-family: var(--mono); font-size: 0.72rem;
+        color: var(--text2);
+        border: 1px solid rgba(var(--tone), 0.25);
+        border-radius: 999px; padding: 1px 10px;
+    }
+    .chip.lang { border-color: rgba(var(--tone2), 0.35); color: #7fd8ff; }
+
+    .filename {
+        display: block; margin-top: 12px;
+        font-family: var(--mono); font-size: 0.74rem;
+        color: var(--text2); opacity: 0.75;
+        word-break: break-all;
+    }
+
+    footer {
+        margin-top: 48px; padding-top: 20px;
+        border-top: 1px solid rgba(var(--tone), 0.16);
+        font-size: 0.78rem; color: var(--text2);
+        display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    footer a { color: var(--text2); text-decoration: none; border-bottom: 1px solid rgba(var(--tone), 0.35); }
+    footer a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+    footer a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+    @media (max-width: 560px) {
+        body { padding: 36px 16px 48px; }
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+    <nav class="crumbs" aria-label="面包屑导航">
+        <a href="../../">Persona</a><span class="sep">/</span><a href="../">code</a><span class="sep">/</span><span class="here">A1_II_Φ5</span>
+    </nav>
+
+    <h1>A1_II_Φ5</h1>
+    <p class="sub">A1 分支 · II · Φ5。导出增强与字段语义修正：导出弹窗新增勾选项与「导出勾选的内容」，一次把人物卡片、世界观、记忆、完整提示词分别存成独立文件；把原先混在一起的「世界名」拆成「世界标签」（分支名）与「姓名」（角色名）两个字段，导出与列表不再把分支名当成角色姓名。其余功能沿用 Φ4。</p>
+
+    <p class="warning">
+        人设、记忆与快照都保存在<strong>本浏览器的 IndexedDB</strong> 中，不随网页文件走。
+        清除站点数据、换浏览器或换访问地址都会看不到旧内容，请定期用「导出 JSON」备份；
+        在地址栏打开（Pages）与双击本地文件（file://）看到的是两份互不相通的数据，迁移请用导出 / 导入。
+    </p>
+
+    <h2>版本列表</h2>
+
+    <a class="card" href="deepseek_A1_II_%CE%A65_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_II_Φ5_CN<span class="latest">最新</span></span>
+            <span class="card-go">打开 →</span>
+        </span>
+        <span class="card-desc">导出增强：勾选后一键导出人物卡片 / 世界观 / 记忆 / 完整提示词；世界标签与角色姓名分离，导出不再把分支名当姓名。</span>
+        <span class="meta">
+            <span class="chip">2026-10-31</span>
+            <span class="chip">单文件 HTML</span>
+            <span class="chip lang">中文版 _CN</span>
+        </span>
+        <span class="filename">deepseek_A1_II_Φ5_CN.html</span>
+    </a>
+
+    <footer>
+        <span>Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3</span>
+        <span><a href="../A1_II_%CE%A64/">上一版 A1_II_Φ4 →</a> &nbsp;·&nbsp; <a href="../">← 返回 code 目录</a></span>
+    </footer>
+
+</div>
+</body>
+</html>
