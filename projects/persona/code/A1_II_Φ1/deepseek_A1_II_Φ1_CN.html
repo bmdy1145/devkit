@@ -13,8 +13,12 @@
               3) 把「系统提示词 + 人设当前状态 + 待总结的聊天记录 +
                  本次修改要求」拼成一段文本，供复制或直接发送给 AI；
               4) 接收 AI 返回的新人设，经手动「应用」写回编辑器；
-              5) 每次应用或手动保存都留快照，可回退到任意历史版本。
-              支持 OpenAI 兼容与 Anthropic Messages 两种协议的流式调用。
+              5) 每次应用或手动保存都留快照，可回退到任意历史版本；
+              6) 右下「完善人设」为访谈模式：用户说不清想要什么样的人设时，
+                 让 AI 主动提问、一轮问 1–3 个关键问题，聊清楚后再说一声
+                 「出结果」，AI 按四段格式收口，粘贴回工具即可。
+              支持 OpenAI 兼容与 Anthropic Messages 两种协议的流式调用；
+              提示词末尾附「收尾说明」，多轮对话里随时可用「出结果」收口。
     日期：2026-10-31
     版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
     许可证：GPLv3
@@ -30,7 +34,9 @@
         └── A1_II（人设编辑器主线，2026-10-31创建，基于Beta）
             └── A1_II_Φ1（首版：多人设库、每份人设独立记忆、
                           四段式提示词拼合、双协议流式 AI、
-                          快照历史与回退、JSON 导入导出，
+                          快照历史与回退、JSON 导入导出；
+                          右下「完善人设」提供访谈模式，
+                          由 AI 主动提问补齐信息，
                           2026-10-31创建，基于A1_II）
                 └── A1_II_Φ1_CN（中文版 · 默认皮肤）
     ============================================================
@@ -293,7 +299,14 @@
         outline: none;
     }
     .promptbar textarea:focus { border-color: var(--accent); }
-    .promptbar .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .promptbar .btns { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    /* 「完善人设」是访谈模式的入口，与常规发送区分开 */
+    .btn.interview {
+        border-color: rgba(127,209,193,0.5);
+        color: var(--accent);
+        background: var(--accent-soft);
+    }
+    .btn.interview:hover { border-color: var(--accent); background: rgba(127,209,193,0.22); }
 
     /* ---------- 状态栏 ---------- */
     .statusbar {
@@ -496,13 +509,40 @@
 <!-- ========== 底部提示词条 ========== -->
 <div class="promptbar">
     <div class="grow">
-        <textarea id="requestInput" placeholder="本次修改要求（可选）。例如：把她的说话方式改得更冷淡。留空则只把记忆里的新变化总结进人设。" aria-label="本次修改要求"></textarea>
+        <textarea id="requestInput" placeholder="本次修改要求（可选）。例如：把她的说话方式改得更冷淡。留空则只把记忆里的新变化总结进人设。&#10;不确定怎么描述？点右下「完善人设」，让 AI 提问帮你聊清楚。" aria-label="本次修改要求"></textarea>
     </div>
     <div class="btns">
         <button class="btn sm" id="previewBtn" type="button">预览提示词</button>
         <button class="btn sm" id="copyPromptBtn" type="button">复制提示词</button>
         <button class="btn primary sm" id="sendAiBtn" type="button">发送到 AI</button>
         <button class="btn sm" id="stopAiBtn" type="button" disabled>停止</button>
+        <button class="btn sm interview" id="interviewBtn" type="button" title="不知道该怎么描述？让 AI 主动提问，陪你把人设聊清楚">完善人设</button>
+    </div>
+</div>
+
+<!-- ========== 完善人设（访谈模式）弹窗 ========== -->
+<div class="modal" id="interviewModal" role="dialog" aria-modal="true" aria-label="完善人设">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2>完善人设 · 让 AI 来提问</h2>
+            <button class="modal-close" type="button" data-close="interviewModal" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <p class="hint" style="margin-bottom:12px;">
+                有时候我们自己也说不清想要什么样的人设。这个模式会让 AI <strong>主动提问</strong>，
+                一轮问 1–3 个关键问题，等你回答后再问下一批，直到信息够用为止。
+                最后你说一句「出结果」，它就会按四段格式输出成品，你粘贴回工具即可。
+            </p>
+            <p class="hint" style="margin-bottom:12px;">
+                会用到底部那个输入框里的内容作为「初步想法」——可以只写一句「想做一个傲娇高中生」，也可以留空让它从头问。
+            </p>
+            <p class="hint" id="interviewHasKey" style="margin-bottom:14px;"></p>
+        </div>
+        <div class="modal-foot">
+            <button class="btn" type="button" data-close="interviewModal">取消</button>
+            <button class="btn" type="button" data-mode="copy">复制访谈提示词</button>
+            <button class="btn primary" type="button" data-mode="send">在工具内开始对话</button>
+        </div>
     </div>
 </div>
 
@@ -626,6 +666,7 @@
                 <li>AI 结果区独立，手动「应用」才写回人设</li>
                 <li>快照历史，可回退到任意版本</li>
                 <li>JSON 备份与导入、人设纯文本导出</li>
+                <li>「完善人设」访谈模式：AI 主动提问，聊清楚后按四段格式出成品</li>
             </ul>
             <p class="hint">数据只保存在本机浏览器。用地址栏打开（Pages）与直接双击文件（file://）看到的是两份互不相通的数据，迁移请用 JSON 导出 / 导入。</p>
             <p class="hint">这个工具本身不聊天。它只负责把「人设 + 聊天记录」拼成一段文本交给 AI，再把 AI 返回的新人设写回来。</p>
@@ -1112,6 +1153,10 @@
     /* ======================================================================
      * 8. PromptService（四段式拼合）
      * ==================================================================== */
+    const FORMAT_BLOCK =
+        '输出格式（严格照此，不要省略未改动的段落，不要加解释）：\n' +
+        '姓名：…\n身份：…\n一句话概括：…\n详细设定：\n…';
+
     const PromptService = {
         build(persona, memoryText, memCount, request) {
             const req = String(request || '').trim();
@@ -1127,9 +1172,9 @@
                 '- 保留原设定中未被对话推翻的部分\n' +
                 '- 只做增量合并，不要凭空发挥\n' +
                 '- 若第 3 段为空，则只按第 4 段的修改要求调整\n' +
-                '- 严格按下方格式输出完整人设，不要省略未改动的段落，不要加解释\n\n' +
-                '输出格式：\n' +
-                '姓名：…\n身份：…\n一句话概括：…\n详细设定：\n…'
+                '- 若你对某处设定有疑问、或缺关键信息，可以先向我提问；' +
+                '我说「出结果」或「可以了」时，再按下方格式输出最终人设\n\n' +
+                FORMAT_BLOCK
             );
 
             parts.push(
@@ -1153,6 +1198,52 @@
 
             parts.push(
                 '【第 4 段 · 本次修改要求】\n' + (req || '（未填写，仅做第 3 段的总结合并）')
+            );
+
+            return parts.join('\n\n────────────────────\n\n');
+        },
+
+        /**
+         * 访谈模式：用户不知道该怎么描述时，让 AI 主动追问，把缺失的信息补齐。
+         * 生成的文本发给 AI 后是多轮对话的起点，不要求一次给出成品。
+         */
+        buildInterview(persona, memoryText, memCount, rough) {
+            const hint = String(rough || '').trim();
+            const parts = [];
+
+            parts.push(
+                '你是一位擅长人物设定的小说编辑。用户想完善下面这个角色的人设，' +
+                '但可能还没想清楚具体要什么。\n\n' +
+                '你的任务：**主动提问**，帮用户一步步把缺失的信息补齐。\n\n' +
+                '提问要求：\n' +
+                '- 每轮只问 1–3 个最关键的问题，不要一口气列出长清单\n' +
+                '- 优先补齐：身份与处境、外貌与年龄、性格底色、说话方式、' +
+                '与主要角色的关系、核心欲望与弱点、禁忌与底线\n' +
+                '- 若用户已经写清某部分，不要再问，直接进入下一块\n' +
+                '- 问题要具体、可回答，避免「你想让她是什么样的人」这类空泛问法\n' +
+                '- 用户回答后，简要复述你理解到的要点，再问下一批问题\n' +
+                '- 当信息足够、或用户说「可以了」「出结果」时，停止提问，' +
+                '按下方格式输出最终人设\n\n' +
+                FORMAT_BLOCK
+            );
+
+            parts.push(
+                '【角色当前设定】\n' +
+                '姓名：' + (persona.name || '（未填）') + '\n' +
+                '身份：' + (persona.role || '（未填）') + '\n' +
+                '一句话概括：' + (persona.summary || '（未填）') + '\n' +
+                '详细设定：\n' + (persona.detail || '（未填）')
+            );
+
+            if (memoryText) {
+                parts.push(
+                    '【已有对话记录（最近 ' + memCount + ' 条，供你了解已有信息，不要重复提问）】\n' +
+                    memoryText
+                );
+            }
+
+            parts.push(
+                '【用户初步想法】\n' + (hint || '（未填写，请从头开始提问）')
             );
 
             return parts.join('\n\n────────────────────\n\n');
@@ -1672,44 +1763,76 @@
         UI.toast('已恢复到 ' + Utils.fmtTime(snap.createdAt));
     }
 
-    function currentPrompt() {
+    /* 粘贴回工具时的收尾指令。用户在多轮对话里让 AI 出成品后，
+       只要说「出结果」，AI 就按这个格式收口。 */
+    const FINALIZE_HINT =
+        '\n\n────────────────────\n\n' +
+        '【收尾说明】以上是起始指令，我们可能会多轮讨论。' +
+        '当我说「出结果」「可以了」或「就这样」时，请停止讨论，' +
+        '只输出最终人设，格式为：姓名 / 身份 / 一句话概括 / 详细设定 四段，' +
+        '不要加任何解释，我随后会把它粘贴回工具。';
+
+    function currentPrompt(interview) {
         const p = PersonaService.current();
         if (!p) return null;
         readEditorInto(p);
         const n = State.prefs.ai.memTurns || 10;
         const recent = MemoryService.recent(State.memory, n);
         const request = Utils.$('#requestInput').value;
+        const text = interview
+            ? PromptService.buildInterview(p, recent.text, recent.count, request)
+            : PromptService.build(p, recent.text, recent.count, request);
         return {
-            text: PromptService.build(p, recent.text, recent.count, request),
+            text: text + FINALIZE_HINT,
             hasMemory: !!recent.text,
-            hasRequest: !!String(request || '').trim()
+            hasRequest: !!String(request || '').trim(),
+            interview: !!interview
         };
     }
 
-    async function copyPrompt() {
-        const built = currentPrompt();
+    async function copyPrompt(interview) {
+        const built = currentPrompt(interview);
         if (!built) { UI.toast('请先选择人设', true); return; }
-        if (!built.hasMemory && !built.hasRequest) {
+        // 访谈模式允许记忆与要求都为空：它是从零开始聊的起点
+        if (!interview && !built.hasMemory && !built.hasRequest) {
             UI.toast('记忆与修改要求都为空，至少填一个', true);
             return;
         }
         const ok = await Utils.copyText(built.text);
-        UI.toast(ok ? '提示词已复制' : '复制失败，请手动选择', !ok);
+        UI.toast(ok
+            ? (interview ? '访谈提示词已复制，去 AI 那边聊吧' : '提示词已复制')
+            : '复制失败，请手动选择', !ok);
     }
 
-    function previewPrompt() {
-        const built = currentPrompt();
+    function previewPrompt(interview) {
+        const built = currentPrompt(interview);
         if (!built) { UI.toast('请先选择人设', true); return; }
         Utils.$('#promptPreview').textContent = built.text;
         UI.openModal('previewModal');
     }
 
+    /* 「完善人设」：访谈模式入口。
+       用户往往说不清想要什么样的人设，这里让 AI 主动提问、陪用户聊清楚。
+       两种出口：复制到外部 AI 多轮对话，或直接在本工具内发送。 */
+    function askInterview() {
+        const p = PersonaService.current();
+        if (!p) { UI.toast('请先选择人设', true); return; }
+        const hasKey = !!AIClient.config().apiKey;
+        Utils.$('#interviewHasKey').textContent = hasKey
+            ? '已配置 API Key，可直接在工具内多轮对话。'
+            : '未配置 API Key，建议复制到 DeepSeek / ChatGPT 等外部 AI 多轮对话，或先去「设置」填写 Key。';
+        Utils.$$('#interviewModal [data-mode]').forEach(function (b) {
+            b.disabled = (b.getAttribute('data-mode') === 'send') && !hasKey;
+        });
+        UI.openModal('interviewModal');
+    }
+
     let aiController = null;
 
-    async function sendToAI() {
-        const built = currentPrompt();
+    async function sendToAI(interview) {
+        const built = currentPrompt(interview);
         if (!built) { UI.toast('请先选择人设', true); return; }
-        if (!built.hasMemory && !built.hasRequest) {
+        if (!interview && !built.hasMemory && !built.hasRequest) {
             UI.toast('记忆与修改要求都为空，至少填一个', true);
             return;
         }
@@ -1896,9 +2019,18 @@
             UI.openModal('historyModal');
         });
 
-        Utils.$('#previewBtn').addEventListener('click', previewPrompt);
-        Utils.$('#copyPromptBtn').addEventListener('click', copyPrompt);
-        Utils.$('#sendAiBtn').addEventListener('click', sendToAI);
+        Utils.$('#previewBtn').addEventListener('click', function () { previewPrompt(false); });
+        Utils.$('#copyPromptBtn').addEventListener('click', function () { copyPrompt(false); });
+        Utils.$('#sendAiBtn').addEventListener('click', function () { sendToAI(false); });
+        Utils.$('#interviewBtn').addEventListener('click', function () { askInterview(); });
+        Utils.$$('#interviewModal [data-mode]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                const mode = b.getAttribute('data-mode');
+                UI.closeModal('interviewModal');
+                if (mode === 'copy') copyPrompt(true);
+                else sendToAI(true);
+            });
+        });
         Utils.$('#stopAiBtn').addEventListener('click', stopAI);
         Utils.$('#previewCopyBtn').addEventListener('click', async function () {
             const ok = await Utils.copyText(Utils.$('#promptPreview').textContent);
