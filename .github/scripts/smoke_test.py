@@ -39,17 +39,20 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-# DevKit 交付物已迁入项目层
-CODE_DIR = ROOT / "projects" / "devkit" / "code"
-# 其他项目的应用文件：显式登记，不泛化成「扫全部 projects/」——各项目的
-# 目录结构与版本号规则由项目自定，泛化会误扫或漏扫。新增项目时把它的
-# 应用 HTML 加在这里即可。
-OTHER_APPS = (
-    ROOT / "projects" / "writer" / "code" / "A1_I_Φ1" / "deepseek_A1_I_Φ1_CN.html",
-    ROOT / "projects" / "writer" / "code" / "A1_I_Φ2" / "deepseek_A1_I_Φ2_CN.html",
-    ROOT / "projects" / "writer" / "code" / "A1_I_Φ3" / "deepseek_A1_I_Φ3_CN.html",
-    ROOT / "projects" / "writer" / "code" / "A1_I_Φ4" / "deepseek_A1_I_Φ4_CN.html",
-)
+
+
+def discover_app_files() -> list[Path]:
+    """自动发现全部项目的应用文件：projects/<项目>/code/<主干>/deepseek_*.html。
+
+    此前 devkit 走 glob、其余项目用 OTHER_APPS 白名单手工登记——每发一个
+    新版本都要记得来改名单，漏改就等于新版本不进冒烟（Writer Φ5 就漏过
+    一次）。改为按目录结构自动发现后新增版本零维护。
+    文件名前缀 deepseek_ 是全仓库版本文件的既定惯例，不会误收导航页。
+    """
+    seen: set[Path] = set()
+    for path in sorted(ROOT.glob("projects/*/code/*/deepseek_*.html")):
+        seen.add(path.resolve())
+    return sorted(seen)
 
 ERROR_RE = re.compile(r"CONSOLE.*?(Uncaught|SyntaxError|TypeError|ReferenceError)")
 BODY_RE = re.compile(r'<body[^>]*\bclass="([^"]*)"', re.I)
@@ -141,9 +144,12 @@ def run_one(browser: str, path: Path, rel: str) -> None:
     # 版本文件的命名固定为 deepseek_*.html，其余都是导航/站点页。
     # 注意：writer 的 body 类名是静态写死的，这一项对它只能算弱检查；
     # 真正兜底的是上面的控制台报错检测。
+    # submerge-pro 的两个历史版本不给 body 设类名（皮肤逻辑不同），对它
+    # 跳过类名检查，只保留控制台报错与 <title> 检查。
     is_nav = not path.name.startswith("deepseek_")
+    skip_body_class = "submerge-pro" in path.parts
     body = BODY_RE.search(dom_text)
-    if is_nav:
+    if is_nav or skip_body_class:
         if not re.search(r"<body\b", dom_text):
             problems.append(f"{rel}：找不到 <body> 标签")
     elif not body:
@@ -167,34 +173,26 @@ def main() -> int:
 
     # 除版本文件外，也覆盖三层导航页（落地页、code/ 目录页、各主干目录页）。
     # 导航页此前不在覆盖范围内，但它们是访客的实际入口，改坏了同样致命。
-    files = sorted(CODE_DIR.glob("*/deepseek_*.html"))
-    files += sorted(CODE_DIR.glob("*/index.html"))
-    # 三层导航页：code/ 目录页、DevKit 项目落地页、根（项目选择台）。
-    # 此前只扫了 code/*/index.html，漏掉 code/index.html 本身——注释声称覆盖
-    # 三层导航页，实际只有两层。
+    # 版本文件按目录结构自动发现（见 discover_app_files）；
+    # 导航页覆盖全部项目，不只 devkit。
+    files = discover_app_files()
+    for nav in sorted(ROOT.glob("projects/*/code/*/index.html")):
+        if nav.exists() and nav not in files:
+            files.append(nav)
+    # 各项目的 code/ 目录页与项目落地页
+    for nav in sorted(ROOT.glob("projects/*/code/index.html")):
+        if nav not in files:
+            files.append(nav)
+    for nav in sorted(ROOT.glob("projects/*/index.html")):
+        if nav not in files:
+            files.append(nav)
+    # 根导航页：项目选择台与 404
     for nav in (
-        CODE_DIR / "index.html",
-        CODE_DIR.parent / "index.html",
         ROOT / "index.html",
         ROOT / "404.html",
-        ROOT / "projects" / "index.html",
     ):
         if nav.exists() and nav not in files:
             files.append(nav)
-    # 其他项目的应用文件与其索引页（目前为 writer）
-    for app in OTHER_APPS:
-        if not app.exists():
-            warnings.append(f"{app.relative_to(ROOT).as_posix()}：登记在 OTHER_APPS 中但文件不存在")
-            continue
-        if app not in files:
-            files.append(app)
-        for nav in (
-            app.parent / "index.html",
-            app.parent.parent / "index.html",
-            app.parent.parent.parent / "index.html",
-        ):
-            if nav.exists() and nav not in files:
-                files.append(nav)
     if not files:
         print("[问题] 没有找到任何可测的 HTML 文件。")
         return 1

@@ -1,7 +1,7 @@
 //! Writer 内核版（Rust）
 //!
-//! 版本：A1_I_Φ3_Rust_CN
-//! 对应 HTML 版：projects/writer/code/A1_I_Φ3/deepseek_A1_I_Φ3_CN.html
+//! 版本：A1_I_Φ5_Rust_CN
+//! 对应 HTML 版：projects/writer/code/A1_I_Φ5/deepseek_A1_I_Φ5_CN.html
 //!
 //! 只实现纯逻辑内核：书籍 / 卷 / 章节结构的 JSON 持久化、字数统计、
 //! 章节排序、跨卷移动、引用（人物/地点等）管理、提示词模板合成。
@@ -170,7 +170,53 @@ fn usage() {
     println!("  move-chapter <章节ID> <目标卷ID>   跨卷移动并重排顺序");
     println!("  add-entity <书籍ID> <名称> [类型] [描述]  添加资料条目");
     println!("  prompt <书籍ID> <章节ID> [模板]    生成提示词（默认续写模板）");
+    println!("  pov <书籍ID> <章节ID> [--target first|second|third] [--no-inner]");
+    println!("                                    人称转换提示词");
     println!("  reindex <书籍ID>                  重排所有卷的章节 order");
+}
+
+/// 人称转换的目标人称。key 与 --target 取值、HTML 版 A1_I_Φ5_CN 的
+/// #povTarget option value 一一对应。
+fn pov_target(key: &str) -> Option<&'static str> {
+    match key {
+        "first" => Some("第一人称（我）"),
+        "second" => Some("第二人称（你）"),
+        "third" => Some("第三人称（他 / 她 / 它）"),
+        _ => None,
+    }
+}
+
+/// 合成「人称转换」提示词，与 HTML 版 A1_I_Φ5_CN 的 pov 模板一致。
+fn build_pov_prompt(body: &str, chars: &str, target: &str, keep_inner: bool) -> String {
+    let inner = if keep_inner {
+        "保留：原视角的内心活动改写为目标视角可知的部分（用表情、动作、语气或外部观察替代直接叙述他人内心）"
+    } else {
+        "不保留：删去目标视角无法感知的心理描写，只保留外在可见的行为与对白"
+    };
+    let lines = [
+        format!("你是一位精通叙述视角的小说编辑。请把下面的正文转换为【{}】，情节、人物、场景与对白内容一律不变，只换叙述人称与视角。", target),
+        String::new(),
+        format!("【目标人称】{}", target),
+        String::new(),
+        format!("【心理描写处理】{}", inner),
+        String::new(),
+        "【相关设定】".to_string(),
+        chars.to_string(),
+        String::new(),
+        "【需要转换的正文】".to_string(),
+        body.to_string(),
+        String::new(),
+        "【转换规则】".to_string(),
+        "1) 只改人称代词与由此引起的视角变化，不增删情节、不改变人物性格与说话方式；".to_string(),
+        "2) 第一人称：叙述者用「我」，只能写出「我」能感知到的内容（看到、听到、想到），不能直接叙述旁人心里在想什么；".to_string(),
+        "3) 第二人称：叙述者用「你」，把读者带入场景，动作与感受都落在「你」身上；".to_string(),
+        "4) 第三人称：叙述者用「他 / 她 / 它」或人物姓名，人物之间用姓名或称谓区分，避免代词指向不明；".to_string(),
+        "5) 时间线、场景顺序、对白内容保持原样，对白中人物自称按其在故事中的实际人称调整；".to_string(),
+        "6) 转换后通读一遍，确保没有残留的原人称代词、没有视角越界、没有半途切换人称。".to_string(),
+        String::new(),
+        "【输出要求】直接输出转换后的完整正文，不要加解释、不要加标题、不要用「以下是」之类的开场白，便于直接替换当前章。".to_string(),
+    ];
+    lines.join("\n")
 }
 
 fn main() -> ExitCode {
@@ -314,6 +360,39 @@ fn main() -> ExitCode {
                 println!();
                 println!("【本章已有正文】");
                 println!("{}", if ch.text.is_empty() { "（当前章为空）" } else { &ch.text });
+            }
+            "pov" => {
+                let book_id = args.get(2).ok_or("缺少书籍ID")?.clone();
+                let ch_id = args.get(3).ok_or("缺少章节ID")?.clone();
+                let mut target_key = "third".to_string();
+                let mut keep_inner = true;
+                let mut i = 4;
+                while i < args.len() {
+                    match args[i].as_str() {
+                        "--target" => {
+                            target_key = args.get(i + 1).ok_or("--target 缺少取值")?.clone();
+                            i += 2;
+                        }
+                        "--no-inner" => { keep_inner = false; i += 1; }
+                        other => return Err(format!("无法识别的参数: {}", other)),
+                    }
+                }
+                let target = pov_target(&target_key)
+                    .ok_or(format!("目标人称无效：{}（可选 first / second / third）", target_key))?;
+                let ch = lib.chapters.iter().find(|c| c.id == ch_id).ok_or("找不到章节")?;
+                let body = if ch.text.is_empty() { "（当前章为空）" } else { &ch.text };
+                let chars_list: Vec<String> = lib
+                    .entities
+                    .iter()
+                    .filter(|e| e.book_id == book_id)
+                    .map(|e| format!("- {}（{}）：{}", e.name, e.kind, e.description))
+                    .collect();
+                let chars: String = if chars_list.is_empty() {
+                    "（未填写）".to_string()
+                } else {
+                    chars_list.join("\n")
+                };
+                println!("{}", build_pov_prompt(body, &chars, target, keep_inner));
             }
             "reindex" => {
                 let book_id = args.get(2).ok_or("缺少书籍ID")?.clone();

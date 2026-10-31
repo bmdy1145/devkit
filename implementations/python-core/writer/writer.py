@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """Writer 内核版（Python）
 
-版本：A1_I_Φ3_Python_CN
-对应 HTML 版：projects/writer/code/A1_I_Φ3/deepseek_A1_I_Φ3_CN.html
+版本：A1_I_Φ5_Python_CN
+对应 HTML 版：projects/writer/code/A1_I_Φ5/deepseek_A1_I_Φ5_CN.html
 
 只实现纯逻辑内核：书籍 / 卷 / 章节结构的 JSON 持久化、字数统计、
 章节排序、跨卷移动、引用管理、提示词模板合成。
@@ -79,6 +79,56 @@ def reorder_volume(lib, vol_id):
         c["order"] = i
 
 
+# 人称转换的目标人称。key 与 --target 取值、HTML 版 #povTarget 的 option
+# value 一一对应（A1_I_Φ5_CN 起新增）。
+POV_TARGETS = {
+    "first": "第一人称（我）",
+    "second": "第二人称（你）",
+    "third": "第三人称（他 / 她 / 它）",
+}
+
+
+def build_pov_prompt(body, chars, target, keep_inner):
+    """合成「人称转换」提示词，与 HTML 版 A1_I_Φ5_CN 的 pov 模板一致。"""
+    pov_inner = (
+        "保留：原视角的内心活动改写为目标视角可知的部分"
+        "（用表情、动作、语气或外部观察替代直接叙述他人内心）"
+        if keep_inner
+        else "不保留：删去目标视角无法感知的心理描写，只保留外在可见的行为与对白"
+    )
+    return "\n".join([
+        f"你是一位精通叙述视角的小说编辑。请把下面的正文转换为【{target}】，"
+        "情节、人物、场景与对白内容一律不变，只换叙述人称与视角。",
+        "",
+        "【目标人称】" + target,
+        "",
+        "【心理描写处理】" + pov_inner,
+        "",
+        "【相关设定】",
+        chars,
+        "",
+        "【需要转换的正文】",
+        body,
+        "",
+        "【转换规则】",
+        "1) 只改人称代词与由此引起的视角变化，不增删情节、"
+        "不改变人物性格与说话方式；",
+        "2) 第一人称：叙述者用「我」，只能写出「我」能感知到的内容"
+        "（看到、听到、想到），不能直接叙述旁人心里在想什么；",
+        "3) 第二人称：叙述者用「你」，把读者带入场景，"
+        "动作与感受都落在「你」身上；",
+        "4) 第三人称：叙述者用「他 / 她 / 它」或人物姓名，"
+        "人物之间用姓名或称谓区分，避免代词指向不明；",
+        "5) 时间线、场景顺序、对白内容保持原样，"
+        "对白中人物自称按其在故事中的实际人称调整；",
+        "6) 转换后通读一遍，确保没有残留的原人称代词、"
+        "没有视角越界、没有半途切换人称。",
+        "",
+        "【输出要求】直接输出转换后的完整正文，不要加解释、不要加标题、"
+        "不要用「以下是」之类的开场白，便于直接替换当前章。",
+    ])
+
+
 def usage():
     print("Writer 内核版（Python）")
     print("用法: writer.py <库文件.json> <子命令> [参数]")
@@ -92,6 +142,7 @@ def usage():
     print("  move-chapter <章节ID> <目标卷ID>")
     print("  add-entity <书籍ID> <名称> [类型] [描述]")
     print("  prompt <书籍ID> <章节ID>")
+    print("  pov <书籍ID> <章节ID> [--target first|second|third] [--no-inner]")
     print("  reindex <书籍ID>")
 
 
@@ -230,6 +281,40 @@ def main():
         print()
         print("【本章已有正文】")
         print(body)
+
+    elif cmd == "pov":
+        if len(args) < 2:
+            print("缺少参数", file=sys.stderr)
+            return 1
+        book_id, ch_id = args[0], args[1]
+        target_key = "third"
+        keep_inner = True
+        rest = args[2:]
+        i = 0
+        while i < len(rest):
+            a = rest[i]
+            if a == "--target" and i + 1 < len(rest):
+                target_key = rest[i + 1]
+                i += 2
+            elif a == "--no-inner":
+                keep_inner = False
+                i += 1
+            else:
+                print(f"无法识别的参数 {a}", file=sys.stderr)
+                return 1
+        if target_key not in POV_TARGETS:
+            print(f"目标人称无效：{target_key}（可选 first / second / third）",
+                  file=sys.stderr)
+            return 1
+        ch = next((c for c in lib["chapters"] if c["id"] == ch_id), None)
+        if not ch:
+            print("找不到章节", file=sys.stderr)
+            return 1
+        ents = [e for e in lib["entities"] if e["book_id"] == book_id]
+        chars = "\n".join(f"- {e['name']}（{e['kind']}）：{e['description']}"
+                          for e in ents) or "（未填写）"
+        body = ch.get("text") or "（当前章为空）"
+        print(build_pov_prompt(body, chars, POV_TARGETS[target_key], keep_inner))
 
     elif cmd == "reindex":
         if not args:

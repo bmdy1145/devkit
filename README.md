@@ -166,7 +166,10 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │       ├── index.html               # 项目落地页（打开入口 + 数据安全提示）
 │       └── code/
 │           ├── index.html           # 代码 / 分支索引
-│           ├── A1_I_Φ4/             # 当前版本（数据安全与并发修复）
+│           ├── A1_I_Φ5/             # 当前版本（小说人称转换器）
+│           │   ├── index.html
+│           │   └── deepseek_A1_I_Φ5_CN.html
+│           ├── A1_I_Φ4/             # 数据安全与并发修复
 │           │   ├── index.html
 │           │   └── deepseek_A1_I_Φ4_CN.html
 │           ├── A1_I_Φ3/             # 逻辑与健壮性修复
@@ -218,7 +221,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/dircleaner/code/A1_II_Φ8/` | A1_II_Φ8 应用文件 |
 | `/projects/writer/` | Writer 小说编辑器项目页 |
 | `/projects/writer/code/` | Writer 代码分支索引 |
-| `/projects/writer/code/A1_I_Φ4/` | A1_I_Φ4 应用文件（当前版本） |
+| `/projects/writer/code/A1_I_Φ5/` | A1_I_Φ5 应用文件（当前版本 · 人称转换器） |
+| `/projects/writer/code/A1_I_Φ4/` | A1_I_Φ4 应用文件（数据安全与并发修复） |
 | `/projects/writer/code/A1_I_Φ3/` | A1_I_Φ3 应用文件（逻辑与健壮性修复） |
 | `/projects/writer/code/A1_I_Φ2/` | A1_I_Φ2 应用文件（布局重构） |
 | `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 应用文件（历史参照） |

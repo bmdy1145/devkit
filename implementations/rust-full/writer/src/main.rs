@@ -1,7 +1,7 @@
 //! Writer 全功能版（Rust / egui）
 //!
-//! 版本：A1_I_Φ3_Rust_CN
-//! 对应 HTML 版：projects/writer/code/A1_I_Φ3/deepseek_A1_I_Φ3_CN.html
+//! 版本：A1_I_Φ5_Rust_CN
+//! 对应 HTML 版：projects/writer/code/A1_I_Φ5/deepseek_A1_I_Φ5_CN.html
 //!
 //! 图形界面版：左侧章节树、中间正文编辑、右侧资料与提示词、字数统计、自动保存。
 //!
@@ -60,10 +60,53 @@ fn gen_id(p: &str) -> String {
     format!("{}_{}_{}", p, now_ts(), n)
 }
 
+/// 人称转换的目标人称。key 与 HTML 版 A1_I_Φ5_CN 的 #povTarget option
+/// value 一一对应。
+const POV_TARGETS: [(&str, &str); 3] = [
+    ("first", "第一人称（我）"),
+    ("second", "第二人称（你）"),
+    ("third", "第三人称（他 / 她 / 它）"),
+];
+
+/// 合成「人称转换」提示词，与 HTML 版 A1_I_Φ5_CN 的 pov 模板一致。
+fn build_pov_prompt(body: &str, chars: &str, target: &str, keep_inner: bool) -> String {
+    let inner = if keep_inner {
+        "保留：原视角的内心活动改写为目标视角可知的部分（用表情、动作、语气或外部观察替代直接叙述他人内心）"
+    } else {
+        "不保留：删去目标视角无法感知的心理描写，只保留外在可见的行为与对白"
+    };
+    [
+        format!("你是一位精通叙述视角的小说编辑。请把下面的正文转换为【{}】，情节、人物、场景与对白内容一律不变，只换叙述人称与视角。", target),
+        String::new(),
+        format!("【目标人称】{}", target),
+        String::new(),
+        format!("【心理描写处理】{}", inner),
+        String::new(),
+        "【相关设定】".to_string(),
+        chars.to_string(),
+        String::new(),
+        "【需要转换的正文】".to_string(),
+        body.to_string(),
+        String::new(),
+        "【转换规则】".to_string(),
+        "1) 只改人称代词与由此引起的视角变化，不增删情节、不改变人物性格与说话方式；".to_string(),
+        "2) 第一人称：叙述者用「我」，只能写出「我」能感知到的内容（看到、听到、想到），不能直接叙述旁人心里在想什么；".to_string(),
+        "3) 第二人称：叙述者用「你」，把读者带入场景，动作与感受都落在「你」身上；".to_string(),
+        "4) 第三人称：叙述者用「他 / 她 / 它」或人物姓名，人物之间用姓名或称谓区分，避免代词指向不明；".to_string(),
+        "5) 时间线、场景顺序、对白内容保持原样，对白中人物自称按其在故事中的实际人称调整；".to_string(),
+        "6) 转换后通读一遍，确保没有残留的原人称代词、没有视角越界、没有半途切换人称。".to_string(),
+        String::new(),
+        "【输出要求】直接输出转换后的完整正文，不要加解释、不要加标题、不要用「以下是」之类的开场白，便于直接替换当前章。".to_string(),
+    ]
+    .join("\n")
+}
+
 struct App {
     lib: Library,
     path: Option<PathBuf>,
     sel_chapter: Option<String>,
+    pov_target: String,
+    pov_keep_inner: bool,
     edit_title: String,
     edit_text: String,
     input: String,
@@ -84,6 +127,7 @@ impl Default for App {
             edit_title: String::new(), edit_text: String::new(),
             input: String::new(), prompt: String::new(), status: "就绪".to_string(),
             dirty: false, new_volume: String::new(), new_chapter: String::new(),
+            pov_target: "third".to_string(), pov_keep_inner: true,
             ent_name: String::new(), ent_kind: String::new(), ent_desc: String::new(),
         }
     }
@@ -153,6 +197,31 @@ impl App {
         let chars = if chars.is_empty() { "（未填写）".to_string() } else { chars.join("\n") };
         let body = if ch.text.is_empty() { "（当前章为空）".to_string() } else { ch.text.clone() };
         self.prompt = format!("你是一位与作者合写的小说作者。请续写下一段情节。\n\n【设定】\n{}\n\n【上一章结尾】\n{}\n\n【本章已有正文】\n{}", chars, prev, body);
+    }
+
+    // 人称转换：目标人称与心理描写开关由界面上的两个控件决定。
+    fn build_pov(&mut self) {
+        let Some(id) = self.sel_chapter.clone() else { return; };
+        let Some(ch) = self.lib.chapters.iter().find(|c| c.id == id) else { return; };
+        let chars_list: Vec<String> = self
+            .lib
+            .entities
+            .iter()
+            .filter(|e| e.book_id == ch.book_id)
+            .map(|e| format!("- {}（{}）：{}", e.name, e.kind, e.description))
+            .collect();
+        let chars = if chars_list.is_empty() {
+            "（未填写）".to_string()
+        } else {
+            chars_list.join("\n")
+        };
+        let body = if ch.text.is_empty() { "（当前章为空）" } else { &ch.text };
+        let target = POV_TARGETS
+            .iter()
+            .find(|(k, _)| *k == self.pov_target)
+            .map(|(_, v)| *v)
+            .unwrap_or("第三人称（他 / 她 / 它）");
+        self.prompt = build_pov_prompt(body, &chars, target, self.pov_keep_inner);
     }
 }
 
@@ -243,6 +312,14 @@ impl eframe::App for App {
             }
             ui.separator();
             if ui.button("生成续写提示词").clicked() { self.build_prompt(); }
+            ui.horizontal(|ui| {
+                ui.label("人称：");
+                for (key, label) in POV_TARGETS {
+                    ui.selectable_value(&mut self.pov_target, key.to_string(), label);
+                }
+            });
+            ui.checkbox(&mut self.pov_keep_inner, "保留心理描写");
+            if ui.button("生成人称转换提示词").clicked() { self.build_pov(); }
             ui.add(egui::TextEdit::multiline(&mut self.prompt).desired_rows(10).desired_width(f32::INFINITY));
         });
 
