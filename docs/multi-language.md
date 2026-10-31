@@ -18,7 +18,7 @@ implementations/
 
 - **语言**：`rust` / `go` / `python` / `typescript` / `csharp` / `cpp`
 - **层次**：`core`（只做逻辑内核）/ `full`（完整功能重写）
-- **项目**：`devkit` / `submerge-pro` / `dircleaner` / `writer`
+- **项目**：`devkit` / `submerge-pro` / `dircleaner` / `writer`（`persona` 暂未提供多语言实现）
 
 两层用**目录**区分，**版本号相同**——这样 `version_guard.py` 无需改动。
 
@@ -86,7 +86,7 @@ DevKit 有 9 个皮肤，另有 1 个「九皮肤合一」版本：
 
 | 段 | 取值 | 说明 |
 |---|---|---|
-| 项目 | `dircleaner` / `submerge-pro` / `writer` / `devkit` | |
+| 项目 | `dircleaner` / `submerge-pro` / `writer` / `devkit` | `persona` 暂无多语言产物 |
 | 语言 | `cpp` / `csharp` / `go` / `python` / `rust` / `typescript` | |
 | 层次 | `cli` / `gui` | `cli` = 源码目录的 `core`；`gui` = 源码目录的 `full` |
 
