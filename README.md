@@ -188,7 +188,10 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │       ├── index.html               # 项目落地页（打开入口 + 数据安全提示）
 │       └── code/
 │           ├── index.html           # 代码 / 分支索引
-│           ├── A1_II_Φ9/            # 当前版本（缺陷修复 + 8 款皮肤，每款含深浅双主题）
+│           ├── A1_II_Φ10/           # 当前版本（导出弹窗改造：复制到剪贴板）
+│           │   ├── index.html
+│           │   └── deepseek_A1_II_Φ10_CN.html
+│           ├── A1_II_Φ9/            # 缺陷修复 + 8 款皮肤，每款含深浅双主题
 │           │   ├── index.html
 │           │   ├── deepseek_A1_II_Φ9_CN.html          # 默认皮肤
 │           │   ├── deepseek_A1_II_Φ9_Clean_CN.html
@@ -271,7 +274,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 应用文件（历史参照） |
 | `/projects/persona/` | Persona 人设编辑器项目页 |
 | `/projects/persona/code/` | Persona 代码分支索引 |
-| `/projects/persona/code/A1_II_Φ9/` | A1_II_Φ9 应用文件（当前版本 · 缺陷修复：导入入口 / 存储提示） |
+| `/projects/persona/code/A1_II_Φ10/` | A1_II_Φ10 应用文件（当前版本 · 导出弹窗改造：复制到剪贴板） |
+| `/projects/persona/code/A1_II_Φ9/` | A1_II_Φ9 应用文件（缺陷修复：导入入口 / 存储提示；含 8 款皮肤） |
 | `/projects/persona/code/A1_II_Φ8/` | A1_II_Φ8 应用文件（人设/世界观滑块） |
 | `/projects/persona/code/A1_II_Φ7/` | A1_II_Φ7 应用文件（世界观在左侧栏） |
 | `/projects/persona/code/A1_II_Φ6/` | A1_II_Φ6 应用文件（界面调整） |
