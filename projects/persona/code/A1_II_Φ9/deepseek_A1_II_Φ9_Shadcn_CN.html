@@ -265,7 +265,7 @@
         --border: #e4e4e7;
         --text: #09090b;
         --text-2: #71717a;
-        --text-3: #a1a1aa;
+        --text-3: #65656e;
         --accent: #18181b;
         --accent-rgb: 24, 24, 27;
         --accent-soft: rgba(24, 24, 27, 0.14);
@@ -1906,9 +1906,13 @@
             UI.toast('主题：' + (next === 'auto' ? '跟随系统' : (next === 'dark' ? '深色' : '浅色')));
         },
 
-        init() {
-            const saved = State.prefs.ui && State.prefs.ui.themePref;
-            this.apply(saved || 'auto');
+        /* 只绑按钮与系统主题监听，完全不碰存储。
+           boot 最前面调用，保证哪怕存储挂起、页面卡在启动阶段，
+           主题按钮也是活的。 */
+        bind() {
+            if (this._bound) return;
+            this._bound = true;
+            this.apply('auto');
             try {
                 this.mql = window.matchMedia('(prefers-color-scheme: light)');
                 const self = this;
@@ -1918,6 +1922,12 @@
             } catch (e) { /* 忽略 */ }
             const btn = document.getElementById('themeBtn');
             if (btn) btn.addEventListener('click', function () { ThemeService.cycle(); });
+        },
+
+        /* 读取用户上次的选择并应用。必须在 PrefsService.load() 之后调用。 */
+        applySaved() {
+            const saved = State.prefs && State.prefs.ui && State.prefs.ui.themePref;
+            if (saved) this.apply(saved);
         }
     };
 
@@ -4322,6 +4332,10 @@
      * 18. 启动
      * ==================================================================== */
     async function boot() {
+        // 主题先行：它不依赖存储，先绑好按钮，
+        // 这样即使下面的 Storage.init() 因 onblocked 卡住，界面也不会是死的。
+        ThemeService.bind();
+
         await Storage.init();
 
         // Φ9：存储出错必须让用户看见，不能只 console.warn
@@ -4342,15 +4356,16 @@
 
         // Φ9：版本不匹配时禁止一切写入。若继续走下面的启动流程，会立刻
         // 建「未命名人物 + 默认世界 + 新世界观」，看起来就像数据全丢了。
+        await PrefsService.load();
+        // 把用户上次选的主题覆盖上去（bind() 时用的是 auto 默认值）
+        ThemeService.applySaved();
+
         if (Storage.readOnly) {
             // 只绑提示条上的关闭 / 返回链接，不绑编辑事件：
             // 整个编辑器此时没有数据可编辑，绑了反而会写出空记录。
             bindStorageNoteOnly();
             return;
         }
-
-        await PrefsService.load();
-        ThemeService.init();
         // 旧版单层人设 → 新结构（人物卡片 + 平行世界），幂等
         await Migration.run();
         await PersonaService.loadAll();
