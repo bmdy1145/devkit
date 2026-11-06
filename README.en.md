@@ -256,7 +256,8 @@ The site entry is the **root-level** `index.html`, a **project picker**; each pr
 | `/projects/` | Index for the projects directory |
 | `/projects/devkit/` | DevKit landing page: nine-skin shortcuts + download + branch cards |
 | `/projects/devkit/code/` | DevKit branch index (Φ9 / Φ8 / Φ7 / Φ5 / Φ4) |
-| `/projects/devkit/code/A1_V_Φ9/` | Version list for the current main line (nine skins, Fix layer) |
+| `/projects/devkit/code/A1_V_Φ9_Fix_Fix/` | Version list for the current main line (nine skins, Fix_Fix layer) |
+| `/projects/devkit/code/A1_V_Φ9/` | Version list for the previous iteration layer (nine skins, Fix layer) |
 | `/projects/devkit/code/A1_V_Φ9_fix-archive/` | Archived unfixed Φ9 builds (nine, for comparison and rollback) |
 | `/projects/devkit/code/A1_V_Φ8/` | Version list for the previous main line (nine skins, Fix_Fix, parallel with Φ9) |
 | `/projects/devkit/code/A1_V_Φ8_fix-archive/` | Historical archive of Φ8's Fix layer (nine builds) |
