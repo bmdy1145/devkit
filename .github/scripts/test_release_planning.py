@@ -18,6 +18,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 # Windows 控制台默认不是 UTF-8，用例里的中文说明会打印成乱码
 if hasattr(sys.stdout, "reconfigure"):
@@ -287,6 +288,130 @@ class TestLocalProjects(unittest.TestCase):
             self.assertEqual(ar.local_projects(), [])
         finally:
             ar.PROJECTS_DIR = original
+
+
+class TestDraftFirstRelease(unittest.TestCase):
+    """发布顺序必须是「建草稿 → 传附件 → 发布」。
+
+    仓库开启了 GitHub 的 Immutable Releases：Release 一旦以 draft=false 创建，
+    标签与附件就锁死，之后上传附件一律 HTTP 422。2026-11-06 就是这么产生了
+    两个 0 附件的空 Release。这里钉住顺序与失败回滚行为。
+    """
+
+    def setUp(self):
+        # 避开真实目录与网络：造一个只含一个交付物文件的项目结构
+        import tempfile
+
+        self._tmp = tempfile.TemporaryDirectory()
+        root = Path(self._tmp.name)
+        trunk = root / "demo" / "code" / "A1_X_Φ1"
+        trunk.mkdir(parents=True)
+        (trunk / "deepseek_A1_X_Φ1_CN.html").write_text("<html></html>", encoding="utf-8")
+        self._orig_projects = ar.PROJECTS_DIR
+        ar.PROJECTS_DIR = root
+
+        self.calls: list[tuple] = []
+        self.burned_tags: set[str] = set()
+        self.release_ids: list[int] = []
+
+    def tearDown(self):
+        ar.PROJECTS_DIR = self._orig_projects
+        self._tmp.cleanup()
+
+    def _fake_api(self, method, url, token, payload=None):
+        self.calls.append((method, url, payload))
+        if method == "GET" and "/releases/tags/" in url:
+            # 仓库里没有同名 Release（探测用）
+            return 404, {"message": "Not Found"}
+        if method == "GET":  # existing_tags
+            return 200, []
+        if method == "POST" and url.endswith("/git/refs"):
+            return 201, {}
+        if method == "POST" and url.endswith("/releases"):
+            tag = payload.get("tag_name", "")
+            # 模拟被不可变 Release 烧掉的标签名
+            if tag in self.burned_tags:
+                return 422, {
+                    "message": "Validation Failed",
+                    "errors": [
+                        {
+                            "resource": "Release",
+                            "code": "custom",
+                            "field": "tag_name",
+                            "message": "tag_name was used by an immutable release",
+                        }
+                    ],
+                }
+            self.release_ids.append(len(self.release_ids) + 1000)
+            return 201, {"id": self.release_ids[-1]}
+        if method == "PATCH":  # 发布草稿
+            return 200, {}
+        if method == "DELETE":
+            return 204, None
+        return 200, {}
+
+    def _run(self, upload_ok: bool = True, forced_tag: str | None = None):
+        with mock.patch.object(ar, "api", side_effect=self._fake_api), mock.patch.object(
+            ar, "upload_asset", return_value=upload_ok
+        ), mock.patch.object(ar, "build_notes", return_value="notes"):
+            return ar.release_trunk(
+                "o/r", "t", "demo", "A1_X_Φ1", "abc123", "changed", forced_tag
+            )
+
+    def test_create_release_as_draft(self):
+        self.assertTrue(self._run(upload_ok=True))
+        create = next(c for c in self.calls if c[0] == "POST" and c[1].endswith("/releases"))
+        self.assertIs(create[2]["draft"], True, "必须建草稿，否则附件锁死")
+
+    def test_publish_after_upload(self):
+        self.assertTrue(self._run(upload_ok=True))
+        methods = [c[0] for c in self.calls]
+        self.assertIn("PATCH", methods)
+        # PATCH（发布）必须发生在创建 Release 之后
+        patch_idx = methods.index("PATCH")
+        create_idx = next(
+            i
+            for i, c in enumerate(self.calls)
+            if c[0] == "POST" and c[1].endswith("/releases")
+        )
+        self.assertGreater(patch_idx, create_idx)
+        self.assertEqual(self.calls[patch_idx][2], {"draft": False})
+
+    def test_upload_failure_rolls_back_release_and_tag(self):
+        self.assertFalse(self._run(upload_ok=False))
+        deletes = [c for c in self.calls if c[0] == "DELETE"]
+        self.assertTrue(deletes, "上传失败必须回滚，不能留空壳 Release")
+        urls = " ".join(c[1] for c in deletes)
+        self.assertIn("/releases/", urls)
+        self.assertIn("refs/tags/", urls)
+        self.assertNotIn("PATCH", [c[0] for c in self.calls], "失败时不得发布")
+
+    def test_burned_tag_name_auto_bumps_suffix(self):
+        """标签名被不可变 Release 占用时，自动换下一个后缀重试。
+
+        2026-11-06 实测：persona/A1_II_Φ11 发布过又删掉后，同名再也建不了
+        Release（422 tag_name was used by an immutable release）。若脚本不
+        自动跳后缀，此后每次给该主干发版都会失败。
+        """
+        self.burned_tags = {"demo/A1_X_Φ1"}
+        self.assertTrue(self._run())
+        tags = [
+            c[2]["tag_name"]
+            for c in self.calls
+            if c[0] == "POST" and c[1].endswith("/releases")
+        ]
+        self.assertEqual(tags, ["demo/A1_X_Φ1", "demo/A1_X_Φ1.1"])
+
+    def test_burned_tag_with_forced_name_reports_error(self):
+        """手动指定的标签名被占用时不擅自改名，报错让人决定。"""
+        self.burned_tags = {"demo/A1_X_Φ1.7"}
+        self.assertFalse(self._run(forced_tag="demo/A1_X_Φ1.7"))
+        tags = [
+            c[2]["tag_name"]
+            for c in self.calls
+            if c[0] == "POST" and c[1].endswith("/releases")
+        ]
+        self.assertEqual(tags, ["demo/A1_X_Φ1.7"], "手动指定名字不得被悄悄替换")
 
 
 if __name__ == "__main__":
