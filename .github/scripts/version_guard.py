@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""版本结构校验（DevKit 与 Writer）。
+"""版本结构校验（DevKit、Writer 与 Persona）。
 
 检查各项目 code/ 下每个版本 HTML 的版本号结构、四处版本号一致性、脚本可
 解析性、结构块与目录内容的相互覆盖，以及同一主干下各皮肤的迭代层是否一致。
