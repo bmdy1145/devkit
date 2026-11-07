@@ -10,6 +10,8 @@
 #   · 人设逻辑   snapshot_other_test.py —— Persona 快照字段存取、恢复、
 #     记忆范围切换的运行时断言。冒烟只查控制台报错，抓不到「启动之后才抛」
 #     的缺陷（这类异常不留 CONSOLE 行），所以那类逻辑需要真正跑一遍流程。
+#   · 分享图     share_image_test.py —— 比例/分辨率映射、换行、分页、单张
+#     适配这些纯函数，以及真实画布输出的尺寸与像素采样。
 #
 # 与 version-guard 一样默认只报告、不拦截。
 # 每个脚本本地都能用同一条命令运行。
@@ -77,3 +79,5 @@ jobs:
       # 找不到时才需要 CHROME_BIN。
       - name: 运行人设逻辑单测
         run: python3 .github/scripts/snapshot_other_test.py
+      - name: 运行分享图逻辑单测
+        run: python3 .github/scripts/share_image_test.py

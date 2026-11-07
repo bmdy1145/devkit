@@ -70,7 +70,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-DEFAULT_TARGET = ROOT / "projects" / "persona" / "code" / "A1_II_Φ12" / "deepseek_A1_II_Φ12_CN.html"
+DEFAULT_TARGET = ROOT / "projects" / "persona" / "code" / "A1_II_Φ13" / "deepseek_A1_II_Φ13_CN.html"
 
 # 允许指向别的版本文件，主要用途是「反向对照」：拿修复前的版本跑一遍，确认本脚本
 # 会红。若哪天改完仍然绿，说明断言本身失效了。
