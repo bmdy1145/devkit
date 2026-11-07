@@ -6,7 +6,11 @@
 // 只实现纯逻辑内核：书籍 / 卷 / 章节结构、字数统计、章节排序、
 // 跨卷移动、引用管理、提示词模板合成。
 //
-// 存储格式与 C++ 版一致（TAB 分隔的纯文本，字段与浏览器版一一对应）。
+// 存储格式：JSON（与 Python / TypeScript / Go / Rust 版一致，库文件可互通）。
+// 字段名用 snake_case：book_id / volume_id / word_count / updated_at。
+//
+// 兼容旧版：读到旧 TSV（B/V/C/E + TAB 开头）先备份为 <库文件>.tsv.bak，再写回
+// JSON。两种格式都解析失败时直接报错退出，绝不写回 —— 避免覆盖用户手稿。
 //
 // 版权：Copyright (C) 2026-至今 北冥的鱼, DeepSeek
 // 许可证：GPLv3
@@ -17,25 +21,51 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Writer;
 
-internal sealed class Book { public string Id = "", Title = ""; public long UpdatedAt; }
-internal sealed class Volume { public string Id = "", BookId = "", Title = ""; public int Order; }
+internal sealed class Book
+{
+    [JsonPropertyName("id")] public string Id = "";
+    [JsonPropertyName("title")] public string Title = "";
+    [JsonPropertyName("author")] public string Author = "";
+    [JsonPropertyName("updated_at")] public long UpdatedAt;
+}
+internal sealed class Volume
+{
+    [JsonPropertyName("id")] public string Id = "";
+    [JsonPropertyName("book_id")] public string BookId = "";
+    [JsonPropertyName("title")] public string Title = "";
+    [JsonPropertyName("order")] public int Order;
+}
 internal sealed class Chapter
 {
-    public string Id = "", BookId = "", VolumeId = "", Title = "", Text = "";
-    public int Order;
-    public long WordCount;
+    [JsonPropertyName("id")] public string Id = "";
+    [JsonPropertyName("book_id")] public string BookId = "";
+    [JsonPropertyName("volume_id")] public string VolumeId = "";
+    [JsonPropertyName("title")] public string Title = "";
+    [JsonPropertyName("order")] public int Order;
+    [JsonPropertyName("word_count")] public long WordCount;
+    [JsonPropertyName("updated_at")] public long UpdatedAt;
+    [JsonPropertyName("text")] public string Text = "";
 }
-internal sealed class Entity { public string Id = "", BookId = "", Name = "", Kind = "", Description = ""; }
+internal sealed class Entity
+{
+    [JsonPropertyName("id")] public string Id = "";
+    [JsonPropertyName("book_id")] public string BookId = "";
+    [JsonPropertyName("name")] public string Name = "";
+    [JsonPropertyName("kind")] public string Kind = "";
+    [JsonPropertyName("description")] public string Description = "";
+}
 
 internal sealed class Library
 {
-    public List<Book> Books = new();
-    public List<Volume> Volumes = new();
-    public List<Chapter> Chapters = new();
-    public List<Entity> Entities = new();
+    [JsonPropertyName("books")] public List<Book> Books = new();
+    [JsonPropertyName("volumes")] public List<Volume> Volumes = new();
+    [JsonPropertyName("chapters")] public List<Chapter> Chapters = new();
+    [JsonPropertyName("entities")] public List<Entity> Entities = new();
 }
 
 internal static class Program
@@ -86,22 +116,72 @@ internal static class Program
         return sb.ToString();
     }
 
-    private static Library Load(string path)
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        WriteIndented = true,
+        // 这些类型用的是公共字段而不是属性，默认不会被序列化，必须显式打开
+        IncludeFields = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
+    /// <summary>读取结果：区分「不存在」「空」「成功」「格式错误」。</summary>
+    private enum LoadStatus { Missing, Empty, Ok, BadFormat }
+
+    private static LoadStatus LoadLibrary(string path, out Library lib, out bool migrated)
+    {
+        lib = new Library();
+        migrated = false;
+        if (!File.Exists(path)) return LoadStatus.Missing;
+        var text = File.ReadAllText(path, Encoding.UTF8);
+        if (text.Trim().Length == 0) return LoadStatus.Empty;
+
+        if (text.TrimStart().StartsWith("{"))
+        {
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<Library>(text, JsonOpts);
+                if (parsed is not null) { lib = parsed; Normalize(lib); return LoadStatus.Ok; }
+            }
+            catch (JsonException) { }
+            return LoadStatus.BadFormat;
+        }
+
+        // 旧 TSV：先备份，再按 JSON 重写
+        var legacy = ParseTsv(text);
+        if (legacy is null) return LoadStatus.BadFormat;
+        var bak = path + ".tsv.bak";
+        if (File.Exists(bak)) File.Delete(bak);
+        File.Move(path, bak);
+        lib = legacy;
+        migrated = true;
+        return LoadStatus.Ok;
+    }
+
+    private static void Normalize(Library lib)
+    {
+        lib.Books ??= new();
+        lib.Volumes ??= new();
+        lib.Chapters ??= new();
+        lib.Entities ??= new();
+    }
+
+    private static Library? ParseTsv(string text)
     {
         var lib = new Library();
-        if (!File.Exists(path)) return lib;
-        foreach (var line in File.ReadAllLines(path, Encoding.UTF8))
+        var any = false;
+        foreach (var raw in text.Split('\n'))
         {
+            var line = raw.TrimEnd('\r');
             if (line.Length == 0) continue;
-            var p = line.Split('\t');
+            var p = line.Split('	');
             switch (p[0])
             {
                 case "B" when p.Length >= 4:
                     lib.Books.Add(new Book { Id = p[1], Title = Unescape(p[2]), UpdatedAt = long.Parse(p[3], CultureInfo.InvariantCulture) });
-                    break;
+                    any = true; break;
                 case "V" when p.Length >= 5:
                     lib.Volumes.Add(new Volume { Id = p[1], BookId = p[2], Title = Unescape(p[3]), Order = int.Parse(p[4], CultureInfo.InvariantCulture) });
-                    break;
+                    any = true; break;
                 case "C" when p.Length >= 8:
                     lib.Chapters.Add(new Chapter
                     {
@@ -110,31 +190,22 @@ internal static class Program
                         WordCount = long.Parse(p[6], CultureInfo.InvariantCulture),
                         Text = Unescape(p[7]),
                     });
-                    break;
+                    any = true; break;
                 case "E" when p.Length >= 6:
                     lib.Entities.Add(new Entity
                     {
                         Id = p[1], BookId = p[2], Name = Unescape(p[3]),
                         Kind = Unescape(p[4]), Description = Unescape(p[5]),
                     });
-                    break;
+                    any = true; break;
             }
         }
-        return lib;
+        return any ? lib : null;
     }
 
     private static void Save(string path, Library lib)
     {
-        var sb = new StringBuilder();
-        foreach (var b in lib.Books)
-            sb.Append($"B\t{b.Id}\t{Escape(b.Title)}\t{b.UpdatedAt}\n");
-        foreach (var v in lib.Volumes)
-            sb.Append($"V\t{v.Id}\t{v.BookId}\t{Escape(v.Title)}\t{v.Order}\n");
-        foreach (var c in lib.Chapters)
-            sb.Append($"C\t{c.Id}\t{c.BookId}\t{c.VolumeId}\t{Escape(c.Title)}\t{c.Order}\t{c.WordCount}\t{Escape(c.Text)}\n");
-        foreach (var e in lib.Entities)
-            sb.Append($"E\t{e.Id}\t{e.BookId}\t{Escape(e.Name)}\t{Escape(e.Kind)}\t{Escape(e.Description)}\n");
-        File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
+        File.WriteAllText(path, JsonSerializer.Serialize(lib, JsonOpts), new UTF8Encoding(false));
     }
 
     private static List<Chapter> ChaptersOf(Library lib, string volId) =>
@@ -212,7 +283,15 @@ internal static class Program
         var libPath = args[0];
         var cmd = args[1];
         var rest = args.Skip(2).ToArray();
-        var lib = Load(libPath);
+        var loadStatus = LoadLibrary(libPath, out var lib, out var migrated);
+        if (loadStatus == LoadStatus.BadFormat)
+        {
+            Console.Error.WriteLine("错误：库文件格式无法识别（既不是 JSON 也不是旧版 TSV）");
+            Console.Error.WriteLine($"      为避免覆盖，本次不做任何写入：{libPath}");
+            return 1;
+        }
+        if (migrated)
+            Console.Error.WriteLine($"提示：已把旧版 TSV 库迁移为 JSON，原文件备份为 {libPath}.tsv.bak");
 
         switch (cmd)
         {

@@ -47,6 +47,23 @@ internal static class Program
         return i == 0 ? $"{v:F0} {units[i]}" : $"{v:F2} {units[i]}";
     }
 
+    /// <summary>
+    /// 是否为目录联接 / 符号链接。Directory.Exists 会跟随这类条目，
+    /// 直接递归会走进链接目标、清空目录树之外的内容。
+    /// </summary>
+    private static bool IsReparsePoint(string path)
+    {
+        try
+        {
+            return (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+        }
+        catch
+        {
+            // 取不到属性时保守处理：当作链接，不递归
+            return true;
+        }
+    }
+
     private static bool ContainsExecutables(string dir, int depth, ref int counter)
     {
         if (depth > 10 || counter >= MaxScanForExe) return false;
@@ -59,7 +76,7 @@ internal static class Program
             if (counter >= MaxScanForExe) break;
             try
             {
-                if (Directory.Exists(path))
+                if (Directory.Exists(path) && !IsReparsePoint(path))
                 {
                     if (ContainsExecutables(path, depth + 1, ref counter)) return true;
                 }
@@ -88,7 +105,8 @@ internal static class Program
         foreach (var path in entries)
         {
             var name = Path.GetFileName(path);
-            if (Directory.Exists(path))
+            // 目录联接 / 符号链接不递归（只删链接本身），避免清空目录树之外的内容
+            if (Directory.Exists(path) && !IsReparsePoint(path))
             {
                 ClearDirectory(path, depth + 1, ref fileCount, keepMarker, dryRun, stats);
                 if (dryRun)
@@ -192,7 +210,15 @@ internal static class Program
             return 1;
         }
 
-        var dirName = Path.GetFileName(Path.GetFullPath(target).TrimEnd(Path.DirectorySeparatorChar));
+        // 根目录的 GetFileName 是空串，永远不在名单里，必须单独拦；--whitelist 不可绕过
+        var fullTarget = Path.GetFullPath(target);
+        if (Path.GetPathRoot(fullTarget) == fullTarget)
+        {
+            Console.Error.WriteLine("错误：目标是文件系统根目录，禁止清空");
+            return 1;
+        }
+
+        var dirName = Path.GetFileName(fullTarget.TrimEnd(Path.DirectorySeparatorChar));
         if (CriticalDirNames.Contains(dirName))
         {
             Console.Error.WriteLine($"错误：{dirName} 是受保护的关键目录，禁止清空");

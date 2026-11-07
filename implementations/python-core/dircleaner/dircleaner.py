@@ -26,6 +26,23 @@ CRITICAL_DIR_NAMES = {
 }
 
 
+def is_filesystem_root(path):
+    """是否为文件系统根目录（/ 或 C:\）。
+
+    根目录的 basename 是空串（POSIX）或只剩盘符，永远不在 CRITICAL_DIR_NAMES
+    里；只比目录名等于放行。删除类工具必须单独拦这一条，且 --whitelist
+    不能绕过。
+    """
+    try:
+        abs_path = os.path.abspath(path)
+    except (OSError, ValueError):
+        return False
+    drive, rest = os.path.splitdrive(abs_path)
+    # 去掉末尾分隔符后，剩下的部分为空 = 根
+    stripped = rest.rstrip("/\\")
+    return stripped == ""
+
+
 def format_bytes(n: int) -> str:
     if n == 0:
         return "0 B"
@@ -137,6 +154,10 @@ def main() -> int:
     target = args.target
     if not os.path.isdir(target):
         print(f"错误：{target} 不是目录", file=sys.stderr)
+        return 1
+
+    if is_filesystem_root(target):
+        print("错误：目标是文件系统根目录，禁止清空", file=sys.stderr)
         return 1
 
     dir_name = os.path.basename(os.path.normpath(os.path.abspath(target)))

@@ -6,12 +6,16 @@
 // 只实现纯逻辑内核：书籍 / 卷 / 章节结构、字数统计、章节排序、
 // 跨卷移动、引用管理、提示词模板合成。
 //
-// 存储格式：为免引入 JSON 库，采用与浏览器版字段一一对应的文本格式：
-//   B<TAB>id<TAB>title<TAB>updated_at
-//   V<TAB>id<TAB>book_id<TAB>title<TAB>order
-//   C<TAB>id<TAB>book_id<TAB>volume_id<TAB>title<TAB>order<TAB>word_count<TAB>text(转义)
-//   E<TAB>id<TAB>book_id<TAB>name<TAB>kind<TAB>description(转义)
-// 转义规则：\ -> \\，\t -> \t，\n -> \n
+// 存储格式：JSON（与 Python / TypeScript / Go / Rust 版一致，库文件可互通）。
+//   { "books": [...], "volumes": [...], "chapters": [...], "entities": [...] }
+//   字段名用 snake_case：book_id / volume_id / word_count / updated_at。
+//
+// 为不引入第三方依赖，本文件自带最小 JSON 读写实现（只覆盖用到的类型：
+// 对象、数组、字符串、整数、bool、null）。
+//
+// 兼容旧版：若读到旧 TSV 格式（B/V/C/E + TAB 开头），先备份成
+// <库文件>.tsv.bak，再按 JSON 重写。两种格式都解析失败时直接报错退出，
+// 绝不写回 —— 避免把用户手稿覆盖成空库。
 //
 // 版权：Copyright (C) 2026-至今 北冥的鱼, DeepSeek
 // 许可证：GPLv3
@@ -24,6 +28,10 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 struct Book { std::string id, title; long long updatedAt = 0; };
 struct Volume { std::string id, bookId, title; int order = 0; };
@@ -126,46 +134,372 @@ static std::vector<std::string> split(const std::string& s, char sep) {
     return out;
 }
 
-static Library load(const std::string& path) {
-    Library lib;
-    std::ifstream f(path, std::ios::binary);
-    if (!f) return lib;
+/* ---------------- 最小 JSON 实现 ---------------- */
+
+static std::string jsonEscape(const std::string& s) {
+    std::string out;
+    out.reserve(s.size() + 8);
+    for (unsigned char c : s) {
+        switch (c) {
+        case '"':  out += "\\\""; break;
+        case '\\': out += "\\\\"; break;
+        case '\n': out += "\\n"; break;
+        case '\r': out += "\\r"; break;
+        case '\t': out += "\\t"; break;
+        case '\b': out += "\\b"; break;
+        case '\f': out += "\\f"; break;
+        default:
+            if (c < 0x20) {
+                char buf[8];
+                std::snprintf(buf, sizeof(buf), "\\u%04x", c);
+                out += buf;
+            } else {
+                out += static_cast<char>(c);
+            }
+        }
+    }
+    return out;
+}
+
+/* 极简 JSON 解析：只支持本程序写出的形状。解析失败返回 false，调用方据此
+   报错并拒绝写回 —— 这是防止「格式不符被当成空库再覆盖」的关键。 */
+class JsonReader {
+public:
+    explicit JsonReader(const std::string& s) : s_(s), i_(0), ok_(true) {}
+
+    bool ok() const { return ok_; }
+    bool atEnd() {
+        skipWs();
+        return i_ >= s_.size();
+    }
+
+    bool expect(char c) {
+        skipWs();
+        if (i_ < s_.size() && s_[i_] == c) { ++i_; return true; }
+        ok_ = false;
+        return false;
+    }
+
+    bool peekIs(char c) {
+        skipWs();
+        return i_ < s_.size() && s_[i_] == c;
+    }
+
+    bool readString(std::string& out) {
+        skipWs();
+        if (i_ >= s_.size() || s_[i_] != '"') { ok_ = false; return false; }
+        ++i_;
+        out.clear();
+        while (i_ < s_.size()) {
+            char c = s_[i_++];
+            if (c == '"') return true;
+            if (c != '\\') { out += c; continue; }
+            if (i_ >= s_.size()) break;
+            char e = s_[i_++];
+            switch (e) {
+            case '"': out += '"'; break;
+            case '\\': out += '\\'; break;
+            case '/': out += '/'; break;
+            case 'n': out += '\n'; break;
+            case 'r': out += '\r'; break;
+            case 't': out += '\t'; break;
+            case 'b': out += '\b'; break;
+            case 'f': out += '\f'; break;
+            case 'u': {
+                if (i_ + 4 > s_.size()) { ok_ = false; return false; }
+                unsigned cp = 0;
+                for (int k = 0; k < 4; ++k) {
+                    char h = s_[i_ + k];
+                    cp <<= 4;
+                    if (h >= '0' && h <= '9') cp |= (unsigned)(h - '0');
+                    else if (h >= 'a' && h <= 'f') cp |= (unsigned)(h - 'a' + 10);
+                    else if (h >= 'A' && h <= 'F') cp |= (unsigned)(h - 'A' + 10);
+                    else { ok_ = false; return false; }
+                }
+                i_ += 4;
+                // 只处理 BMP；代理对尚未在本程序中产生，遇到按替换字符处理
+                if (cp >= 0xD800 && cp <= 0xDFFF) out += '?';
+                else if (cp < 0x80) out += (char)cp;
+                else if (cp < 0x800) {
+                    out += (char)(0xC0 | (cp >> 6));
+                    out += (char)(0x80 | (cp & 0x3F));
+                } else {
+                    out += (char)(0xE0 | (cp >> 12));
+                    out += (char)(0x80 | ((cp >> 6) & 0x3F));
+                    out += (char)(0x80 | (cp & 0x3F));
+                }
+                break;
+            }
+            default: ok_ = false; return false;
+            }
+        }
+        ok_ = false;
+        return false;
+    }
+
+    bool readInt(long long& out) {
+        skipWs();
+        size_t start = i_;
+        if (i_ < s_.size() && (s_[i_] == '-' || s_[i_] == '+')) ++i_;
+        while (i_ < s_.size() && s_[i_] >= '0' && s_[i_] <= '9') ++i_;
+        if (i_ == start) { ok_ = false; return false; }
+        try { out = std::stoll(s_.substr(start, i_ - start)); }
+        catch (...) { ok_ = false; return false; }
+        return true;
+    }
+
+    bool skipValue() {
+        skipWs();
+        if (i_ >= s_.size()) { ok_ = false; return false; }
+        char c = s_[i_];
+        if (c == '"') { std::string tmp; return readString(tmp); }
+        if (c == '{') {
+            ++i_;
+            if (peekIs('}')) { expect('}'); return true; }
+            while (true) {
+                std::string k;
+                if (!readString(k)) return false;
+                if (!expect(':')) return false;
+                if (!skipValue()) return false;
+                if (peekIs(',')) { expect(','); continue; }
+                return expect('}');
+            }
+        }
+        if (c == '[') {
+            ++i_;
+            if (peekIs(']')) { expect(']'); return true; }
+            while (true) {
+                if (!skipValue()) return false;
+                if (peekIs(',')) { expect(','); continue; }
+                return expect(']');
+            }
+        }
+        if (s_.compare(i_, 4, "true") == 0) { i_ += 4; return true; }
+        if (s_.compare(i_, 5, "false") == 0) { i_ += 5; return true; }
+        if (s_.compare(i_, 4, "null") == 0) { i_ += 4; return true; }
+        long long tmp;
+        return readInt(tmp);
+    }
+
+private:
+    void skipWs() {
+        while (i_ < s_.size()) {
+            char c = s_[i_];
+            if (c == ' ' || c == '\t' || c == '\n' || c == '\r') ++i_;
+            else break;
+        }
+    }
+
+    const std::string& s_;
+    size_t i_;
+    bool ok_;
+};
+
+/* 逐字段读一个对象，回调按 key 取值。未识别的键跳过。 */
+template <typename Fn>
+static bool readObject(JsonReader& r, Fn onKey) {
+    if (!r.expect('{')) return false;
+    if (r.peekIs('}')) { r.expect('}'); return true; }
+    while (true) {
+        std::string key;
+        if (!r.readString(key)) return false;
+        if (!r.expect(':')) return false;
+        if (!onKey(key, r)) return false;
+        // 注意：判断「还有没有下一个键」必须用 peek，不能直接 expect——后者
+        // 在没匹配时会置 ok_=false，把正常的结束当成语法错误。
+        if (r.peekIs(',')) { r.expect(','); continue; }
+        return r.expect('}');
+    }
+}
+
+/* 读一个数组，对每个元素调用 onItem。 */
+template <typename Fn>
+static bool readArray(JsonReader& r, Fn onItem) {
+    if (!r.expect('[')) return false;
+    if (r.peekIs(']')) { r.expect(']'); return true; }
+    while (true) {
+        if (!onItem()) return false;
+        if (r.peekIs(',')) { r.expect(','); continue; }
+        return r.expect(']');
+    }
+}
+
+static bool parseJsonLibrary(const std::string& text, Library& lib) {
+    JsonReader r(text);
+    bool sawRoot = false;
+    bool ok = readObject(r, [&](const std::string& key, JsonReader& rr) -> bool {
+        if (key == "books") {
+            sawRoot = true;
+            return readArray(rr, [&]() -> bool {
+                Book b;
+                bool okItem = readObject(rr, [&](const std::string& k, JsonReader& r3) -> bool {
+                    if (k == "id") return r3.readString(b.id);
+                    if (k == "title") return r3.readString(b.title);
+                    if (k == "updated_at") return r3.readInt(b.updatedAt);
+                    return r3.skipValue();
+                });
+                if (okItem) lib.books.push_back(b);
+                return okItem;
+            });
+        }
+        if (key == "volumes") {
+            sawRoot = true;
+            return readArray(rr, [&]() -> bool {
+                Volume v;
+                bool okItem = readObject(rr, [&](const std::string& k, JsonReader& r3) -> bool {
+                    if (k == "id") return r3.readString(v.id);
+                    if (k == "book_id") return r3.readString(v.bookId);
+                    if (k == "title") return r3.readString(v.title);
+                    if (k == "order") { long long n = 0; if (!r3.readInt(n)) return false; v.order = (int)n; return true; }
+                    return r3.skipValue();
+                });
+                if (okItem) lib.volumes.push_back(v);
+                return okItem;
+            });
+        }
+        if (key == "chapters") {
+            sawRoot = true;
+            return readArray(rr, [&]() -> bool {
+                Chapter c;
+                bool okItem = readObject(rr, [&](const std::string& k, JsonReader& r3) -> bool {
+                    if (k == "id") return r3.readString(c.id);
+                    if (k == "book_id") return r3.readString(c.bookId);
+                    if (k == "volume_id") return r3.readString(c.volumeId);
+                    if (k == "title") return r3.readString(c.title);
+                    if (k == "text") return r3.readString(c.text);
+                    if (k == "order") { long long n = 0; if (!r3.readInt(n)) return false; c.order = (int)n; return true; }
+                    if (k == "word_count") return r3.readInt(c.wordCount);
+                    return r3.skipValue();
+                });
+                if (okItem) lib.chapters.push_back(c);
+                return okItem;
+            });
+        }
+        if (key == "entities") {
+            sawRoot = true;
+            return readArray(rr, [&]() -> bool {
+                Entity e;
+                bool okItem = readObject(rr, [&](const std::string& k, JsonReader& r3) -> bool {
+                    if (k == "id") return r3.readString(e.id);
+                    if (k == "book_id") return r3.readString(e.bookId);
+                    if (k == "name") return r3.readString(e.name);
+                    if (k == "kind") return r3.readString(e.kind);
+                    if (k == "description") return r3.readString(e.description);
+                    return r3.skipValue();
+                });
+                if (okItem) lib.entities.push_back(e);
+                return okItem;
+            });
+        }
+        return rr.skipValue();
+    });
+    if (!ok || !r.ok() || !sawRoot) return false;
+    if (!r.atEnd()) return false;
+    return true;
+}
+
+static std::string serializeJson(const Library& lib) {
+    std::ostringstream o;
+    o << "{\n  \"books\": [";
+    for (size_t i = 0; i < lib.books.size(); ++i) {
+        const auto& b = lib.books[i];
+        if (i) o << ",";
+        o << "\n    {\"id\": \"" << jsonEscape(b.id) << "\", \"title\": \"" << jsonEscape(b.title)
+          << "\", \"author\": \"\", \"updated_at\": " << b.updatedAt << "}";
+    }
+    o << (lib.books.empty() ? "" : "\n  ") << "],\n  \"volumes\": [";
+    for (size_t i = 0; i < lib.volumes.size(); ++i) {
+        const auto& v = lib.volumes[i];
+        if (i) o << ",";
+        o << "\n    {\"id\": \"" << jsonEscape(v.id) << "\", \"book_id\": \"" << jsonEscape(v.bookId)
+          << "\", \"title\": \"" << jsonEscape(v.title) << "\", \"order\": " << v.order << "}";
+    }
+    o << (lib.volumes.empty() ? "" : "\n  ") << "],\n  \"chapters\": [";
+    for (size_t i = 0; i < lib.chapters.size(); ++i) {
+        const auto& c = lib.chapters[i];
+        if (i) o << ",";
+        o << "\n    {\"id\": \"" << jsonEscape(c.id) << "\", \"book_id\": \"" << jsonEscape(c.bookId)
+          << "\", \"volume_id\": \"" << jsonEscape(c.volumeId) << "\", \"title\": \"" << jsonEscape(c.title)
+          << "\", \"order\": " << c.order << ", \"word_count\": " << c.wordCount
+          << ", \"updated_at\": 0, \"text\": \"" << jsonEscape(c.text) << "\"}";
+    }
+    o << (lib.chapters.empty() ? "" : "\n  ") << "],\n  \"entities\": [";
+    for (size_t i = 0; i < lib.entities.size(); ++i) {
+        const auto& e = lib.entities[i];
+        if (i) o << ",";
+        o << "\n    {\"id\": \"" << jsonEscape(e.id) << "\", \"book_id\": \"" << jsonEscape(e.bookId)
+          << "\", \"name\": \"" << jsonEscape(e.name) << "\", \"kind\": \"" << jsonEscape(e.kind)
+          << "\", \"description\": \"" << jsonEscape(e.description) << "\"}";
+    }
+    o << (lib.entities.empty() ? "" : "\n  ") << "]\n}\n";
+    return o.str();
+}
+
+/* 旧 TSV 解析（仅用于迁移）。 */
+static bool parseTsvLibrary(const std::string& text, Library& lib) {
+    bool any = false;
+    std::istringstream in(text);
     std::string line;
-    while (std::getline(f, line)) {
+    while (std::getline(in, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
         if (line.empty()) continue;
         auto parts = split(line, '\t');
         if (parts.empty()) continue;
         if (parts[0] == "B" && parts.size() >= 4) {
             lib.books.push_back({ parts[1], unescape(parts[2]), std::stoll(parts[3]) });
+            any = true;
         } else if (parts[0] == "V" && parts.size() >= 5) {
             lib.volumes.push_back({ parts[1], parts[2], unescape(parts[3]), std::stoi(parts[4]) });
+            any = true;
         } else if (parts[0] == "C" && parts.size() >= 8) {
             Chapter c;
             c.id = parts[1]; c.bookId = parts[2]; c.volumeId = parts[3];
             c.title = unescape(parts[4]); c.order = std::stoi(parts[5]);
             c.wordCount = std::stoll(parts[6]); c.text = unescape(parts[7]);
             lib.chapters.push_back(c);
+            any = true;
         } else if (parts[0] == "E" && parts.size() >= 6) {
             lib.entities.push_back({ parts[1], parts[2], unescape(parts[3]),
                                      unescape(parts[4]), unescape(parts[5]) });
+            any = true;
         }
     }
-    return lib;
+    return any;
 }
 
-static void save(const std::string& path, const Library& lib) {
+/* 读取结果：区分「文件不存在」「内容为空」「格式错误」。 */
+enum class LoadStatus { Missing, Empty, Ok, BadFormat };
+
+static LoadStatus loadLibrary(const std::string& path, Library& lib, bool& migrated) {
+    migrated = false;
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return LoadStatus::Missing;
+    std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    f.close();
+
+    size_t start = text.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) return LoadStatus::Empty;
+
+    if (text[start] == '{') {
+        if (parseJsonLibrary(text.substr(start), lib)) return LoadStatus::Ok;
+        return LoadStatus::BadFormat;
+    }
+
+    // 旧 TSV：先备份，再按 JSON 重写
+    Library legacy;
+    if (!parseTsvLibrary(text, legacy)) return LoadStatus::BadFormat;
+    std::string bak = path + ".tsv.bak";
+    std::rename(path.c_str(), bak.c_str());
+    lib = legacy;
+    migrated = true;
+    return LoadStatus::Ok;
+}
+
+static bool save(const std::string& path, const Library& lib) {
     std::ofstream f(path, std::ios::binary);
-    for (const auto& b : lib.books)
-        f << "B\t" << b.id << "\t" << escape(b.title) << "\t" << b.updatedAt << "\n";
-    for (const auto& v : lib.volumes)
-        f << "V\t" << v.id << "\t" << v.bookId << "\t" << escape(v.title) << "\t" << v.order << "\n";
-    for (const auto& c : lib.chapters)
-        f << "C\t" << c.id << "\t" << c.bookId << "\t" << c.volumeId << "\t"
-          << escape(c.title) << "\t" << c.order << "\t" << c.wordCount << "\t"
-          << escape(c.text) << "\n";
-    for (const auto& e : lib.entities)
-        f << "E\t" << e.id << "\t" << e.bookId << "\t" << escape(e.name) << "\t"
-          << escape(e.kind) << "\t" << escape(e.description) << "\n";
+    if (!f) return false;
+    f << serializeJson(lib);
+    return static_cast<bool>(f);
 }
 
 static std::vector<Chapter*> chaptersOf(Library& lib, const std::string& volId) {
@@ -230,11 +564,43 @@ static void usage() {
 }
 
 int main(int argc, char** argv) {
+    // 库文件是 UTF-8 JSON（与其它语言实现互通）。Windows 下 argv 是 ANSI
+    // 代码页，需转成 UTF-8，否则中文书名会以 GBK 字节写进 JSON，别的语言读不出来。
+    std::vector<std::string> argvUtf8;
+    argvUtf8.reserve(static_cast<size_t>(argc));
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+    for (int i = 0; i < argc; ++i) {
+        int wlen = MultiByteToWideChar(CP_ACP, 0, argv[i], -1, nullptr, 0);
+        std::wstring w(static_cast<size_t>(wlen), L'\0');
+        MultiByteToWideChar(CP_ACP, 0, argv[i], -1, &w[0], wlen);
+        int ulen = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, nullptr, 0, nullptr, nullptr);
+        std::string u(static_cast<size_t>(ulen), '\0');
+        WideCharToMultiByte(CP_UTF8, 0, w.c_str(), -1, &u[0], ulen, nullptr, nullptr);
+        if (!u.empty() && u.back() == '\0') u.pop_back();
+        argvUtf8.push_back(u);
+    }
+    std::vector<char*> argvRaw;
+    argvRaw.reserve(argvUtf8.size());
+    for (auto& a : argvUtf8) argvRaw.push_back(&a[0]);
+    argc = static_cast<int>(argvRaw.size());
+    argv = argvRaw.data();
+#endif
     if (argc < 3) { usage(); return 1; }
     std::string libPath = argv[1];
     std::string cmd = argv[2];
     std::vector<std::string> args(argv + 3, argv + argc);
-    Library lib = load(libPath);
+    Library lib;
+    bool migrated = false;
+    LoadStatus st = loadLibrary(libPath, lib, migrated);
+    if (st == LoadStatus::BadFormat) {
+        fprintf(stderr, "错误：库文件格式无法识别（既不是 JSON 也不是旧版 TSV）\n");
+        fprintf(stderr, "      为避免覆盖，本次不做任何写入：%s\n", libPath.c_str());
+        return 1;
+    }
+    if (migrated) {
+        fprintf(stderr, "提示：已把旧版 TSV 库迁移为 JSON，原文件备份为 %s.tsv.bak\n", libPath.c_str());
+    }
 
     if (cmd == "init") {
         if (args.empty()) { fprintf(stderr, "缺少书名\n"); return 1; }
@@ -399,6 +765,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    save(libPath, lib);
+    if (!save(libPath, lib)) {
+        fprintf(stderr, "错误：写入库文件失败：%s\n", libPath.c_str());
+        return 1;
+    }
     return 0;
 }

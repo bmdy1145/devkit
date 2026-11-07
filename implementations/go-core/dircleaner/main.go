@@ -35,6 +35,17 @@ var criticalDirNames = map[string]bool{
 	"Applications": true, "Library": true,
 }
 
+// isFilesystemRoot 判断是否为文件系统根目录（/ 或 C:\）。
+// 根目录的 Base 是 "/" 或 "\\"，永远不在关键目录名单里，必须单独拦。
+func isFilesystemRoot(target string) bool {
+	abs, err := filepath.Abs(target)
+	if err != nil {
+		return false
+	}
+	vol := filepath.VolumeName(abs)
+	return abs == vol+string(os.PathSeparator)
+}
+
 type stats struct {
 	deletedFiles int
 	deletedDirs  int
@@ -193,6 +204,11 @@ func main() {
 	info, err := os.Stat(target)
 	if err != nil || !info.IsDir() {
 		fmt.Fprintf(os.Stderr, "错误：%s 不是目录\n", target)
+		os.Exit(1)
+	}
+
+	if isFilesystemRoot(target) {
+		fmt.Fprintln(os.Stderr, "错误：目标是文件系统根目录，禁止清空")
 		os.Exit(1)
 	}
 

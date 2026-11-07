@@ -25,6 +25,12 @@ const CRITICAL_DIR_NAMES = new Set([
   'Users', 'Documents and Settings', 'bin', 'sbin', 'etc', 'dev', 'proc', 'sys',
   'boot', 'root', 'home', 'var', 'tmp', 'Volumes', 'Applications', 'Library',
 ]);
+/** 是否为文件系统根目录（/ 或 C:\）。--whitelist 不能绕过。 */
+function isFilesystemRoot(target) {
+  const abs = path.resolve(target);
+  return path.parse(abs).root === abs;
+}
+
 
 function formatBytes(bytes) {
   if (bytes === 0) return '0 B';
@@ -146,6 +152,11 @@ async function main() {
   try { st = fs.statSync(target); } catch (e) { st = null; }
   if (!st || !st.isDirectory()) {
     console.error(`错误：${target} 不是目录`);
+    return 1;
+  }
+
+  if (isFilesystemRoot(target)) {
+    console.error('错误：目标是文件系统根目录，禁止清空');
     return 1;
   }
 

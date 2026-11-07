@@ -96,6 +96,18 @@ static std::wstring BaseName(const std::wstring& path) {
     return p.filename().wstring();
 }
 
+/* 判断条目是否为「指向别处的链接」。
+   Windows 的目录联接（junction）不算符号链接：std::filesystem::is_symlink
+   对它返回 false，但 GetFileAttributes 会带 FILE_ATTRIBUTE_REPARSE_POINT。
+   两种都要拦，否则递归会走进链接目标、清空目录树之外的内容。 */
+static bool IsLinkEntry(const fs::directory_entry& e) {
+    std::error_code ec;
+    if (fs::is_symlink(e.symlink_status(ec))) return true;
+    DWORD attr = GetFileAttributesW(e.path().wstring().c_str());
+    if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_REPARSE_POINT)) return true;
+    return false;
+}
+
 static bool ContainsExecutables(const fs::path& dir, int depth, int& counter) {
     if (depth > 10 || counter >= MAX_SCAN_FOR_EXE) return false;
     std::error_code ec;
@@ -104,7 +116,8 @@ static bool ContainsExecutables(const fs::path& dir, int depth, int& counter) {
     for (const auto& e : it) {
         if (counter >= MAX_SCAN_FOR_EXE) break;
         std::error_code e2;
-        if (e.is_directory(e2)) {
+        // 不进入符号链接指向的目录（is_directory 会跟随链接）
+        if (e.is_directory(e2) && !IsLinkEntry(e)) {
             if (ContainsExecutables(e.path(), depth + 1, counter)) return true;
         } else if (e.is_regular_file(e2)) {
             ++counter;
@@ -128,7 +141,8 @@ static void ClearDirectory(const fs::path& dir, int depth, int& fileCount,
     for (const auto& e : it) {
         auto name = e.path().filename().wstring();
         std::error_code e2;
-        if (e.is_directory(e2)) {
+        // 符号链接不递归（只删链接本身），避免清空目录树之外的内容
+        if (e.is_directory(e2) && !IsLinkEntry(e)) {
             ClearDirectory(e.path(), depth + 1, fileCount, keepMarker, st);
             std::error_code re;
             fs::remove(e.path(), re);
@@ -151,6 +165,19 @@ static void ClearDirectory(const fs::path& dir, int depth, int& fileCount,
     }
 }
 
+/* 是否为文件系统根目录。根目录的 BaseName 为空串或分隔符，名单拦不住。 */
+static bool IsFilesystemRoot(const std::wstring& target) {
+    wchar_t full[MAX_PATH] = { 0 };
+    if (GetFullPathNameW(target.c_str(), MAX_PATH, full, nullptr) == 0) return false;
+    std::wstring abs(full);
+    // 去掉末尾分隔符后只剩盘符（C:）或为空，即根
+    std::wstring trimmed = abs;
+    while (trimmed.size() > 0 && (trimmed.back() == L'\\' || trimmed.back() == L'/')) {
+        trimmed.pop_back();
+    }
+    return trimmed.empty() || (trimmed.size() == 2 && trimmed[1] == L':');
+}
+
 static bool IsCritical(const std::wstring& name) {
     return CRITICAL_NAMES.count(name) > 0;
 }
@@ -158,6 +185,7 @@ static bool IsCritical(const std::wstring& name) {
 static void UpdateStartState() {
     if (g_target.empty()) { EnableWindow(g_startBtn, FALSE); return; }
     std::wstring name = BaseName(g_target);
+    if (IsFilesystemRoot(g_target)) { EnableWindow(g_startBtn, FALSE); return; }
     if (IsCritical(name)) { EnableWindow(g_startBtn, FALSE); return; }
     bool ok = SendMessageW(g_confirmCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
     if (!IsWhitelisted()) {
@@ -230,6 +258,10 @@ static void ScanExe() {
 }
 
 static void StartClear() {
+    if (IsFilesystemRoot(g_target)) {
+        MessageBoxW(NULL, L"目标是文件系统根目录，禁止清空", L"拒绝", MB_OK | MB_ICONERROR);
+        return;
+    }
     std::wstring name = BaseName(g_target);
     std::wstring msg = L"确定要清空目录 \"" + name + L"\" 下的所有内容吗？\r\n此操作不可恢复。";
     if (MessageBoxW(NULL, msg.c_str(), L"最后确认", MB_YESNO | MB_ICONWARNING) != IDYES) return;

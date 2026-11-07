@@ -57,6 +57,12 @@ fn is_critical(name: &str) -> bool {
     CRITICAL_DIR_NAMES.iter().any(|n| *n == name)
 }
 
+/// 是否为文件系统根目录（/ 或 C:\）。
+/// 根目录的 file_name() 是 None，原名判定永远放行，必须单独拦。
+fn is_filesystem_root(target: &Path) -> bool {
+    target.parent().is_none()
+}
+
 /// 与浏览器版 containsExecutables 等价：递归检查是否含 .exe / .dll。
 fn contains_executables(dir: &Path, depth: usize, counter: &mut usize) -> bool {
     if depth > 10 || *counter >= MAX_SCAN_FOR_EXE {
@@ -232,6 +238,11 @@ fn main() -> ExitCode {
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
+
+    if is_filesystem_root(&target) {
+        eprintln!("错误：目标是文件系统根目录，禁止清空");
+        return ExitCode::FAILURE;
+    }
 
     // 关键目录防护（与浏览器版一致）
     if is_critical(&dir_name) {

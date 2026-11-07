@@ -17,7 +17,35 @@
 #include <string>
 #include <vector>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace fs = std::filesystem;
+
+/* 判断条目是否为「指向别处的链接」。
+   Windows 的目录联接（junction）不算符号链接：std::filesystem::is_symlink
+   对它返回 false，但 GetFileAttributes 会带 FILE_ATTRIBUTE_REPARSE_POINT。
+   两种都要拦，否则递归会走进链接目标、清空目录树之外的内容。 */
+bool isLinkEntry(const fs::directory_entry& entry) {
+    std::error_code ec;
+    if (fs::is_symlink(entry.symlink_status(ec))) return true;
+#ifdef _WIN32
+    DWORD attr = GetFileAttributesW(entry.path().wstring().c_str());
+    if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_REPARSE_POINT)) return true;
+#endif
+    return false;
+}
+
+/* 是否为文件系统根目录（/ 或 C:\）。根目录的 filename() 是空串或分隔符，
+   永远不在 CRITICAL_DIR_NAMES 里；删除工具必须单独拦，且 --whitelist 不可绕过。 */
+bool isFilesystemRoot(const fs::path& target) {
+    std::error_code ec;
+    fs::path abs = fs::absolute(target, ec);
+    if (ec) return false;
+    fs::path parent = abs.parent_path();
+    return parent.empty() || parent == abs;
+}
 
 constexpr int MAX_RECURSION_DEPTH = 20;
 constexpr int MAX_FILE_COUNT = 10000;
@@ -57,7 +85,9 @@ bool containsExecutables(const fs::path& dir, int depth, int& counter) {
     for (const auto& entry : it) {
         if (counter >= MAX_SCAN_FOR_EXE) break;
         std::error_code ec2;
-        if (entry.is_directory(ec2)) {
+        // 不进入符号链接指向的目录：is_directory() 会跟随链接，递归下去就会
+        // 扫到目录树之外。改用 symlink_status（不跟随）判断。
+        if (entry.is_directory(ec2) && !isLinkEntry(entry)) {
             if (containsExecutables(entry.path(), depth + 1, counter)) return true;
         } else if (entry.is_regular_file(ec2)) {
             ++counter;
@@ -84,7 +114,9 @@ void clearDirectory(const fs::path& dir, int depth, int& fileCount,
     for (const auto& entry : it) {
         const std::string name = entry.path().filename().string();
         std::error_code e;
-        if (entry.is_directory(e)) {
+        // 关键：符号链接即便指向目录也不递归进去（只按普通条目删除链接本身）。
+        // 原写法用 is_directory()，它跟随链接，会把目录树之外的内容一并清空。
+        if (entry.is_directory(e) && !isLinkEntry(entry)) {
             clearDirectory(entry.path(), depth + 1, fileCount, keepMarker, dryRun, stats);
             if (dryRun) {
                 std::cout << "[dry-run] 将删除目录: " << name << "\n";
@@ -163,6 +195,11 @@ int main(int argc, char** argv) {
     std::error_code ec;
     if (!fs::is_directory(target, ec)) {
         std::cerr << "错误：" << target << " 不是目录\n";
+        return 1;
+    }
+
+    if (isFilesystemRoot(target)) {
+        std::cerr << "错误：目标是文件系统根目录，禁止清空\n";
         return 1;
     }
 

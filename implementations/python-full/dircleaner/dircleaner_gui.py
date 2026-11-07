@@ -29,6 +29,16 @@ CRITICAL_DIR_NAMES = {
 }
 
 
+def is_filesystem_root(path):
+    """是否为文件系统根目录（/ 或 C:\）。根目录 basename 为空串，名单拦不住。"""
+    try:
+        abs_path = os.path.abspath(path)
+    except (OSError, ValueError):
+        return False
+    _drive, rest = os.path.splitdrive(abs_path)
+    return rest.rstrip("/\\") == ""
+
+
 def format_bytes(n):
     if n == 0:
         return "0 B"
@@ -274,6 +284,10 @@ class DirCleanerApp:
         self.start_btn.config(state="normal" if ok else "disabled")
 
     def start(self):
+        # 兜底：即使按钮状态被绕过，执行前再拦一次
+        if is_filesystem_root(self.target):
+            messagebox.showerror("拒绝", "目标是文件系统根目录，禁止清空")
+            return
         name = os.path.basename(self.target)
         if not messagebox.askyesno("最后确认", f"确定要清空目录 \"{name}\" 下的所有内容吗？\n此操作不可恢复。"):
             return

@@ -19,6 +19,12 @@ on:
     paths:
       - 'implementations/**'
       - '.github/workflows/build-implementations.yml'
+  # PR 期只编译、不发布：改 implementations 的 PR 同样要能确认六种语言都编得过。
+  # 发布相关的两步（上传附件、建 Release）都加了 event_name != 'pull_request' 条件。
+  pull_request:
+    paths:
+      - 'implementations/**'
+      - '.github/workflows/build-implementations.yml'
   workflow_dispatch:
     inputs:
       suffix:
@@ -180,7 +186,13 @@ jobs:
                 Write-Host "::group::g++ $dir"
                 Push-Location $dir
                 if ($layer -eq "cpp-full") {
-                  g++ -std=c++17 -O2 -static -mwindows -o "$($_.Name)-gui.exe" main.cpp -lcomctl32 -lole32 -lshell32
+                  # comdlg32：GetOpenFileNameW / GetSaveFileNameW 所在库。MinGW 的
+                  # -mwindows 规格里已经隐含 -lcomdlg32，所以以前也能链接成功；这里
+                  # 显式列出是为了不依赖编译器规格的隐式行为（换工具链或去掉
+                  # -mwindows 时会断）。源码里的 #pragma comment(lib, ...) 是 MSVC
+                  # 写法，MinGW 通过 .drectve 段也会采信，同样不作数。
+                  # ole32 供 dircleaner 的 CoTaskMemFree 使用。
+                  g++ -std=c++17 -O2 -static -mwindows -o "$($_.Name)-gui.exe" main.cpp -lcomctl32 -lcomdlg32 -lole32 -lshell32
                 } else {
                   g++ -std=c++17 -O2 -static -o "$($_.Name).exe" main.cpp
                 }
@@ -385,7 +397,9 @@ jobs:
             exit 1
           }
 
+      # 只在 push main / 手动触发时留回执；PR 期不必产生附件
       - name: 上传构建产物（工作流回执）
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
           name: implementations-exe
@@ -393,8 +407,9 @@ jobs:
           if-no-files-found: warn
 
       # ---------- 发布 Release ----------
+      # PR 期绝不建 Release：
       - name: 计算标签并创建 Release
-        if: hashFiles('artifacts/*.exe') != ''
+        if: github.event_name != 'pull_request' && hashFiles('artifacts/*.exe') != ''
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

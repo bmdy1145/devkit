@@ -255,6 +255,22 @@ internal sealed class MainForm : Form
         UpdateStart();
     }
 
+    /// <summary>
+    /// 是否为目录联接 / 符号链接。Directory.Exists 会跟随这类条目，
+    /// 直接递归会走进链接目标、清空目录树之外的内容。
+    /// </summary>
+    private static bool IsReparsePoint(string path)
+    {
+        try
+        {
+            return (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
     private static bool ContainsExecutables(string dir, int depth, ref int counter)
     {
         if (depth > 10 || counter >= MaxScanForExe) return false;
@@ -265,7 +281,7 @@ internal sealed class MainForm : Form
             if (counter >= MaxScanForExe) break;
             try
             {
-                if (Directory.Exists(path))
+                if (Directory.Exists(path) && !IsReparsePoint(path))
                 {
                     if (ContainsExecutables(path, depth + 1, ref counter)) return true;
                 }
@@ -281,10 +297,22 @@ internal sealed class MainForm : Form
         return false;
     }
 
+    /// <summary>是否为文件系统根目录。根目录的 GetFileName 是空串，名单拦不住。</summary>
+    private static bool IsFilesystemRoot(string path)
+    {
+        try
+        {
+            var full = Path.GetFullPath(path);
+            return Path.GetPathRoot(full) == full;
+        }
+        catch { return false; }
+    }
+
     private void UpdateStart()
     {
         if (_target is null) { _startBtn.Enabled = false; return; }
         var name = Path.GetFileName(_target.TrimEnd(Path.DirectorySeparatorChar));
+        if (IsFilesystemRoot(_target)) { _startBtn.Enabled = false; return; }
         if (CriticalNames.Contains(name)) { _startBtn.Enabled = false; return; }
         var ok = _confirmCheck.Checked;
         if (!IsWhitelisted()) ok = ok && _nameBox.Text.Trim() == name;
@@ -294,6 +322,11 @@ internal sealed class MainForm : Form
 
     private async void StartClear()
     {
+        if (IsFilesystemRoot(_target!))
+        {
+            MessageBox.Show("目标是文件系统根目录，禁止清空", "拒绝", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
         var name = Path.GetFileName(_target!.TrimEnd(Path.DirectorySeparatorChar));
         if (MessageBox.Show($"确定要清空目录 \"{name}\" 下的所有内容吗？\n此操作不可恢复。", "最后确认",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
@@ -350,7 +383,8 @@ internal sealed class MainForm : Form
             var name = Path.GetFileName(path);
             try
             {
-                if (Directory.Exists(path))
+                // 目录联接 / 符号链接不递归，只删链接本身
+                if (Directory.Exists(path) && !IsReparsePoint(path))
                 {
                     ClearDirectory(path, depth + 1, fileCount, keepMarker, st);
                     Directory.Delete(path);
