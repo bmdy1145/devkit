@@ -18,6 +18,13 @@
 被判定为「没动交付物」，退化成给最新的 DevKit 主干发一个「无功能更新」的
 Release——标签名是 DevKit 的，内容却是 Writer 的提交。
 
+为什么先建草稿再发布：仓库开启了 GitHub 的 Immutable Releases（发布后标签与
+附件都不可改动）。若按「直接建正式 Release → 再传附件」的顺序，创建那一刻
+Release 就已发布并锁定，随后每次上传附件都返回 HTTP 422，结果是「Release
+建出来了，附件 0/N」。2026-11-06 persona/A1_II_Φ11 与 persona/A1_II_Φ10_Fix.1
+两个空 Release 就是这么来的。正确顺序是：建**草稿** → 传附件 → 再改为发布。
+失败时回滚草稿与标签，不留空壳。
+
 用法（由 .github/workflows/release-on-main.yml 调用）：
     GITHUB_REPOSITORY=... GITHUB_TOKEN=... BEFORE_SHA=... AFTER_SHA=... \\
         python3 .github/scripts/auto_release.py
@@ -67,7 +74,14 @@ def api(method: str, url: str, token: str, payload: dict | None = None):
             body = resp.read().decode("utf-8")
             return resp.status, (json.loads(body) if body.strip() else None)
     except urllib.error.HTTPError as e:
-        return e.code, None
+        # 出错时也把响应体解析出来：调用方需要区分「标签名已被不可变 Release
+        # 占用」这类可重试的错误与其他失败，只拿到状态码是分不出来的。
+        raw = e.read().decode("utf-8", errors="replace")
+        try:
+            parsed = json.loads(raw) if raw.strip() else None
+        except json.JSONDecodeError:
+            parsed = raw
+        return e.code, parsed
 
 
 def code_dir(project: str) -> Path:
@@ -230,6 +244,50 @@ def upload_asset(repo: str, token: str, release_id: int, path: Path) -> bool:
         return False
 
 
+def _has_release_for_tag(repo: str, token: str, tag: str) -> bool:
+    """该标签名下是否已经有 Release 存在（用于避免误删别人的标签）。"""
+    status, _ = api(
+        "GET", f"{API}/repos/{repo}/releases/tags/{urllib.parse.quote(tag)}", token
+    )
+    return status == 200
+
+
+def _is_burned_payload(data) -> bool:
+    """响应体是否在说「这个标签名已被不可变 Release 占用」。"""
+    text = json.dumps(data, ensure_ascii=False) if data is not None else ""
+    return "immutable" in text and "tag_name" in text
+
+
+def publish_release(repo: str, token: str, release_id: int) -> tuple[bool, bool]:
+    """把草稿改为正式发布。
+
+    草稿阶段附件可以随便加；一旦 draft=False 且仓库开了 Immutable Releases，
+    附件就锁死了。所以发布必须是最后一步，且只在附件全部就位后执行。
+
+    返回 (是否成功, 是否因「标签名被不可变 Release 占用」而失败)。后一种失败
+    是可恢复的：换一个带后缀的标签名重来即可，调用方据此自动递增后缀。
+    """
+    status, data = api(
+        "PATCH", f"{API}/repos/{repo}/releases/{release_id}", token, {"draft": False}
+    )
+    if status in (200, 201):
+        return True, False
+    return False, _is_burned_payload(data)
+
+
+def delete_release_and_tag(repo: str, token: str, release_id: int, tag: str) -> None:
+    """回滚：删掉空壳 Release 与它占用的标签，避免下次被判定为「标签已存在」。"""
+    status, _ = api("DELETE", f"{API}/repos/{repo}/releases/{release_id}", token)
+    if status not in (204, 200, 404):
+        print(f"[告警] 回滚时删除 Release {release_id} 失败（HTTP {status}），请手动清理。")
+    # 标签可能已经挂在 Release 上被一起删掉，404 视为已清理
+    status, _ = api(
+        "DELETE", f"{API}/repos/{repo}/git/refs/tags/{urllib.parse.quote(tag)}", token
+    )
+    if status not in (204, 200, 404, 422):
+        print(f"[告警] 回滚时删除标签 {tag} 失败（HTTP {status}），请手动清理。")
+
+
 def release_trunk(
     repo: str,
     token: str,
@@ -257,11 +315,60 @@ def release_trunk(
         tag = forced_tag
     else:
         tag = next_tag(project, trunk, existing)
-    print(f"—— {project} · 主干 {trunk} → 标签 {tag}（{len(files)} 个附件）")
+    base = tag_base(project, trunk)
+    # attempted 记录已试过的名字，被不可变 Release 烧掉后换下一个后缀
+    attempted: set[str] = set()
 
+    while True:
+        attempted.add(tag)
+        print(f"—— {project} · 主干 {trunk} → 标签 {tag}（{len(files)} 个附件）")
+
+        ok, burned = _release_one(repo, token, project, trunk, tag, sha, mode, files)
+        if ok:
+            return True
+        if not burned:
+            return False
+
+        # 名字被烧掉：删干净草稿与标签，换一个后缀重来
+        print(
+            f"[告警] 标签名 {tag} 已被一个不可变 Release 永久占用（删掉 Release 也解不开），"
+            "改用下一个后缀重试。"
+        )
+        if forced_tag:
+            # 手动指定了名字，不擅自换名，报错让人决定
+            print(
+                f"[问题] 手动指定的标签 {forced_tag} 无法使用。"
+                f"请换一个后缀，例如 {_bump_tag(base, existing | attempted)}。"
+            )
+            return False
+        tag = _bump_tag(base, existing | attempted)
+
+
+def _bump_tag(base: str, taken: set[str]) -> str:
+    """在 base 之后取一个未被占用的 `.N` 后缀。"""
+    n = 1
+    while f"{base}.{n}" in taken:
+        n += 1
+    return f"{base}.{n}"
+
+
+def _release_one(
+    repo: str,
+    token: str,
+    project: str,
+    trunk: str,
+    tag: str,
+    sha: str,
+    mode: str,
+    files: list[Path],
+) -> tuple[bool, bool]:
+    """为一个确定的标签名执行「建标签 → 建草稿 → 传附件 → 发布」。
+
+    返回 (是否成功, 是否因标签名被不可变 Release 占用而失败)。
+    """
     if not create_tag(repo, token, tag, sha):
         print(f"[问题] 创建标签 {tag} 失败。")
-        return False
+        return False, False
 
     status, release = api(
         "POST",
@@ -271,25 +378,46 @@ def release_trunk(
             "tag_name": tag,
             "name": tag,
             "body": build_notes(project, trunk, mode),
-            "draft": False,
+            # 必须先建草稿：仓库开了 Immutable Releases，正式发布后附件就传不进去了
+            "draft": True,
             "prerelease": False,
         },
     )
     if status not in (201, 200) or not release:
-        print(f"[问题] 创建 Release {tag} 失败（HTTP {status}）。")
-        return False
+        burned = _is_burned_payload(release)
+        # 只有确认这个名字是我们刚建的、且没有别的 Release 挂在上面时，才删标签。
+        # 否则「该名字已有 Release」的 422 会把别人的标签删掉。
+        if not _has_release_for_tag(repo, token, tag):
+            api("DELETE", f"{API}/repos/{repo}/git/refs/tags/{urllib.parse.quote(tag)}", token)
+        if burned:
+            # 建草稿这一步就被判「名字不可用」，与发布时被拒是同一回事
+            return False, True
+        print(f"[问题] 创建 Release 草稿 {tag} 失败（HTTP {status}）。")
+        return False, False
 
     release_id = release["id"]
     uploaded = 0
     for path in files:
         if upload_asset(repo, token, release_id, path):
             uploaded += 1
-    print(f"   已发布 {tag}，附件 {uploaded}/{len(files)}")
 
     if uploaded != len(files):
-        print(f"[问题] {tag} 有附件未上传成功。")
-        return False
-    return True
+        print(f"[问题] {tag} 有附件未上传成功（{uploaded}/{len(files)}），已回滚草稿与标签。")
+        delete_release_and_tag(repo, token, release_id, tag)
+        return False, False
+
+    published, burned = publish_release(repo, token, release_id)
+    if not published:
+        if burned:
+            # 名字被烧掉是可恢复的，由调用方换后缀重试；先清干净
+            delete_release_and_tag(repo, token, release_id, tag)
+            return False, True
+        print(f"[问题] {tag} 附件已传齐，但发布（draft=false）失败，已回滚草稿与标签。")
+        delete_release_and_tag(repo, token, release_id, tag)
+        return False, False
+
+    print(f"   已发布 {tag}，附件 {uploaded}/{len(files)}")
+    return True, False
 
 
 # dispatch 的 trunk 来自 workflow_dispatch 的手工输入，会直接被拼进文件路径。
