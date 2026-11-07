@@ -1,12 +1,15 @@
 # 仓库体检
 #
-# 四个互不依赖的检查合在一个工作流里，各自是独立 job、并行执行，
+# 五个互不依赖的检查合在一个工作流里，各自是独立 job、并行执行，
 # 失败时能一眼看出是哪一类问题：
 #   · 相对链接   link_check.py  —— HTML/Markdown 里的链接是否指向存在的文件
 #   · 文件体积   size_guard.py  —— 单文件是否异常膨胀
 #   · 运行时冒烟 smoke_test.py  —— 无头浏览器打开每个版本文件，控制台无报错
 #   · 发布逻辑   test_release_planning.py —— 「改哪个项目发哪个项目的标签」
 #     这条规则的单元测试。它不依赖网络与浏览器，跑得很快。
+#   · 人设逻辑   snapshot_other_test.py —— Persona 快照字段存取、恢复、
+#     记忆范围切换的运行时断言。冒烟只查控制台报错，抓不到「启动之后才抛」
+#     的缺陷（这类异常不留 CONSOLE 行），所以那类逻辑需要真正跑一遍流程。
 #
 # 与 version-guard 一样默认只报告、不拦截。
 # 每个脚本本地都能用同一条命令运行。
@@ -63,3 +66,14 @@ jobs:
         uses: actions/checkout@v7
       - name: 运行单元测试
         run: python3 .github/scripts/test_release_planning.py
+
+  persona-logic:
+    name: 人设逻辑单测
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+      # ubuntu-latest 的 runner 预装 google-chrome，脚本用 shutil.which 能找到；
+      # 找不到时才需要 CHROME_BIN。
+      - name: 运行人设逻辑单测
+        run: python3 .github/scripts/snapshot_other_test.py

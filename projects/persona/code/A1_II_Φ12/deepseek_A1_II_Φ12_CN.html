@@ -6,7 +6,7 @@
     版本代号：A1_II_Φ12_CN
     基于分支：A1 分支（初始开发主线）
     父版本：A1_II_Φ11_CN
-    修改说明：记忆与快照的三处数据丢失修复（Φ 层递增：Φ11 → Φ12），不新增功能。
+    修改说明：记忆与快照的数据丢失修复与防护补强（Φ 层递增：Φ11 → Φ12），不新增功能。
               本版修三个「用户无感知却真丢数据」的缺陷：
               1) deleteWorld 在「全卡共享」模式下用 memoryKey(card, w) 作为删除键，
                  而共享模式下这个键就是卡片 id —— 删掉一个平行世界，等于把整张
@@ -22,6 +22,16 @@
                  下快照列表是全卡共用的，恢复 A 世界的快照会静默覆盖 B 世界。本版
                  先校验快照归属，不匹配时提示并中止。
               数据结构、DB_VERSION（仍为 2）与 AI 协议均未变动。
+
+              审查补强（同批交付，不升 Φ 层）：
+              4) 快照未保存「其他设定」（other）字段，恢复快照时该字段停留在
+                 当前值，与其余四段不一致；本版把 other 补入快照并在恢复时一并
+                 回写（用 ?? 判断：旧快照无该字段时保持当前值，向后兼容）。
+              5) deleteWorld 的 rest[0] 缺越界防护：无剩余世界时不仅提示，还清空
+                 当前世界状态并重渲染，避免 State.worldId 残留导致已删世界被
+                 后续保存写回。
+              6) 切换「记忆归属」时不作任何提示，用户会误以为历史记忆丢失；本版
+                 切换前弹一次确认，说明不会自动迁移、建议先导出备份。
 
     ====== Φ11 修改说明（存档）======
     导出弹窗缺陷修补（Φ 层递增：Φ10_Fix → Φ11），不新增功能。
@@ -2239,7 +2249,7 @@
                 worldId: world.id,
                 persona: {
                     id: world.id, label: world.label, name: world.name, role: world.role,
-                    summary: world.summary, detail: world.detail,
+                    summary: world.summary, detail: world.detail, other: world.other,
                     createdAt: world.createdAt, updatedAt: world.updatedAt
                 },
                 reason: reason || 'manual',
@@ -3315,6 +3325,20 @@
             }
         }
         const rest = WorldService.worldsOf(card.id);
+        if (!rest.length) {
+            // 并发 / 状态不一致时可能已无剩余世界（另一个标签页刚删掉同一个）。
+            // 不能只 return：State.worldId 仍指着已删世界，之后任何 flushSave()
+            // 都会经 WorldService.save 把它重新写回库。必须整段清空。
+            State.worldId = null;
+            State.memory = null;
+            State.snapshots = [];
+            fillEditor(null);
+            renderPersonaList();
+            renderMemoryMeta();
+            renderSnapshots();
+            UI.toast('已删除该世界（没有剩余世界）', true);
+            return;
+        }
         await selectWorld(rest[0].id);
         UI.toast('已删除该平行世界');
     }
@@ -3323,7 +3347,21 @@
     async function changeScope(scope) {
         const card = PersonaService.current();
         if (!card) return;
-        card.memoryScope = scope === 'shared' ? 'shared' : 'per-world';
+        const target = scope === 'shared' ? 'shared' : 'per-world';
+        const from = card.memoryScope === 'shared' ? '全卡共享' : '各世界独立';
+        const to = target === 'shared' ? '全卡共享' : '各世界独立';
+        // 只改标记不搬数据，切换后旧归属键下的记忆与快照会读不到。
+        // 不做自动迁移（共享 → 独立时「一份共用记忆怎么分给多个世界」属设计问题），
+        // 改为切换前明确告知，并给出可回退的路径（切回去仍能看到 / 先导出备份）。
+        if (from !== to) {
+            const ok = window.confirm(
+                '将记忆范围从「' + from + '」改为「' + to + '」。\n\n' +
+                '注意：已有的记忆与快照不会自动迁移，切换后当前看不到，' +
+                '切回去仍能看到。要保留它们，请先导出 JSON 备份。'
+            );
+            if (!ok) { syncScopeUI(); return; }
+        }
+        card.memoryScope = target;
         await PersonaService.save(card);
         await loadScopeData();
         renderMemoryMeta();
@@ -3391,6 +3429,11 @@
         w.role = snap.persona.role;
         w.summary = snap.persona.summary;
         w.detail = snap.persona.detail;
+        // 用 ?? 而非 ||：快照里 other 是空串（用户当时确实没填）时要能恢复成空，
+        // || 会错误地保留当前值。旧快照没有 other 字段（undefined）则回落到当前
+        // 值，保证导入 Φ11 及更早的备份后恢复不丢内容（向后兼容）。
+        // 上一行 label 的 || 保持原样：label 默认值「默认世界」非空，为空串概率极低。
+        w.other = snap.persona.other ?? w.other;
         await WorldService.save(w);
         State.snapshots = await SnapshotService.load(key);
         fillEditor(w);
