@@ -4906,12 +4906,16 @@
         // 关闭按钮
         Utils.$$('[data-close]').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                UI.closeModal(btn.getAttribute('data-close'));
+                const id = btn.getAttribute('data-close');
+                if (id === 'shareModal') { closeShareModal(id); return; }
+                UI.closeModal(id);
             });
         });
         Utils.$$('.modal').forEach(function (m) {
             m.addEventListener('mousedown', function (ev) {
-                if (ev.target === m) UI.closeModal(m.id);
+                if (ev.target !== m) return;
+                if (m.id === 'shareModal') { closeShareModal(m.id); return; }
+                UI.closeModal(m.id);
             });
         });
         document.addEventListener('keydown', function (ev) {
@@ -4921,7 +4925,9 @@
                 if (m && !m.hidden) { closeCtxMenu(); return; }
             }
             if (ev.key === 'Escape' && UI._modalStack.length) {
-                UI.closeModal(UI._modalStack[UI._modalStack.length - 1]);
+                const top = UI._modalStack[UI._modalStack.length - 1];
+                if (top === 'shareModal') closeShareModal(top);
+                else UI.closeModal(top);
             }
             if ((ev.ctrlKey || ev.metaKey) && ev.key === 's') {
                 ev.preventDefault();
@@ -5621,6 +5627,15 @@
             rw: o.rw, rh: o.rh, longEdge: o.longEdge, mode: o.mode, dark: o.dark
         };
         PrefsService.saveUI();
+    }
+
+    /* 关弹窗时也存一次：否则用户调好选项、直接关掉不导出，下次又回到旧值。 */
+    function closeShareModal(id) {
+        if (!ShareUI.busy) {
+            try { saveSharePrefs(); } catch (e) { /* 选项存不下不影响关闭 */ }
+        }
+        clearTimeout(ShareUI.timer);
+        UI.closeModal(id);
     }
 
     async function generateShareBlobs() {
