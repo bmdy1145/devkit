@@ -186,11 +186,47 @@ DRIVER = r"""
         /* ---------- 4. 对话 / 叙事 各自的输出要求 ---------- */
         ok(texts['persona-chat/daily'].indexOf('以角色的第一句话开场') >= 0,
            '对话类要求以第一句话开场');
-        ['persona-novel/cold-open', 'world-story/slice', 'world-novel/cold-open'].forEach(function (key) {
-            ok(texts[key].indexOf('只写正文') >= 0, '叙事类要求只写正文：' + key);
+        // 小说类现在要求「确认之后」才写正文；短篇故事仍是直接写
+        ['persona-novel/cold-open', 'world-novel/cold-open'].forEach(function (key) {
+            ok(texts[key].indexOf('确认之后只写正文') >= 0,
+               '小说类要求确认后才只写正文：' + key);
         });
+        ok(texts['world-story/slice'].indexOf('只写正文') >= 0, '短篇故事仍要求只写正文');
         ok(texts['persona-chat/daily'].indexOf('不要替用户写台词') >= 0,
            '对话类应保留用户台词的余地');
+
+        /* ---------- 4b. 小说类必须有「开工前确认」环节 ---------- */
+        var novelKeys = ['persona-novel/cold-open', 'persona-novel/scene', 'persona-novel/memory',
+                         'world-novel/cold-open', 'world-novel/scene', 'world-novel/memory'];
+        novelKeys.forEach(function (key) {
+            var t = texts[key] || '';
+            ok(t.indexOf('【开工前确认】') >= 0, '小说类应含开工前确认环节：' + key);
+            // 用户点名要的三项
+            ok(t.indexOf('篇幅') >= 0, '确认项应含篇幅：' + key);
+            ok(t.indexOf('叙事人称') >= 0, '确认项应含叙事人称：' + key);
+            ok(t.indexOf('剧情走向') >= 0, '确认项应含剧情走向：' + key);
+            // 追加选中的四项
+            ok(t.indexOf('读者与平台') >= 0, '确认项应含读者与平台：' + key);
+            ok(t.indexOf('尺度与禁忌') >= 0, '确认项应含尺度与禁忌：' + key);
+            ok(t.indexOf('更新节奏') >= 0, '确认项应含更新节奏：' + key);
+            ok(t.indexOf('设定衔接') >= 0, '确认项应含设定衔接：' + key);
+            // 确认指令：明确「在此之前不输出正文」
+            ok(t.indexOf('在写任何一个字之前') >= 0, '应明确先确认再动笔：' + key);
+            ok(t.indexOf('不要输出任何正文') >= 0, '确认前不应输出正文：' + key);
+        });
+        // 非小说类不得出现该环节
+        ['persona-chat/daily', 'persona-chat/first-meet', 'world-story/slice'].forEach(function (key) {
+            ok((texts[key] || '').indexOf('【开工前确认】') < 0,
+               '非小说类不应有开工前确认：' + key);
+        });
+        // 「不要跳出故事」这条对小说类必须限定在动笔之后，否则与「先提问」冲突
+        novelKeys.forEach(function (key) {
+            var t = texts[key] || '';
+            ok(t.indexOf('进入正文之后，不要跳出故事') >= 0,
+               '小说类应把「不要跳出故事」限定在进入正文之后：' + key);
+            ok(t.indexOf('- 不要跳出角色或跳出故事去评价、解释或总结') < 0,
+               '小说类不应保留无条件的「不要跳出故事」：' + key);
+        });
 
         /* ---------- 5. 补充要求 ---------- */
         var withExtra = T.StartPrompt.build('persona-chat', 'daily', '在雨夜的便利店', subjectFor('persona-chat'));

@@ -2907,6 +2907,17 @@
         ]
     };
 
+    /* 「开始小说」的开工前确认清单。不直接动笔，先把这几项问清楚并拿到确认。 */
+    const START_CONFIRM_ITEMS = [
+        { label: '篇幅', detail: '短篇 / 中篇 / 长篇，或大致字数区间' },
+        { label: '叙事人称', detail: '第一人称 / 第二人称 / 第三人称，以及是否多视角轮换' },
+        { label: '剧情走向', detail: '整体基调、主线方向、结局倾向（HE / BE / 开放式）' },
+        { label: '读者与平台', detail: '面向哪类读者、投在哪个平台，据此调整节奏与尺度' },
+        { label: '尺度与禁忌', detail: '哪些内容要收敛或避开，哪些必须写到' },
+        { label: '更新节奏', detail: '单章长度预期、推进快慢' },
+        { label: '设定衔接', detail: '是否沿用当前角色 / 世界观，要不要新增角色，时间线从哪开始' }
+    ];
+
     const START_KINDS = {
         'persona-chat': {
             title: '开始对话',
@@ -2915,8 +2926,9 @@
         },
         'persona-novel': {
             title: '开始小说',
-            task: '你要以下面这个角色为原型，写一段小说的开篇正文。',
-            opening: '只写正文，不要标题、不要说明、不要总结，也不要替用户写他的台词。'
+            task: '你要以下面这个角色为原型写一部小说。',
+            askFirst: true,
+            opening: '确认之后只写正文，不要标题、不要说明、不要总结，也不要替用户写他的台词。'
         },
         'world-story': {
             title: '开始故事',
@@ -2925,8 +2937,9 @@
         },
         'world-novel': {
             title: '开始小说',
-            task: '你要以下面这个世界的设定为背景，写一部长篇小说的开篇。',
-            opening: '只写正文，不要标题、不要说明；开篇需要立住场景并埋下主线钩子。'
+            task: '你要以下面这个世界的设定为背景写一部小说。',
+            askFirst: true,
+            opening: '确认之后只写正文，不要标题、不要说明；开篇需要立住场景并埋下主线钩子。'
         }
     };
 
@@ -2962,12 +2975,18 @@
             const body = isWorld ? worldviewBody(subject || {}) : personaBody(subject || {});
             const parts = [];
 
+            // 「不要跳出角色 / 故事」这条对小说类要限定在「动笔之后」，
+            // 否则会和下面「开工前先提问」的要求互相打架。
+            const stayInRole = meta.askFirst
+                ? '- 进入正文之后，不要跳出故事去评价、解释或总结\n'
+                : '- 不要跳出角色或跳出故事去评价、解释或总结\n';
+
             parts.push(
                 meta.task + '\n\n' +
                 '要求：\n' +
                 '- 严格遵守下面的设定，不要添加与之矛盾的属性、经历或关系\n' +
                 '- 设定里没写的部分可以合理补充，但不要与已有内容冲突\n' +
-                '- 不要跳出角色或跳出故事去评价、解释或总结\n' +
+                stayInRole +
                 (isWorld
                     ? '- 不要把设定原文整段抄进正文，要化进场景与人物行动里\n'
                     : '- 不要替用户写台词或动作，把话头留给他\n')
@@ -2978,6 +2997,23 @@
             parts.push('【场景】' + scene.label + '\n' + scene.brief);
 
             if (note) parts.push('【补充要求】\n' + note);
+
+            // 小说类：先确认、再动笔。对话与短篇不走这条。
+            if (meta.askFirst) {
+                const lines = START_CONFIRM_ITEMS.map(function (it) {
+                    return '- ' + it.label + '：' + it.detail;
+                }).join('\n');
+                parts.push(
+                    '【开工前确认】\n' +
+                    '在写任何一个字之前，先向用户确认下面这些项。做法：\n' +
+                    '1. 把待确认项一次性列清楚，每项给出 2–3 个可选方向，并说明各方向的差别\n' +
+                    '2. 用户已经在上面的设定或补充要求里写明的，直接复述你的理解，不要重复提问\n' +
+                    '3. 等用户逐项回答或明确表示「你定」之后，先把最终方案整理成一段简短清单复述给用户，' +
+                    '请他确认\n' +
+                    '4. 只有用户明确表示「可以」「开始写」之后，才进入正文；在此之前不要输出任何正文\n\n' +
+                    '待确认项：\n' + lines
+                );
+            }
 
             parts.push('【输出要求】\n' + meta.opening);
 
@@ -3741,9 +3777,13 @@
         StartUI.kind = kind;
         StartUI.slot = slot;
         Utils.$('#startTitle').textContent = StartPrompt.title(kind);
-        Utils.$('#startDesc').textContent = kind.indexOf('world-') === 0
+        const desc = kind.indexOf('world-') === 0
             ? '以下面这个世界观为背景生成起始提示词。世界观取当前编辑中的那一份。'
             : '以下面这个角色为起点生成起始提示词。角色设定取当前平行世界。';
+        // 小说类会先让 AI 确认篇幅 / 人称 / 剧情等，再动笔，这里提前说明
+        Utils.$('#startDesc').textContent = desc + ((START_KINDS[kind] || {}).askFirst
+            ? '提示词会要求 AI 先与你确认篇幅、叙事人称、剧情走向等，确认之后才开始写正文。'
+            : '');
         renderStartScenes(kind, '');
         Utils.$('#startExtraInput').value = Utils.$('#requestInput').value || '';
         UI.openModal('startModal');
