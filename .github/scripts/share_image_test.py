@@ -205,6 +205,12 @@ DRIVER = r"""
         ok(L.fitCheck(huge, 300).fit === false, '超量内容应判定装不下');
 
         /* ---------- 7. 分块：取消记忆勾选后无 memory 块 ---------- */
+        // 先把 world 固定成有内容的状态，避免受前面用例（会清空字段）影响
+        world.name = '分块测试';
+        world.role = '测试身份';
+        world.summary = '测试概括';
+        world.detail = '测试详述';
+        await T.WorldService.save(world);
         var all = await T.collectShareContent(card, world, { name: true, mem: true, wv: true });
         var noMem = await T.collectShareContent(card, world, { name: true, mem: false, wv: true });
         var hasMemAll = all.blocks.some(function (b) { return b.text && b.text.indexOf('聊天记忆') >= 0; });
@@ -331,6 +337,97 @@ DRIVER = r"""
             ok(names[0].indexOf('-1.png') >= 0, '多页文件名应带 -1 序号', names[0]);
             ok(names[1].indexOf('-2.png') >= 0, '多页文件名应带 -2 序号', names[1]);
         }
+
+        /* ---------- 11. 背景配色预设 ---------- */
+        ok(Array.isArray(T.SHARE_BG_PRESETS) && T.SHARE_BG_PRESETS.length >= 4,
+           '应有至少 4 套背景预设', String(T.SHARE_BG_PRESETS && T.SHARE_BG_PRESETS.length));
+        ok(T.shareBgGradient('auto', true) === null, 'auto 预设应为纯色（返回 null）');
+        ok(T.shareBgGradient('nonexistent', true) === null, '未知预设应回落纯色');
+        var jadeDark = T.shareBgGradient('jade', true);
+        var jadeLight = T.shareBgGradient('jade', false);
+        ok(Array.isArray(jadeDark) && jadeDark.length === 2, 'jade 深色应返回两个颜色');
+        ok(Array.isArray(jadeLight) && jadeLight.length === 2, 'jade 浅色应返回两个颜色');
+        ok(jadeDark[0] !== jadeLight[0], '同一预设的深/浅色应不同');
+
+        // 渐变必须真的画进图里：左上与右下角的像素应不同（纯色时两者相同）
+        world.name = '渐变测试';
+        world.role = '测试身份';
+        world.summary = '用于渐变渲染';
+        world.detail = '正文内容';
+        await T.WorldService.save(world);
+        T.fillEditor(world);
+        var rGrad = await T.renderShareImages({
+            name: true, mem: false, wv: false,
+            ratio: 1, longEdge: 1080, mode: 'strict', dark: true, bg: 'jade'
+        });
+        ok(!rGrad.error, '渐变渲染不应报错', rGrad.error);
+        if (rGrad.pages && rGrad.pages.length) {
+            var gcv = rGrad.pages[0];
+            var gg = gcv.getContext('2d');
+            var tl = gg.getImageData(1, 1, 1, 1).data;
+            var br = gg.getImageData(gcv.width - 2, gcv.height - 2, 1, 1).data;
+            var diff = Math.abs(tl[0] - br[0]) + Math.abs(tl[1] - br[1]) + Math.abs(tl[2] - br[2]);
+            ok(diff > 2, '渐变背景：左上与右下像素应有差异', 'tl=' + tl[0] + ',' + tl[1] + ',' + tl[2] +
+               ' br=' + br[0] + ',' + br[1] + ',' + br[2] + ' diff=' + diff);
+        }
+        var rFlat = await T.renderShareImages({
+            name: true, mem: false, wv: false,
+            ratio: 1, longEdge: 1080, mode: 'strict', dark: true, bg: 'auto'
+        });
+        if (rFlat.pages && rFlat.pages.length) {
+            var fcv = rFlat.pages[0];
+            var fg = fcv.getContext('2d');
+            var f1 = fg.getImageData(1, 1, 1, 1).data;
+            var f2 = fg.getImageData(fcv.width - 2, fcv.height - 2, 1, 1).data;
+            var fdiff = Math.abs(f1[0] - f2[0]) + Math.abs(f1[1] - f2[1]) + Math.abs(f1[2] - f2[2]);
+            ok(fdiff === 0, 'auto 预设应为纯色（两角像素相同）', 'diff=' + fdiff);
+        }
+
+        /* ---------- 12. 布局：分享图按钮已在底部按钮排，不再悬浮 ---------- */
+        var fab = document.querySelector('#shareFab');
+        ok(!!fab, '分享图按钮应存在');
+        ok(!fab.classList.contains('fab'), '分享图按钮不应再是悬浮样式（.fab）');
+        ok(!!fab.closest('.promptbar'), '分享图按钮应在底部提示词条内');
+        var fabPos = getComputedStyle(fab).position;
+        ok(fabPos !== 'fixed', '分享图按钮不应固定定位', fabPos);
+
+        /* ---------- 13. 布局：滑条不被输入框遮挡，可拖到 8K ---------- */
+        T.openShareModal();
+        var range = document.querySelector('#resRange');
+        var num = document.querySelector('#resInput');
+        var rr = range.getBoundingClientRect();
+        var nr = num.getBoundingClientRect();
+        ok(rr.right <= nr.left + 1, '滑条右沿不应与输入框重叠',
+           'range.right=' + Math.round(rr.right) + ' input.left=' + Math.round(nr.left));
+        ok(rr.width > 0 && nr.width > 0, '滑条与输入框都应有宽度');
+        // 滑条必须占满剩余空间（而不是被输入框挤成一小段）：
+        // 以一个窄容器为基准，滑条宽度应至少是输入框宽度的 2 倍
+        ok(rr.width >= nr.width * 2, '滑条宽度应明显大于输入框（否则拖不满全程）',
+           'range.w=' + Math.round(rr.width) + ' input.w=' + Math.round(nr.width));
+        // 滑条能拖到最右（value = max）
+        range.value = range.max;
+        range.dispatchEvent(new Event('input'));
+        var resAtMax = Number(document.querySelector('#resInput').value);
+        ok(resAtMax >= 7000, '滑条拉到最右应达到 8K 档（≥7000）', String(resAtMax));
+        // 尺寸文案已下移，不与滑条同行
+        var label = document.querySelector('#resLabel');
+        var lr = label.getBoundingClientRect();
+        ok(lr.top >= rr.bottom - 1, '尺寸文案应在滑条下方',
+           'label.top=' + Math.round(lr.top) + ' range.bottom=' + Math.round(rr.bottom));
+
+        // 窄容器下也不能遮挡：把弹窗盒子压窄，重新量两者是否重叠
+        var box = document.querySelector('#shareModal .modal-box');
+        var origW = box.style.width;
+        box.style.width = '380px';
+        // 触发一次重排后再量
+        void box.offsetWidth;
+        var rr2 = range.getBoundingClientRect();
+        var nr2 = num.getBoundingClientRect();
+        ok(rr2.right <= nr2.left + 1, '窄容器下滑条右沿仍不应与输入框重叠',
+           'range.right=' + Math.round(rr2.right) + ' input.left=' + Math.round(nr2.left));
+        ok(rr2.width >= 60, '窄容器下滑条仍应保有可拖动宽度',
+           'width=' + Math.round(rr2.width));
+        box.style.width = origW;
 
         finish();
     }

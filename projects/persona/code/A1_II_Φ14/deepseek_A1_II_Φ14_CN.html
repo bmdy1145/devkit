@@ -941,21 +941,6 @@
     }
     .result-hint[hidden] { display: none; }
 
-    /* ---------- Φ13：右下角分享图入口 ---------- */
-    .fab {
-        position: fixed; right: 18px;
-        bottom: calc(74px + env(safe-area-inset-bottom, 0px));
-        z-index: 90;
-        min-height: 40px; padding: 0 18px;
-        border: 1px solid var(--accent);
-        border-radius: 999px;
-        background: var(--accent); color: var(--accent-fg);
-        font: inherit; font-size: 0.84rem; font-weight: 600;
-        box-shadow: var(--shadow);
-        cursor: pointer;
-    }
-    .fab:hover { filter: brightness(1.06); }
-    .fab:disabled { opacity: 0.5; cursor: default; }
 
     /* ---------- Φ13：分享图弹窗 ---------- */
     .modal-box.wide { width: min(100%, 900px); }
@@ -993,10 +978,18 @@
     .ratio-custom { display: flex; align-items: center; gap: 4px; font-size: 0.82rem; color: var(--text-2); }
     .ratio-custom input { width: 58px; }
 
-    .res-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .res-row input[type="range"] { flex: 1 1 180px; min-width: 120px; accent-color: var(--accent); }
-    .res-row input[type="number"] { width: 88px; }
-    .res-dots { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-3); margin-top: 2px; }
+    /* 滑条独占剩余宽度、数字框固定在右侧不收缩：两者同处一行时输入框会把滑条挤到
+       拖不满全程（8K 那端够不着），所以尺寸文案改到下一行，且输入框 shrink: 0。 */
+    .res-row { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; }
+    .res-row input[type="range"] { flex: 1 1 auto; min-width: 80px; width: auto; accent-color: var(--accent); }
+    .res-row input[type="number"] { flex: 0 0 auto; width: 88px; }
+    .res-scale { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 2px; }
+    .res-dots { display: flex; flex: 1 1 auto; justify-content: space-between; font-size: 0.7rem; color: var(--text-3); }
+    .res-size { flex: 0 0 auto; font-size: 0.72rem; color: var(--text-3); font-family: var(--font-mono); white-space: nowrap; }
+    @media (max-width: 520px) {
+        .res-scale { flex-direction: column; gap: 2px; }
+        .res-size { align-self: flex-end; }
+    }
 
     .share-preview-wrap {
         display: flex; justify-content: center; align-items: flex-start;
@@ -1295,6 +1288,9 @@
         <button class="btn primary sm" id="startBtn" type="button"
                 aria-haspopup="menu" aria-expanded="false">开始此人物形象 ▴</button>
         <button class="btn sm" id="stopAiBtn" type="button" disabled>停止</button>
+        <!-- 分享图：原来贴在右下角悬浮，会与结果区底部的「应用 / 追加到详述」重叠，
+             改为与其它操作并排 -->
+        <button class="btn sm" id="shareFab" type="button" aria-label="生成分享图">分享图</button>
         <button class="btn sm interview" id="interviewBtn" type="button" title="不知道该怎么描述？让 AI 主动提问，陪你把人设聊清楚">完善人设</button>
     </div>
 </div>
@@ -1582,9 +1578,6 @@
     <button class="ctx-item" id="ctxClearNameBtn" role="menuitem" type="button">取消指定</button>
 </div>
 
-<!-- Φ13：分享为图片 -->
-<button class="fab" id="shareFab" type="button" aria-label="生成分享图">分享图</button>
-
 <div class="modal" id="shareModal" role="dialog" aria-modal="true" aria-label="分享为图片">
     <div class="modal-box wide">
         <div class="modal-head">
@@ -1649,10 +1642,12 @@
                 <div class="res-row">
                     <input type="range" id="resRange" min="0" max="5" step="0.01" value="2">
                     <input type="number" id="resInput" min="480" max="10000" step="10" value="2160" aria-label="长边像素">
-                    <span id="resLabel" class="hint" style="margin:0;">2160 × 1620</span>
                 </div>
-                <div class="res-dots">
-                    <span>1080</span><span>1.5x</span><span>2K</span><span>4K</span><span>6K</span><span>8K</span>
+                <div class="res-scale">
+                    <div class="res-dots">
+                        <span>1080</span><span>1.5x</span><span>2K</span><span>4K</span><span>6K</span><span>8K</span>
+                    </div>
+                    <span id="resLabel" class="res-size">2160 × 1620</span>
                 </div>
                 <p class="hint" style="margin-top:6px;">
                     档位滑条按顺序吸附；也可直接输入长边像素，滑条会停在档位之间。
@@ -1674,14 +1669,22 @@
                 </div>
                 <div class="field" style="margin:0;">
                     <label>背景</label>
-                    <label class="check-line" for="shDark">
-                        <input type="radio" name="shTheme" id="shDark" value="dark" checked>
-                        <span>深色（与应用一致）</span>
-                    </label>
-                    <label class="check-line" for="shLight">
-                        <input type="radio" name="shTheme" id="shLight" value="light">
-                        <span>浅色（适合浅底平台）</span>
-                    </label>
+                    <div class="share-grid" style="gap:10px;">
+                        <div>
+                            <label class="check-line" for="shDark">
+                                <input type="radio" name="shTheme" id="shDark" value="dark" checked>
+                                <span>深色</span>
+                            </label>
+                            <label class="check-line" for="shLight">
+                                <input type="radio" name="shTheme" id="shLight" value="light">
+                                <span>浅色</span>
+                            </label>
+                        </div>
+                        <div class="field" style="margin:0;">
+                            <label for="bgPreset">配色</label>
+                            <select id="bgPreset"></select>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -5749,6 +5752,24 @@
         };
     }
 
+    /* 分享图背景配色。每套给出渐变起止色（对角方向）与文字颜色，
+       实际绘制在 paintSharePage 里。null 表示「纯色」，用 palette.bg。 */
+    const SHARE_BG_PRESETS = [
+        { key: 'auto',   label: '跟随主题', grad: null },
+        { key: 'jade',   label: '青玉',   grad: ['#0d3b34', '#12463c'], light: ['#e8f5f1', '#d6ece5'] },
+        { key: 'indigo', label: '靛蓝',   grad: ['#141b3d', '#232a5c'], light: ['#eef0fa', '#e0e4f5'] },
+        { key: 'plum',   label: '梅紫',   grad: ['#2b1430', '#431d48'], light: ['#f8eef7', '#f0e2ef'] },
+        { key: 'amber',  label: '暖橙',   grad: ['#3a2410', '#4d3016'], light: ['#fdf2e6', '#f8e6d2'] },
+        { key: 'slate',  label: '石墨',   grad: ['#1a1f26', '#262d36'], light: ['#f2f4f7', '#e6eaef'] },
+    ];
+
+    /** 取某套预设的渐变色；'auto' 或未知 key 返回 null（纯色）。 */
+    function shareBgGradient(key, dark) {
+        const p = SHARE_BG_PRESETS.filter(function (x) { return x.key === key; })[0];
+        if (!p || !p.grad) return null;
+        return dark ? p.grad : (p.light || p.grad);
+    }
+
     /** 收集分享内容。返回 {name, blocks: [{type,text}]} 与记忆条数。 */
     async function collectShareContent(card, world, opts) {
         const blocks = [];
@@ -5817,7 +5838,17 @@
         const K = meta.scale || 1;
         const h1 = Math.round(SHARE_METRICS.H1 * 0.9 * K);
         const body = Math.round(SHARE_METRICS.BODY * K);
-        ctx.fillStyle = palette.bg;
+
+        // 背景：有渐变预设就用对角线性渐变，否则用纯色
+        const grad = meta.gradient;
+        if (grad && grad.length >= 2) {
+            const g = ctx.createLinearGradient(0, 0, W, H);
+            g.addColorStop(0, grad[0]);
+            g.addColorStop(1, grad[1]);
+            ctx.fillStyle = g;
+        } else {
+            ctx.fillStyle = palette.bg;
+        }
         ctx.fillRect(0, 0, W, H);
 
         // 顶部强调条
@@ -5942,7 +5973,8 @@
             },
             name: content.name,
             fontFamily: fontFamily,
-            palette: sharePalette(opts.dark)
+            palette: sharePalette(opts.dark),
+            gradient: shareBgGradient(opts.bg, opts.dark)
         };
     }
 
@@ -5955,7 +5987,7 @@
         paintSharePage(ctx, plan.size.w, plan.size.h, plan.pages[pageIndex], {
             name: plan.name, pageIndex: pageIndex + 1, pageCount: plan.pages.length,
             fontFamily: plan.fontFamily, version: CURRENT_VERSION,
-            scale: plan.meta.scale
+            scale: plan.meta.scale, gradient: plan.gradient
         }, plan.palette);
         ctx.restore();
         return { w: Math.round(W), h: Math.round(H) };
@@ -6008,7 +6040,8 @@
             rh: ratio ? rh : ShareUI.opts.rh,
             longEdge: Math.max(480, Math.min(10000, Number(Utils.$('#resInput').value) || 2160)),
             mode: Utils.$('#shModeMulti').checked ? 'multi' : 'strict',
-            dark: !Utils.$('#shLight').checked
+            dark: !Utils.$('#shLight').checked,
+            bg: Utils.$('#bgPreset') ? Utils.$('#bgPreset').value : 'auto'
         };
     }
 
@@ -6096,6 +6129,21 @@
         }, 220);
     }
 
+    /** 填充配色下拉（每次打开弹窗时重建）。 */
+    function fillBgPresetOptions(selected) {
+        const sel = Utils.$('#bgPreset');
+        if (!sel) return;
+        sel.textContent = '';
+        SHARE_BG_PRESETS.forEach(function (p) {
+            const opt = document.createElement('option');
+            opt.value = p.key;
+            opt.textContent = p.label;
+            sel.appendChild(opt);
+        });
+        sel.value = SHARE_BG_PRESETS.some(function (p) { return p.key === selected; })
+            ? selected : 'auto';
+    }
+
     function openShareModal() {
         if (!PersonaService.current() || !WorldService.current()) {
             UI.toast('请先选择人物卡片与平行世界', true);
@@ -6117,6 +6165,8 @@
         Utils.$('#shModeStrict').checked = saved.mode !== 'multi';
         Utils.$('#shLight').checked = saved.dark === false;
         Utils.$('#shDark').checked = saved.dark !== false;
+        // 配色下拉每次打开时重建，避免预设表变更后残留旧选项
+        fillBgPresetOptions(typeof saved.bg === 'string' ? saved.bg : 'auto');
         syncResUI(true);
         syncRatioLabel();
         UI.openModal('shareModal');
@@ -6128,7 +6178,7 @@
         State.prefs.ui = State.prefs.ui || {};
         State.prefs.ui.share = {
             name: o.name, mem: o.mem, wv: o.wv,
-            rw: o.rw, rh: o.rh, longEdge: o.longEdge, mode: o.mode, dark: o.dark
+            rw: o.rw, rh: o.rh, longEdge: o.longEdge, mode: o.mode, dark: o.dark, bg: o.bg
         };
         PrefsService.saveUI();
     }
@@ -6259,7 +6309,8 @@
             syncResUI(true);
             scheduleSharePreview();
         });
-        ['#shName', '#shMem', '#shWv', '#shModeStrict', '#shModeMulti', '#shDark', '#shLight']
+        ['#shName', '#shMem', '#shWv', '#shModeStrict', '#shModeMulti',
+         '#shDark', '#shLight', '#bgPreset']
             .forEach(function (sel) {
                 Utils.$(sel).addEventListener('change', scheduleSharePreview);
             });
@@ -6388,6 +6439,11 @@
             SHARE_METRICS: SHARE_METRICS,
             RES_STEPS: RES_STEPS,
             sharePalette: sharePalette,
+            shareBgGradient: shareBgGradient,
+            SHARE_BG_PRESETS: SHARE_BG_PRESETS,
+            fillBgPresetOptions: fillBgPresetOptions,
+            openShareModal: openShareModal,
+            shareOptsFromUI: shareOptsFromUI,
             collectShareContent: collectShareContent,
             planShare: planShare,
             renderShareImages: renderShareImages,
