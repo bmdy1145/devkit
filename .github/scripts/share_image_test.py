@@ -84,6 +84,22 @@ DRIVER = r"""
     }
     function near(a, b, eps) { return Math.abs(a - b) <= (eps == null ? 0.01 : eps); }
 
+    /* WCAG 相对亮度与对比度：检查分享图的文字与强调色在渐变底色上是否可读。 */
+    function relLum(hex) {
+        var h = String(hex).replace('#', '');
+        if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+        var ch = [0, 2, 4].map(function (i) {
+            var c = parseInt(h.substr(i, 2), 16) / 255;
+            return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+    }
+    function contrast(a, b) {
+        var l1 = relLum(a), l2 = relLum(b);
+        var hi = Math.max(l1, l2), lo = Math.min(l1, l2);
+        return (hi + 0.05) / (lo + 0.05);
+    }
+
     function finish() {
         var title = failures.length ? 'FAIL: ' + failures.join(' | ') : 'PASS';
         document.title = title;
@@ -381,6 +397,62 @@ DRIVER = r"""
             var f2 = fg.getImageData(fcv.width - 2, fcv.height - 2, 1, 1).data;
             var fdiff = Math.abs(f1[0] - f2[0]) + Math.abs(f1[1] - f2[1]) + Math.abs(f1[2] - f2[2]);
             ok(fdiff === 0, 'auto 预设应为纯色（两角像素相同）', 'diff=' + fdiff);
+        }
+
+        /* ---------- 11b. 配色与文字的可读性（WCAG 对比度） ---------- */
+        // 浅色渐变底色在 #e0e4f5–#fdf2e6 之间，强调色与正文都必须够深。
+        // 非文本 UI 元素门槛 3.0，正文门槛 4.5。
+        var palLight = T.sharePalette(false);
+        var palDark = T.sharePalette(true);
+        var gradPresets = T.SHARE_BG_PRESETS.filter(function (p) { return p.grad; });
+        ok(gradPresets.length >= 5, '应有至少 5 套渐变预设', String(gradPresets.length));
+
+        gradPresets.forEach(function (p) {
+            var stops = [];
+            (p.grad || []).forEach(function (c) { stops.push({ mode: 'dark', bg: c }); });
+            (p.light || []).forEach(function (c) { stops.push({ mode: 'light', bg: c }); });
+            stops.forEach(function (s) {
+                var pal = s.mode === 'dark' ? palDark : palLight;
+                var rc = contrast(s.bg, pal.accent);
+                ok(rc >= 3.0, s.mode + '/' + p.key + ' 强调色对比度应 ≥ 3.0',
+                   'bg=' + s.bg + ' accent=' + pal.accent + ' ratio=' + rc.toFixed(2));
+                var rt = contrast(s.bg, pal.text);
+                ok(rt >= 4.5, s.mode + '/' + p.key + ' 正文对比度应 ≥ 4.5',
+                   'bg=' + s.bg + ' text=' + pal.text + ' ratio=' + rt.toFixed(2));
+            });
+        });
+
+        /* ---------- 11c. 浅色渐变下标题确实画得出来（像素级） ---------- */
+        var rLight = await T.renderShareImages({
+            name: true, mem: false, wv: false,
+            ratio: 1, longEdge: 1080, mode: 'strict', dark: false, bg: 'jade'
+        });
+        ok(!rLight.error, '浅色渐变渲染不应报错', rLight.error);
+        if (rLight.pages && rLight.pages.length) {
+            var lcv = rLight.pages[0];
+            var lg = lcv.getContext('2d');
+            // 背景基准色（左上角）
+            var bgPx = lg.getImageData(2, 2, 1, 1).data;
+            var bgLum = relLum('#' + [bgPx[0], bgPx[1], bgPx[2]].map(function (v) {
+                return ('0' + v.toString(16)).slice(-2);
+            }).join(''));
+            // 采样标题行区域，找最暗像素
+            var darkest = 1;
+            for (var yy = 60; yy < 260; yy += 6) {
+                for (var xx = 80; xx < lcv.width - 80; xx += 6) {
+                    var d = lg.getImageData(xx, yy, 1, 1).data;
+                    var lum = relLum('#' + [d[0], d[1], d[2]].map(function (v) {
+                        return ('0' + v.toString(16)).slice(-2);
+                    }).join(''));
+                    if (lum < darkest) darkest = lum;
+                }
+            }
+            // 浅底上的深色文字：最暗像素应明显低于背景亮度
+            ok(darkest < bgLum * 0.5, '浅色渐变上应能画出明显更暗的文字',
+               'bgLum=' + bgLum.toFixed(3) + ' darkest=' + darkest.toFixed(3));
+            var inkRatio = (bgLum + 0.05) / (darkest + 0.05);
+            ok(inkRatio >= 4.5, '浅色渐变上文字与背景对比度应 ≥ 4.5',
+               'ratio=' + inkRatio.toFixed(2));
         }
 
         /* ---------- 12. 布局：分享图按钮已在底部按钮排，不再悬浮 ---------- */
