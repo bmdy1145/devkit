@@ -48,7 +48,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-DEFAULT_TARGET = ROOT / "projects" / "persona" / "code" / "A1_II_Φ14" / "deepseek_A1_II_Φ14_CN.html"
+DEFAULT_TARGET = ROOT / "projects" / "persona" / "code" / "A1_II_Φ15" / "deepseek_A1_II_Φ15_CN.html"
 TARGET = Path(os.environ.get("PERSONA_TEST_TARGET") or DEFAULT_TARGET)
 
 SUBPROCESS_TIMEOUT_SECONDS = 180

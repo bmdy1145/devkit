@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Persona Φ14「以角色形象开始对话 / 开始小说」的运行时单测。
+"""Persona「以角色形象开始对话 / 开始小说」的运行时单测。
 
 ## 验证什么
 
@@ -9,13 +9,16 @@
 | 1 | 12 个「类型 × 场景」组合生成的提示词两两不同，且各自含对应场景关键词 |
 | 2 | 人设版含四段内容；空字段显示「（未填）」；other 非空时一并出现 |
 | 3 | 起始提示词**不包含** FINALIZE_HINT 的收尾说明 |
-| 4 | 对话类要求「以角色的第一句话开场」；小说/故事类要求「只写正文」 |
+| 4 | 对话类要求「以角色的第一句话开场」；小说类要求「确认之后只写正文」；短篇故事仍直接写 |
+| 4b | 小说类必须含【开工前确认】与七个确认项、并允许跳过无关项；6 个非小说组合均不得出现该段落；小说类不得保留无条件的「不要跳出故事」 |
+| 4c | 【开工前确认】必须排在【输出要求】之后（末段落在「先问后写」上） |
 | 5 | 补充要求非空时出现在文中，为空时不产生空段 |
 | 6 | 世界观版含世界观正文，且不含聊天记忆 |
 | 7 | 主按钮文案随模式切换，三项文案同步切换 |
 | 8 | 菜单向上展开（菜单底边不高于按钮上沿）且在视口内 |
-| 9 | 点「开始对话」弹窗标题与场景数量正确；世界观下场景集不同 |
-| 10 | 原「总结记忆进人设」仍生成含 FINALIZE_HINT 的提示词 |
+| 9 | 点「开始对话」弹窗标题与场景数量正确；世界观下场景集不同；小说类说明提到「确认」 |
+| 11 | 多轮回复：会话历史、折叠记录、回复框显隐、新对话清空、AIClient 接受 messages 数组 |
+| 12 | 原「总结记忆进人设」仍生成含 FINALIZE_HINT 的提示词 |
 
 ## 机制
 
@@ -45,7 +48,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-DEFAULT_TARGET = ROOT / "projects" / "persona" / "code" / "A1_II_Φ14" / "deepseek_A1_II_Φ14_CN.html"
+DEFAULT_TARGET = ROOT / "projects" / "persona" / "code" / "A1_II_Φ15" / "deepseek_A1_II_Φ15_CN.html"
 TARGET = Path(os.environ.get("PERSONA_TEST_TARGET") or DEFAULT_TARGET)
 
 SUBPROCESS_TIMEOUT_SECONDS = 180
@@ -57,7 +60,7 @@ GATE_PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
 )
 
-# 测试缝锚点：Φ14 selftest 对象里 StartUI 那一行
+# 测试缝锚点：selftest 对象里 StartUI 那一行
 SEAM_ANCHOR = "            StartUI: StartUI,"
 
 SEAM_EXTRA = """            StartUI: StartUI,
@@ -95,7 +98,8 @@ DRIVER = r"""
     var waited = 0;
     function waitReady() {
         var T = window.__personaTest;
-        if (T && T.State && T.State.personas.length && T.WorldService.current()) {
+        if (T && T.State && T.State.personas.length && T.WorldService.current() &&
+            T.WorldviewService.current()) {
             run(T).catch(function (e) {
                 var where = (e && e.stack) ? String(e.stack).split(String.fromCharCode(10)).slice(1, 3).join(' / ') : '';
                 failures.push('异常：' + (e && e.message ? e.message : e) + ' @ ' + where);
@@ -113,7 +117,8 @@ DRIVER = r"""
         var card = T.PersonaService.current();
         var wv = T.WorldviewService.current();
         ok(!!world && !!card, '应存在当前卡片与世界');
-        if (!world || !card) { finish(); return; }
+        ok(!!wv, '应存在当前世界观（闸门已等它就绪）');
+        if (!world || !card || !wv) { finish(); return; }
 
         // 给角色与世界填上可辨识的内容
         world.name = '林照';
@@ -122,11 +127,9 @@ DRIVER = r"""
         world.detail = '在旧城区图书馆值夜班，能记住每一本书被谁借走过。';
         world.other = '怕火';
         await T.WorldService.save(world);
-        if (wv) {
-            wv.name = '雾港';
-            wv.detail = '常年有雾的港口城市，航运由三个商会把持。';
-            await T.WorldviewService.save(wv);
-        }
+        wv.name = '雾港';
+        wv.detail = '常年有雾的港口城市，航运由三个商会把持。';
+        await T.WorldviewService.save(wv);
 
         var KINDS = ['persona-chat', 'persona-novel', 'world-story', 'world-novel'];
         var subjectFor = function (k) {
@@ -214,8 +217,10 @@ DRIVER = r"""
             ok(t.indexOf('在写任何一个字之前') >= 0, '应明确先确认再动笔：' + key);
             ok(t.indexOf('不要输出任何正文') >= 0, '确认前不应输出正文：' + key);
         });
-        // 非小说类不得出现该环节
-        ['persona-chat/daily', 'persona-chat/first-meet', 'world-story/slice'].forEach(function (key) {
+        // 非小说类不得出现该环节（6 个组合全覆盖，与小说侧对称）
+        var nonNovelKeys = ['persona-chat/daily', 'persona-chat/first-meet', 'persona-chat/conflict',
+                            'world-story/slice', 'world-story/moment', 'world-story/clash'];
+        nonNovelKeys.forEach(function (key) {
             ok((texts[key] || '').indexOf('【开工前确认】') < 0,
                '非小说类不应有开工前确认：' + key);
         });
@@ -226,6 +231,23 @@ DRIVER = r"""
                '小说类应把「不要跳出故事」限定在进入正文之后：' + key);
             ok(t.indexOf('- 不要跳出角色或跳出故事去评价、解释或总结') < 0,
                '小说类不应保留无条件的「不要跳出故事」：' + key);
+        });
+        // 与当前设定无关的项可略过：短篇 / 一次性故事不必被「更新节奏」卡住
+        novelKeys.forEach(function (key) {
+            var t = texts[key] || '';
+            ok(t.indexOf('可以跳过，不必逐条凑满') >= 0,
+               '确认项应允许跳过无关项：' + key);
+        });
+
+        /* ---------- 4c. 确认段落必须排在输出要求之后 ---------- */
+        // 模型对最后读到的约束更敏感：末段应落在「先问后写」，不是「只写正文」。
+        novelKeys.forEach(function (key) {
+            var t = texts[key] || '';
+            var iOut = t.indexOf('【输出要求】');
+            var iAsk = t.indexOf('【开工前确认】');
+            ok(iOut >= 0 && iAsk >= 0 && iAsk > iOut,
+               '【开工前确认】应排在【输出要求】之后：' + key,
+               'out=' + iOut + ' ask=' + iAsk);
         });
 
         /* ---------- 5. 补充要求 ---------- */
@@ -361,7 +383,15 @@ DRIVER = r"""
         document.querySelector('#startModal').classList.remove('open');
 
         T.ModeService.switchTo('persona', { silent: true });
+        T.openStartModal('chat');
+        var chatDesc = Utils_('#startDesc').textContent;
+        ok(chatDesc.indexOf('确认') < 0, '对话类说明不应提「确认」', chatDesc);
+        document.querySelector('#startModal').classList.remove('open');
+
         T.openStartModal('novel');
+        var novelDesc = Utils_('#startDesc').textContent;
+        ok(novelDesc.indexOf('确认') >= 0, '小说类说明应提到先确认', novelDesc);
+        ok(novelDesc.indexOf('篇幅') >= 0, '小说类说明应提到篇幅', novelDesc);
         var novelScenes = Utils_$$('#startScenes input[name="startScene"]').map(function (r) { return r.value; });
         ok(novelScenes.join('/') === 'cold-open/scene/memory', '小说场景集', novelScenes.join('/'));
         document.querySelector('#startModal').classList.remove('open');
@@ -414,7 +444,107 @@ DRIVER = r"""
         T.UI.closeModal('previewModal');
         T.UI.closeModal('startModal');
 
-        /* ---------- 10. 原「总结记忆进人设」路径未受影响 ---------- */
+        /* ---------- 11. Φ15 多轮回复 ---------- */
+        // 用打桩的 AIClient 抓实际发出的 messages
+        var sent = [];
+        var stubs = {
+            config: T.AIClient.config,
+            stream: T.AIClient.stream,
+            body: T.AIClient.body
+        };
+        T.AIClient.config = function () { return { apiKey: 'x', baseUrl: 'https://x', protocol: 'openai' }; };
+        T.AIClient.stream = async function* (messages) {
+            // 快照：runChat 之后仍会往同一个数组里 push，存引用会被后续轮次污染
+            sent.push(messages.map(function (m) { return { role: m.role, content: m.content }; }));
+            yield sent.length === 1 ? 'AI 第一轮回复' : 'AI 第二轮回复';
+        };
+
+        try {
+            // 11a. 起始提示词 → 新会话，首轮只有一条 user 消息
+            T.ChatSession.reset();
+            await T.sendStartPrompt('起始提示词正文');
+            ok(sent.length === 1, '首次发送应发出一次请求', 'sent=' + sent.length);
+            ok(Array.isArray(sent[0]) && sent[0].length === 1, '首轮应只含一条 user 消息',
+               JSON.stringify(sent[0] || []).slice(0, 120));
+            ok(sent[0][0].role === 'user' && sent[0][0].content === '起始提示词正文',
+               '首轮内容应是起始提示词');
+            ok(T.ChatSession.messages.length === 2, '首轮结束后历史应为 user+assistant',
+               String(T.ChatSession.messages.length));
+            ok(Utils_('#replyBar').hidden === false, '有会话时应显示回复框');
+            ok(Utils_('#resultInput').value.indexOf('AI 第一轮回复') >= 0, '结果框应显示最新一轮输出');
+
+            // 11b. 回复：把用户输入接在历史上，一并发出
+            Utils_('#replyInput').value = '篇幅中篇，第三人称';
+            await T.sendReply();
+            ok(sent.length === 2, '回复应再发一次请求', 'sent=' + sent.length);
+            ok(sent[1].length === 3, '第二轮应带 user+assistant+user 三条',
+               'len=' + sent[1].length);
+            var m1 = sent[1][1] || {}, m2 = sent[1][2] || {};
+            ok(m1.role === 'assistant' && String(m1.content || '').indexOf('AI 第一轮回复') >= 0,
+               '历史里的 assistant 应是上一轮输出');
+            ok(m2.role === 'user' && m2.content === '篇幅中篇，第三人称',
+               '新一条应是本次回复内容');
+            ok(Utils_('#replyInput').value === '', '发送后应清空回复框');
+            ok(T.ChatSession.messages.length === 4, '两轮后历史应为 4 条',
+               String(T.ChatSession.messages.length));
+
+            // 11c. 折叠区只列历史，不重复结果框里那一段
+            var log = Utils_('#chatLog');
+            ok(log.hidden === false, '有历史时应显示折叠区');
+            var logText = Utils_('#chatLogBody').textContent;
+            ok(logText.indexOf('起始提示词正文') >= 0, '折叠区应含首轮用户输入');
+            ok(logText.indexOf('篇幅中篇，第三人称') >= 0, '折叠区应含第二轮用户输入');
+            ok(logText.indexOf('AI 第二轮回复') < 0, '折叠区不应重复仍在结果框里的最新输出');
+            ok(Utils_('#chatLogSummary').textContent.indexOf('轮') >= 0, '折叠区应有轮次汇总',
+               Utils_('#chatLogSummary').textContent);
+
+            // 11c2. 结果框清空后，上一轮输出应回到折叠区（不再被「已在结果框」规则跳过）
+            Utils_('#resultInput').value = '';
+            T.renderChatLog();
+            ok(Utils_('#chatLogBody').textContent.indexOf('AI 第二轮回复') >= 0,
+               '清空结果框后，上一轮输出应回到折叠区');
+
+            // 11d. 空回复不发送
+            Utils_('#replyInput').value = '   ';
+            await T.sendReply();
+            ok(sent.length === 2, '空白回复不应发出请求', 'sent=' + sent.length);
+
+            // 11e. 新对话清空
+            Utils_('#replyNewBtn').click();
+            ok(T.ChatSession.messages.length === 0, '新对话应清空历史',
+               String(T.ChatSession.messages.length));
+            ok(Utils_('#replyBar').hidden === true, '清空后应隐藏回复框');
+            ok(Utils_('#chatLog').hidden === true, '清空后应隐藏折叠区');
+
+            // 11f. 重新发送即开新会话（不是接在旧历史上）
+            await T.sendStartPrompt('第二次起始提示词');
+            ok(sent.length === 3, '重新发送应再发一次请求', 'sent=' + sent.length);
+            ok(sent[2].length === 1, '重新发送应从单条 user 消息开始（新会话）',
+               'len=' + sent[2].length);
+
+            // 11g. AIClient.body 接受字符串与数组
+            var cfgForBody = { protocol: 'openai', model: 'm' };
+            var bStr = T.AIClient.body(cfgForBody, 'abc');
+            ok(bStr.messages.length === 1 && bStr.messages[0].content === 'abc',
+               'body 应把字符串当作单条 user 消息');
+            var arr = [{ role: 'user', content: 'a' }, { role: 'assistant', content: 'b' }];
+            var bArr = T.AIClient.body(cfgForBody, arr);
+            ok(bArr.messages.length === 2 && bArr.messages[1].role === 'assistant',
+               'body 应原样发出 messages 数组');
+            var cfgAnth = { protocol: 'anthropic', model: 'm' };
+            var bAnth = T.AIClient.body(cfgAnth, arr);
+            ok(bAnth.messages.length === 2, 'Anthropic 协议同样支持多轮');
+            ok(bAnth.max_tokens === 4096 && bAnth.stream === true, 'Anthropic body 其余字段不变');
+        } finally {
+            T.AIClient.config = stubs.config;
+            T.AIClient.stream = stubs.stream;
+            T.AIClient.body = stubs.body;
+        }
+        T.ChatSession.reset();
+        T.renderChatLog();
+        T.renderReplyBar();
+
+        /* ---------- 12. 原「总结记忆进人设」路径未受影响 ---------- */
         T.ModeService.switchTo('persona', { silent: true });
         T.fillEditor(T.WorldService.current());
         Utils_('#requestInput').value = '把怕火这条淡一点';
