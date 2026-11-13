@@ -335,8 +335,12 @@ DRIVER = r"""
             // 回归：一段超长记忆必须真正落到多页上，而不是只画在最后一页的顶部
             ok(r3.pages.length >= 3, '8000 字记忆应至少切成 3 页',
                'pages=' + r3.pages.length);
-            // 每页底部区域都应有内容（说明内容真的被摊到了各页）
-            r3.pages.forEach(function (cv, pi) {
+            // 除最后一页外，每页底部区域都应有内容（说明内容真的被摊到了各页）。
+            // 最后一页允许只有一两行：分页按整行切，剩多少就画多少；
+            // 字体宽度随皮肤而变，末页内容量本来就会浮动。
+            var lastFull = r3.pages.length - 1;
+            for (var pi = 0; pi < lastFull; pi++) {
+                var cv = r3.pages[pi];
                 var g = cv.getContext('2d');
                 var ink = 0;
                 var y0 = Math.round(cv.height * 0.75);
@@ -347,7 +351,7 @@ DRIVER = r"""
                     }
                 }
                 ok(ink > 3, '第 ' + (pi + 1) + ' 页下部应有内容（不应只堆在首页）', 'ink=' + ink);
-            });
+            }
             var names = [];
             for (var z = 1; z <= r3.pages.length; z++) names.push(T.shareFilename(z, r3.pages.length));
             ok(names[0].indexOf('-1.png') >= 0, '多页文件名应带 -1 序号', names[0]);
