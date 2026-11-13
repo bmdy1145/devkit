@@ -3976,9 +3976,19 @@
         messages: [],      // 完整历史，含最新一轮
         origin: 'maintain',// 'start' | 'maintain'，决定结果区提示
 
+        /* 会话代号：start / reset 时递增。飞行中的请求带着旧代号回来时，
+           finish / dropTrailingUser 一律丢弃，避免把结果写进已经换掉的会话。 */
+        generation: 0,
+
+        /* 最后一条 assistant 是否仍占据结果框。用它替代「比对文本内容」：
+           用户在结果框里改一个字就不再相等，原输出会重复出现在折叠区。 */
+        pendingInBox: false,
+
         /** 开新会话：清空历史，只留第一条 user 消息 */
         start(userText, origin) {
+            this.generation += 1;
             this.messages = [{ role: 'user', content: userText }];
+            this.pendingInBox = false;
             this.origin = origin || 'maintain';
             State.resultOrigin = this.origin;
             renderChatLog();
@@ -3986,23 +3996,43 @@
             renderReplyBar();
         },
 
-        /** 追加一轮用户输入，返回完整 messages 供发送 */
+        /** 追加一轮用户输入，返回本次请求要发的快照 */
         push(text) {
             this.messages.push({ role: 'user', content: text });
+            // 新一轮开始，上一条 assistant 不再占据结果框
+            this.pendingInBox = false;
             renderChatLog();
-            return this.messages;
+            return this.messages.slice();
         },
 
-        /** 记录本轮 AI 输出 */
-        finish(text) {
+        /** 记录本轮 AI 输出；代号已过期则丢弃 */
+        finish(text, generation) {
+            if (generation !== undefined && generation !== this.generation) return;
             if (!text) return;
             this.messages.push({ role: 'assistant', content: text });
+            this.pendingInBox = true;
+            renderChatLog();
+        },
+
+        /** 请求失败时撤回刚追加的 user 消息；代号已过期则不动 */
+        dropTrailingUser(generation) {
+            if (generation !== undefined && generation !== this.generation) return;
+            const last = this.messages[this.messages.length - 1];
+            if (last && last.role === 'user') this.messages.pop();
             renderChatLog();
         },
 
         /** 回到空会话 */
         reset() {
+            this.generation += 1;
             this.messages = [];
+            this.pendingInBox = false;
+            renderChatLog();
+        },
+
+        /** 结果框被清空或被写回：最后一条 assistant 回到折叠区 */
+        releaseBox() {
+            this.pendingInBox = false;
             renderChatLog();
         },
 
@@ -4012,8 +4042,10 @@
         }
     };
 
-    /* 折叠区：显示成对的只读记录。最后一条 assistant 消息若正显示在
-       结果框里就不重复列出；结果框被清空 / 被写回后，它回到折叠区。 */
+    /* 折叠区：显示成对的只读记录。末尾若是 assistant，它就是结果框里
+       那一段，一律不在这里重复列出——不去比较文本内容，否则用户在结果框里
+       改一个字，原始输出就会又冒出来一次。一旦有了新的 user 消息，上一条
+       assistant 自动回到折叠区。 */
     function renderChatLog() {
         const box = Utils.$('#chatLog');
         const body = Utils.$('#chatLogBody');
@@ -4021,10 +4053,8 @@
         if (!box || !body) return;
 
         const history = ChatSession.messages.slice();
-        const last = history[history.length - 1];
-        const out = Utils.$('#resultInput');
-        if (last && last.role === 'assistant' && out &&
-            String(out.value || '').trim() === last.content.trim()) {
+        if (ChatSession.pendingInBox && history.length &&
+            history[history.length - 1].role === 'assistant') {
             history.pop();
         }
 
@@ -4615,17 +4645,38 @@
 
     let aiController = null;
 
+    /* 所有 AI 发送路径共用的前置检查。返回 true 表示可以继续。
+       以前每个入口各抄一份，四处几乎一样，改动时容易漏掉其中一处。 */
+    function aiReady() {
+        if (aiController) {
+            UI.toast('正在等待 AI 回复，请先等这一轮结束或点「停止」', true);
+            return false;
+        }
+        const cfg = AIClient.config();
+        const isLocal = /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(cfg.baseUrl);
+        if (!cfg.apiKey && !isLocal) {
+            UI.toast('尚未配置 API Key，请先在「设置」里填写', true);
+            UI.openModal('settingsModal');
+            return false;
+        }
+        return true;
+    }
+
     /* Φ15：所有 AI 发送路径的唯一出口。
-       messages 是完整的 [{role, content}] 数组；流式内容实时写进结果框，
-       结束后记入会话历史，并把回复框亮出来。 */
+       messages 是本次请求要发的 [{role, content}] 快照；流式内容实时写进结果框，
+       结束后记入会话历史，并把回复框亮出来。
+       opts.generation 用于代际校验：请求飞行期间会话被 start / reset 换掉时，
+       结果一律丢弃，不会写进新会话。 */
     async function runChat(messages, opts) {
         const o = opts || {};
+        const gen = ChatSession.generation;
         const out = Utils.$('#resultInput');
         out.value = '';
         State.resultOrigin = ChatSession.origin;
         renderResultHint();
         if (ResultPane.collapsed) ResultPane.toggle();
         PaneService.switchTo('result');
+        // 先 begin 再让出：begin 之后的 await 之前不会有第二个请求通过 aiReady()
         AiSendService.begin();
 
         let text = '';
@@ -4635,17 +4686,19 @@
                 text += chunk;
                 out.scrollTop = out.scrollHeight;
             }
-            ChatSession.finish(text);
+            ChatSession.finish(text, gen);
             UI.setSaved('AI 返回完成');
             if (o.toast) UI.toast(o.toast);
             AiBadge.bump();
         } catch (e) {
             if (e && e.name === 'AbortError') {
                 // 已生成的部分也留进历史，方便用户接着说
-                ChatSession.finish(text);
+                ChatSession.finish(text, gen);
                 UI.setSaved('已停止');
                 UI.toast('已停止');
             } else {
+                // 失败时撤回本轮推送的 user 消息，避免历史里留下无人应答的一条
+                if (o.rollbackUser) ChatSession.dropTrailingUser(gen);
                 UI.setSaved('请求失败');
                 UI.toast(e && e.message ? e.message : '请求失败', true);
             }
@@ -4659,13 +4712,7 @@
        与 sendToAI 的区别：不做「记忆与要求至少填一个」的校验（起始提示词本身
        就够完整），且结果区标记为 start，提示用户不必写回人设。 */
     async function sendStartPrompt(text) {
-        const cfg = AIClient.config();
-        const isLocal = /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(cfg.baseUrl);
-        if (!cfg.apiKey && !isLocal) {
-            UI.toast('尚未配置 API Key，请先在「设置」里填写', true);
-            UI.openModal('settingsModal');
-            return;
-        }
+        if (!aiReady()) return;
         ChatSession.start(text, 'start');
         renderReplyBar();
         await runChat(ChatSession.messages, {
@@ -4681,18 +4728,11 @@
         const text = String(input.value || '').trim();
         if (!text) { UI.toast('回复内容为空', true); return; }
         if (!ChatSession.active()) { UI.toast('当前没有可继续的对话，请重新开始', true); return; }
-
-        const cfg = AIClient.config();
-        const isLocal = /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(cfg.baseUrl);
-        if (!cfg.apiKey && !isLocal) {
-            UI.toast('尚未配置 API Key，请先在「设置」里填写', true);
-            UI.openModal('settingsModal');
-            return;
-        }
+        if (!aiReady()) return;
 
         const messages = ChatSession.push(text);
         input.value = '';
-        await runChat(messages);
+        await runChat(messages, { rollbackUser: true });
     }
 
     async function sendToAI(interview) {
@@ -4702,13 +4742,7 @@
             UI.toast('记忆与修改要求都为空，至少填一个', true);
             return;
         }
-        const cfg = AIClient.config();
-        const isLocal = /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(cfg.baseUrl);
-        if (!cfg.apiKey && !isLocal) {
-            UI.toast('尚未配置 API Key，请先在「设置」里填写', true);
-            UI.openModal('settingsModal');
-            return;
-        }
+        if (!aiReady()) return;
 
         ChatSession.start(built.text, 'maintain');
         renderReplyBar();
@@ -4757,7 +4791,7 @@
         renderPersonaList();
         renderSnapshots();
         Utils.$('#resultInput').value = '';
-        renderChatLog();
+        ChatSession.releaseBox();
         UI.setSaved('已应用');
         PaneService.switchTo('editor');   // 窄屏：应用后回到编辑页签看结果
 
@@ -4960,13 +4994,7 @@
         const v = WorldviewService.current();
         if (!v) { UI.toast('请先选择世界观', true); return; }
         await WorldviewService.save(v);
-        const cfg = AIClient.config();
-        const isLocal = /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(cfg.baseUrl);
-        if (!cfg.apiKey && !isLocal) {
-            UI.toast('尚未配置 API Key，请先在「设置」里填写', true);
-            UI.openModal('settingsModal');
-            return;
-        }
+        if (!aiReady()) return;
         const built = currentWvPrompt(interview);
         if (!built) return;
 
@@ -5000,6 +5028,12 @@
             });
             // 菜单项本身是 button，同样禁用
             Utils.$$('#startMenu .start-item').forEach(function (b) { b.disabled = true; });
+            // Φ15：回复框与「新对话」一并锁住。按钮 disabled 挡不住 Ctrl+Enter，
+            // 输入框与「新对话」若还能用，就可能在流式途中改掉正在跑的会话。
+            ['#replyInput', '#replyNewBtn'].forEach(function (sel) {
+                const n = Utils.$(sel);
+                if (n) n.disabled = true;
+            });
             Utils.$('#stopAiBtn').disabled = false;
             UI.setSaved('正在请求 AI…');
         },
@@ -5010,6 +5044,10 @@
                 if (b) b.disabled = false;
             });
             Utils.$$('#startMenu .start-item').forEach(function (b) { b.disabled = false; });
+            ['#replyInput', '#replyNewBtn'].forEach(function (sel) {
+                const n = Utils.$(sel);
+                if (n) n.disabled = false;
+            });
             Utils.$('#stopAiBtn').disabled = true;
         }
     };
@@ -5050,7 +5088,7 @@
         renderWvSelect();
         fillWorldview(v);
         Utils.$('#resultInput').value = '';
-        renderChatLog();
+        ChatSession.releaseBox();
         UI.toast('已写回世界观');
         return true;
     }
@@ -5657,7 +5695,7 @@
         Utils.$('#appendBtn').addEventListener('click', function () { applyResult(true); });
         Utils.$('#clearResultBtn').addEventListener('click', function () {
             Utils.$('#resultInput').value = '';
-            renderChatLog();
+            ChatSession.releaseBox();
         });
         Utils.$('#pasteResultBtn').addEventListener('click', async function () {
             try {

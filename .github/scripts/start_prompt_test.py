@@ -18,6 +18,7 @@
 | 8 | 菜单向上展开（菜单底边不高于按钮上沿）且在视口内 |
 | 9 | 点「开始对话」弹窗标题与场景数量正确；世界观下场景集不同；小说类说明提到「确认」 |
 | 11 | 多轮回复：会话历史、折叠记录、回复框显隐、新对话清空、AIClient 接受 messages 数组 |
+| 11h | 边界：请求中拒绝并发、reset 后丢弃飞行结果、失败回滚 user、改写结果框不重复、请求期间禁用回复框 |
 | 12 | 原「总结记忆进人设」仍生成含 FINALIZE_HINT 的提示词 |
 
 ## 机制
@@ -500,7 +501,7 @@ DRIVER = r"""
 
             // 11c2. 结果框清空后，上一轮输出应回到折叠区（不再被「已在结果框」规则跳过）
             Utils_('#resultInput').value = '';
-            T.renderChatLog();
+            T.ChatSession.releaseBox();
             ok(Utils_('#chatLogBody').textContent.indexOf('AI 第二轮回复') >= 0,
                '清空结果框后，上一轮输出应回到折叠区');
 
@@ -540,6 +541,90 @@ DRIVER = r"""
             T.AIClient.stream = stubs.stream;
             T.AIClient.body = stubs.body;
         }
+        /* ---------- 11h. 边界：并发、代际、回滚、结果框改写 ---------- */
+        var slow = [];
+        T.AIClient.config = function () { return { apiKey: 'x', baseUrl: 'https://x', protocol: 'openai' }; };
+        T.AIClient.stream = async function* (msgs) {
+            slow.push(msgs.length);
+            yield 'A';
+            await new Promise(function (r) { setTimeout(r, 60); });
+            yield 'B';
+            await new Promise(function (r) { setTimeout(r, 60); });
+            yield 'C';
+        };
+
+        try {
+            // 11h-1：请求进行中再发回复必须被拒绝（不能并发两个请求）
+            T.ChatSession.start('seed', 'start');
+            var flying = T.sendStartPrompt('并发测试');
+            await new Promise(function (r) { setTimeout(r, 40); });
+            Utils_('#replyInput').value = '流式中的回复';
+            await T.sendReply();
+            await flying;
+            ok(slow.length === 1, '请求进行中不应再发出第二个请求', 'sent=' + slow.length);
+            ok(Utils_('#resultInput').value === 'ABC', '结果框应只有一轮输出',
+               JSON.stringify(Utils_('#resultInput').value));
+            ok(T.ChatSession.messages.length === 2, '历史应只有 user+assistant 两条',
+               JSON.stringify(T.ChatSession.messages.map(function (m) { return m.role; })));
+            ok(Utils_('#replyInput').value === '流式中的回复',
+               '被拒绝的回复内容应留在输入框，不能吞掉');
+
+            // 11h-2：流式中 reset，飞行回来的结果不得写进新会话
+            slow.length = 0;
+            T.ChatSession.start('seed2', 'start');
+            var flying2 = T.sendStartPrompt('代际测试');
+            await new Promise(function (r) { setTimeout(r, 40); });
+            T.ChatSession.reset();
+            await flying2;
+            ok(T.ChatSession.messages.length === 0, 'reset 后飞行中的结果不应写回历史',
+               JSON.stringify(T.ChatSession.messages.map(function (m) { return m.role; })));
+
+            // 11h-3：请求失败应撤回刚推送的 user 消息
+            T.ChatSession.start('seed3', 'start');
+            T.AIClient.stream = async function* () { throw new Error('boom'); };
+            Utils_('#replyInput').value = '会失败的回复';
+            await T.sendReply();
+            var roles = T.ChatSession.messages.map(function (m) { return m.role; });
+            ok(roles.join('/') === 'user', '失败后应撤回本次 user 消息，只剩首条',
+               roles.join('/'));
+
+            // 11h-4：用户改写结果框后，折叠区不得重复显示原输出
+            T.AIClient.stream = async function* () { yield '原始输出'; };
+            T.ChatSession.start('seed4', 'start');
+            await T.sendStartPrompt('改写测试');
+            // 本轮 assistant 在结果框里，折叠区只剩首条 user，不应出现原输出
+            ok(Utils_('#chatLogBody').textContent.indexOf('原始输出') < 0,
+               '结果框持有本轮输出时，折叠区不应重复显示（前提检查）');
+            Utils_('#resultInput').value = '用户改写过的内容';
+            T.renderChatLog();
+            ok(Utils_('#chatLogBody').textContent.indexOf('原始输出') < 0,
+               '用户改写结果框后，折叠区不应重复显示原始输出');
+
+            // 11h-5：清空结果框后，最后一条 assistant 回到折叠区
+            Utils_('#resultInput').value = '';
+            T.ChatSession.releaseBox();
+            ok(Utils_('#chatLogBody').textContent.indexOf('原始输出') >= 0,
+               '清空结果框后，最后一条输出应回到折叠区');
+
+            // 11h-6：请求期间回复框与「新对话」应禁用
+            T.AIClient.stream = async function* () {
+                await new Promise(function (r) { setTimeout(r, 80); });
+                yield 'X';
+            };
+            T.ChatSession.start('seed5', 'start');
+            var flying5 = T.sendStartPrompt('禁用测试');
+            await new Promise(function (r) { setTimeout(r, 20); });
+            ok(Utils_('#replyInput').disabled === true, '请求期间回复输入框应禁用');
+            ok(Utils_('#replyNewBtn').disabled === true, '请求期间「新对话」应禁用');
+            await flying5;
+            ok(Utils_('#replyInput').disabled === false, '请求结束后回复输入框应恢复');
+            ok(Utils_('#replyNewBtn').disabled === false, '请求结束后「新对话」应恢复');
+        } finally {
+            T.AIClient.config = stubs.config;
+            T.AIClient.stream = stubs.stream;
+            T.AIClient.body = stubs.body;
+        }
+
         T.ChatSession.reset();
         T.renderChatLog();
         T.renderReplyBar();
