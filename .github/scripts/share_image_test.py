@@ -338,7 +338,11 @@ DRIVER = r"""
             // 除最后一页外，每页底部区域都应有内容（说明内容真的被摊到了各页）。
             // 最后一页允许只有一两行：分页按整行切，剩多少就画多少；
             // 字体宽度随皮肤而变，末页内容量本来就会浮动。
-            var lastFull = r3.pages.length - 1;
+            // 但至少要检查一页——只有一页时下面的循环会一次都不跑，
+            // 那等于这条断言被悄悄关掉了。
+            ok(r3.pages.length >= 2, '长内容应切成多页（多页断言的前提）',
+               'pages=' + r3.pages.length);
+            var lastFull = Math.max(1, r3.pages.length - 1);
             for (var pi = 0; pi < lastFull; pi++) {
                 var cv = r3.pages[pi];
                 var g = cv.getContext('2d');
@@ -425,6 +429,64 @@ DRIVER = r"""
                    'bg=' + s.bg + ' text=' + pal.text + ' ratio=' + rt.toFixed(2));
             });
         });
+
+        /* ---------- 11b2. 皮肤令牌覆盖完整性 ---------- */
+        // 换肤最容易漏的是「某些硬编码颜色 / 字号没被覆盖」：
+        // 视觉上看不出来，直到某套皮肤用完全不同的主色才露馅。
+        // 这里直接读计算样式，断言关键令牌都被覆盖成了非基版值。
+        var cs0 = getComputedStyle(document.documentElement);
+        var accentV = (cs0.getPropertyValue('--accent') || '').trim();
+        ok(!!accentV, '必须能取到 --accent');
+
+        // 1) 页面上不应残留基版的青绿 / 金色硬编码边框。
+        //    做法：找世界列表的选中项与新增按钮，读它们的实际边框色，
+        //    断言它与 --accent 同色系（而不是基版固定的金色）。
+        var onItem = document.querySelector('.world-item.on');
+        if (onItem) {
+            var bc = getComputedStyle(onItem).borderColor || '';
+            ok(bc.indexOf('224, 164, 88') < 0 && bc.indexOf('224,164,88') < 0,
+               '选中态边框不应是基版金色', bc);
+        } else {
+            ok(true, '当前没有选中项，跳过边框色检查');
+        }
+
+        // 2) 尺寸令牌必须全部有值（缺一个就会退回浏览器默认或被继承）
+        var needTokens = ['--fs-100', '--fs-110', '--fs-120', '--fs-130', '--fs-140',
+                          '--fs-150', '--fs-160', '--fs-170', '--fs-180', '--fs-190',
+                          '--fs-200', '--fs-220', '--fs-240', '--fs-260', '--fs-280',
+                          '--fs-300', '--fs-320',
+                          '--sp-0', '--sp-1', '--sp-2', '--sp-3', '--sp-4', '--sp-5',
+                          '--sp-6', '--sp-7', '--sp-8', '--sp-9', '--sp-10',
+                          '--radius', '--radius-sm', '--pad-panel', '--pad-form', '--pad-head'];
+        var missing = [];
+        needTokens.forEach(function (t) {
+            if (!(cs0.getPropertyValue(t) || '').trim()) missing.push(t);
+        });
+        ok(missing.length === 0, '尺寸令牌不应有缺值', missing.join(','));
+
+        // 3) 正文与品牌标记的字号必须真的取到令牌（而不是被写死），
+        //    并且若本文件是皮肤（--skin-scale 有值），基准字号必须与基版不同。
+        var skinScale = (cs0.getPropertyValue('--skin-scale') || '').trim();
+        if (skinScale) {
+            var fs320 = parseFloat(cs0.getPropertyValue('--fs-320')) || 0;
+            var fs300 = parseFloat(cs0.getPropertyValue('--fs-300')) || 0;
+            ok(Math.abs(fs320 - 14 * parseFloat(skinScale)) < 0.5,
+               '皮肤应覆盖 --fs-320 到基准值 × 缩放', 'fs320=' + fs320 + ' scale=' + skinScale);
+            ok(Math.abs(fs300 - 13 * parseFloat(skinScale)) < 0.5,
+               '皮肤应覆盖 --fs-300 到基准值 × 缩放', 'fs300=' + fs300 + ' scale=' + skinScale);
+        }
+
+        var bodyFs = getComputedStyle(document.body).fontSize;
+        ok(bodyFs === (cs0.getPropertyValue('--fs-320') || '').trim(),
+           'body 字号应来自 --fs-320', 'body=' + bodyFs +
+           ' token=' + (cs0.getPropertyValue('--fs-320') || '').trim());
+        var bm = document.querySelector('.brand-mark');
+        if (bm) {
+            var bmFs = getComputedStyle(bm).fontSize;
+            ok(bmFs === (cs0.getPropertyValue('--fs-300') || '').trim(),
+               '品牌标记字号应来自 --fs-300', 'mark=' + bmFs +
+               ' token=' + (cs0.getPropertyValue('--fs-300') || '').trim());
+        }
 
         /* ---------- 11c. 浅色渐变下标题确实画得出来（像素级） ---------- */
         var rLight = await T.renderShareImages({
