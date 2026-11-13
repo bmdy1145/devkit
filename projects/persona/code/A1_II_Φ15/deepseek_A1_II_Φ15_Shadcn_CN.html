@@ -481,22 +481,6 @@
         --accent-soft: rgba(250, 250, 250, 0.14);
     }
 
-    body[data-theme="light"] {
-        color-scheme: light;
-        --bg: #ffffff;
-        --surface: #ffffff;
-        --surface-2: #f4f4f5;
-        --surface-3: #e4e4e7;
-        --border: #e4e4e7;
-        --text: #09090b;
-        --text-2: #52525b;
-        --text-3: #71717a;
-        --accent: #18181b;
-        --accent-fg: #fafafa;
-        --danger: #dc2626;
-        --ok: #15803d;
-        --accent-soft: rgba(24, 24, 27, 0.14);
-    }
 
     /* ---- 尺寸令牌覆盖 ---- */
     :root {
@@ -1365,7 +1349,6 @@
     <span class="spacer"></span>
     <button class="btn sm" id="exportBtn" type="button">导出</button>
     <button class="btn sm primary result-toggle" id="resultToggleBtn" type="button" title="显示 / 隐藏 AI 结果栏">AI 结果<span class="badge" id="aiBadge" hidden>0</span></button>
-    <button class="btn sm" id="themeBtn" type="button" title="切换深色 / 浅色主题">自动</button>
     <button class="btn sm" id="settingsBtn" type="button">设置</button>
     <button class="btn sm" id="aboutBtn" type="button">关于</button>
 </header>
@@ -3753,61 +3736,6 @@
     /* ======================================================================
      * 皮肤：深 / 浅 / 跟随系统（一次性产出，不随版本维护）
      * ==================================================================== */
-    const ThemeService = {
-        pref: 'auto',
-        mql: null,
-
-        resolve(pref) {
-            if (pref === 'dark' || pref === 'light') return pref;
-            try {
-                return (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)
-                    ? 'light' : 'dark';
-            } catch (e) { return 'dark'; }
-        },
-
-        apply(pref) {
-            this.pref = (pref === 'dark' || pref === 'light' || pref === 'auto') ? pref : 'auto';
-            const resolved = this.resolve(this.pref);
-            document.body.setAttribute('data-theme', resolved);
-            const btn = document.getElementById('themeBtn');
-            if (btn) {
-                btn.textContent = this.pref === 'auto'
-                    ? (resolved === 'light' ? '自动·浅' : '自动·深')
-                    : (resolved === 'light' ? '浅色' : '深色');
-                btn.title = '主题：' + (this.pref === 'auto' ? '跟随系统'
-                    : (resolved === 'light' ? '浅色' : '深色')) + '（点击切换）';
-            }
-        },
-
-        cycle() {
-            const order = ['auto', 'dark', 'light'];
-            const next = order[(order.indexOf(this.pref) + 1) % order.length];
-            this.apply(next);
-            State.prefs.ui.themePref = next;
-            PrefsService.saveUI();
-            UI.toast('主题：' + (next === 'auto' ? '跟随系统' : (next === 'dark' ? '深色' : '浅色')));
-        },
-
-        bind() {
-            if (this._bound) return;
-            this._bound = true;
-            this.apply('auto');
-            try {
-                this.mql = window.matchMedia('(prefers-color-scheme: light)');
-                const self = this;
-                const onChange = function () { if (self.pref === 'auto') self.apply('auto'); };
-                if (this.mql.addEventListener) this.mql.addEventListener('change', onChange);
-                else if (this.mql.addListener) this.mql.addListener(onChange);
-            } catch (e) { /* 忽略 */ }
-            const btn = document.getElementById('themeBtn');
-            if (btn) btn.addEventListener('click', function () { ThemeService.cycle(); });
-        },
-
-        applySaved() {
-            const saved = State.prefs && State.prefs.ui && State.prefs.ui.themePref;
-            if (saved) this.apply(saved);
-        }
-    };
 
     const ResultPane = {
         collapsed: false,
@@ -6834,9 +6762,6 @@
      * 18. 启动
      * ==================================================================== */
     async function boot() {
-        // 主题先行：不依赖存储，存储卡住时按钮也是活的
-        ThemeService.bind();
-
         await Storage.init();
 
         // Φ9：存储出错必须让用户看见，不能只 console.warn
@@ -6865,7 +6790,6 @@
         }
 
         await PrefsService.load();
-        ThemeService.applySaved();
         // 旧版单层人设 → 新结构（人物卡片 + 平行世界），幂等
         await Migration.run();
         await PersonaService.loadAll();
