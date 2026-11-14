@@ -467,25 +467,31 @@ DRIVER = r"""
         // 3) 正文与品牌标记的字号必须真的取到令牌（而不是被写死），
         //    并且若本文件是皮肤（--skin-scale 有值），基准字号必须与基版不同。
         var skinScale = (cs0.getPropertyValue('--skin-scale') || '').trim();
+        // 令牌可能写成 px 也可能写成 rem，统一换算成 px 再比较
+        function toPx(v) {
+            v = String(v || '').trim();
+            if (v.indexOf('rem') > 0) return parseFloat(v) * 16;
+            return parseFloat(v) || 0;
+        }
         if (skinScale) {
-            var fs320 = parseFloat(cs0.getPropertyValue('--fs-320')) || 0;
-            var fs300 = parseFloat(cs0.getPropertyValue('--fs-300')) || 0;
+            var fs320 = toPx(cs0.getPropertyValue('--fs-320'));
+            var fs300 = toPx(cs0.getPropertyValue('--fs-300'));
             ok(Math.abs(fs320 - 14 * parseFloat(skinScale)) < 0.5,
-               '皮肤应覆盖 --fs-320 到基准值 × 缩放', 'fs320=' + fs320 + ' scale=' + skinScale);
+               '皮肤应覆盖 --fs-320 到基准值 × 缩放', 'fs320=' + fs320 + 'px scale=' + skinScale);
             ok(Math.abs(fs300 - 13 * parseFloat(skinScale)) < 0.5,
-               '皮肤应覆盖 --fs-300 到基准值 × 缩放', 'fs300=' + fs300 + ' scale=' + skinScale);
+               '皮肤应覆盖 --fs-300 到基准值 × 缩放', 'fs300=' + fs300 + 'px scale=' + skinScale);
         }
 
-        var bodyFs = getComputedStyle(document.body).fontSize;
-        ok(bodyFs === (cs0.getPropertyValue('--fs-320') || '').trim(),
-           'body 字号应来自 --fs-320', 'body=' + bodyFs +
-           ' token=' + (cs0.getPropertyValue('--fs-320') || '').trim());
+        var bodyFs = toPx(getComputedStyle(document.body).fontSize);
+        var fs320px = toPx(cs0.getPropertyValue('--fs-320'));
+        ok(Math.abs(bodyFs - fs320px) < 0.5,
+           'body 字号应来自 --fs-320', 'body=' + bodyFs + 'px token=' + fs320px + 'px');
         var bm = document.querySelector('.brand-mark');
         if (bm) {
-            var bmFs = getComputedStyle(bm).fontSize;
-            ok(bmFs === (cs0.getPropertyValue('--fs-300') || '').trim(),
-               '品牌标记字号应来自 --fs-300', 'mark=' + bmFs +
-               ' token=' + (cs0.getPropertyValue('--fs-300') || '').trim());
+            var bmFs = toPx(getComputedStyle(bm).fontSize);
+            var fs300px = toPx(cs0.getPropertyValue('--fs-300'));
+            ok(Math.abs(bmFs - fs300px) < 0.5,
+               '品牌标记字号应来自 --fs-300', 'mark=' + bmFs + 'px token=' + fs300px + 'px');
         }
 
         /* ---------- 11c. 浅色渐变下标题确实画得出来（像素级） ---------- */

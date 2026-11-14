@@ -386,7 +386,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src *; base-uri 'self'; object-src 'none'; form-action 'self';">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Fira+Code:wght@400;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@400;500;700&family=Fira+Code:wght@400;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap">
 <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -525,14 +525,25 @@
         --fs-320: 14.5px;
     }
 
-    /* ---- 字体 ---- */
+    /* ---- 字体 ----
+       skill: primary=Inter（正文 / UI）、display=Roboto（标题）、mono=Fira Code。
+       基版把 --font-serif 当「详述正文」用，这里保持它也是 Inter，
+       另加 --font-display 专门给标题，避免把 display 字体误用到正文。 */
     :root {
-        --font-ui: 'Roboto', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
-        --font-serif: 'Roboto', 'Noto Sans SC', 'Songti SC', serif;
+        --font-ui: 'Inter', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
+        --font-serif: 'Inter', 'Noto Sans SC', 'Songti SC', serif;
         --font-mono: 'Fira Code', 'Noto Sans SC', ui-monospace, Consolas, monospace;
+        --font-display: 'Roboto', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
         --fw-title: 600;
         --ls-title: 0.015em;
     }
+
+    /* Material：标题用 display 字体（Roboto），正文保持 Inter */
+    .side-head .title,
+    .editor-head .title,
+    .result-head .title,
+    .modal-head h2,
+    .brand { font-family: var(--font-display); }
     body, button, input, select, textarea { letter-spacing: var(--ls-title); }
 
     /* Material：药丸按钮、大圆角面板、分层投影（MD3 形状语言） */

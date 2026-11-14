@@ -535,7 +535,9 @@
     }
     body, button, input, select, textarea { letter-spacing: var(--ls-title); }
 
-    /* Glass：半透明叠层 + 背景虚化 + 大圆角，字号与留白都放大 */
+    /* Glass：半透明叠层 + 背景虚化 + 大圆角 + bento 卡片
+       skill 明确写了 bento cards：把侧栏的人设区、世界区与底部操作拆成
+       彼此独立的浮起卡片，用间距而不是分割线表达分区。 */
     .topbar, .sidebar, .result, .promptbar {
         -webkit-backdrop-filter: blur(18px) saturate(1.4);
         backdrop-filter: blur(18px) saturate(1.4);
@@ -546,6 +548,43 @@
     }
     .modal-box, .sidebar, .result { box-shadow: var(--shadow); }
     .btn { font-weight: 500; }
+
+    /* ---- bento：侧栏改为卡片容器 ---- */
+    .sidebar {
+        background: transparent;
+        border-right: none;
+        gap: 10px;
+        padding: 10px;
+        overflow-y: auto;
+    }
+    .mode-switch {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 3px;
+        margin: 0;
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+    }
+    .side-personas, .side-worldviews {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(24, 86, 255, 0.06), 0 10px 24px -20px rgba(24, 86, 255, 0.45);
+    }
+    .side-head {
+        border-bottom: 1px solid var(--border);
+    }
+    .side-foot {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: 0 1px 2px rgba(24, 86, 255, 0.06), 0 10px 24px -20px rgba(24, 86, 255, 0.45);
+    }
+    /* 列表内不再画分割线，靠卡片之间的间距分区 */
+    .side-personas .persona-list,
+    .side-worldviews .wv-list { padding: 8px; }
 
 
     html, body { height: 100%; }
