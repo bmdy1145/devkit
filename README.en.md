@@ -151,7 +151,19 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │   │   ├── index.html
 │   │   └── code/
 │   │       ├── index.html
-│   │       └── A1_II_Φ10/
+│   │       ├── A1_II_Φ11/           # Current trunk: nine themes + all-in-one
+│   │       │   ├── index.html
+│   │       │   ├── deepseek_A1_II_Φ11_CN.html             # Original baseline (Pages default)
+│   │       │   ├── deepseek_A1_II_Φ11_Clean_CN.html       # Clean
+│   │       │   ├── deepseek_A1_II_Φ11_Glass_CN.html       # Glassmorphism
+│   │       │   ├── deepseek_A1_II_Φ11_Material_CN.html    # Material
+│   │       │   ├── deepseek_A1_II_Φ11_Minimal_CN.html     # Minimal
+│   │       │   ├── deepseek_A1_II_Φ11_Mono_CN.html        # Mono
+│   │       │   ├── deepseek_A1_II_Φ11_Neon_CN.html        # Neon
+│   │       │   ├── deepseek_A1_II_Φ11_Premium_CN.html     # Premium
+│   │       │   ├── deepseek_A1_II_Φ11_Shadcn_CN.html      # Shadcn
+│   │       │   └── deepseek_A1_II_Φ11_CN_All.html         # All-in-one runtime switcher
+│   │       └── A1_II_Φ10/           # Historical archive
 │   │           ├── index.html
 │   │           ├── deepseek_html_20260705_d1ca99.html     # Original archive
 │   │           └── deepseek_html_20261006_d1ca99_Fix.html # Safe filename rendering fix
@@ -264,7 +276,7 @@ This repository is organised as `projects/<name>/`, one directory per project:
 - Each project ships its own `index.html` as its landing page. The internal directory structure and version-numbering rules are **up to each project** — the repo imposes no shared convention on them.
 - The root `index.html` is a **project picker**; it only lists entries to the projects.
 - `docs/` (conventions) and `.github/` (automation) are **shared across projects**. `version_guard.py` covers DevKit, Writer and Persona; `size_guard.py` and `smoke_test.py` auto-discover `projects/*/code/*/deepseek_*.html`, so a new project needs no registration. `auto_release.py` discovers projects and main lines automatically and prefixes tags with the project name for non-DevKit projects.
-- The repository currently hosts five projects: `devkit`, `submerge-pro`, `dircleaner`, `writer` and `persona`. Add future projects under `projects/<name>/` and update the root project picker and `projects/index.html`.
+- The repository currently hosts five projects: `devkit`, `submerge-pro`, `dircleaner`, `writer` and `persona`. Add future projects under `projects/<name>/` and update the root project picker and `projects/index.html`. SubMerge Pro's current trunk is `A1_II_Φ11`: nine standalone theme builds plus one all-in-one runtime switcher share the same functional code; the eight style builds load their exact Google Fonts families per DESIGN.md and fall back to system fonts offline.
 
 ### Pages deployment note
 
@@ -286,7 +298,8 @@ The site entry is the **root-level** `index.html`, a **project picker**; each pr
 | `/projects/devkit/code/A1_V_Φ4/` | Early main line (one version, historical reference) |
 | `/projects/submerge-pro/` | SubMerge Pro project page |
 | `/projects/submerge-pro/code/` | SubMerge Pro branch index |
-| `/projects/submerge-pro/code/A1_II_Φ10/` | Original archive and A1_II_Φ10_Fix security revision |
+| `/projects/submerge-pro/code/A1_II_Φ11/` | Current: nine standalone theme builds + all-in-one runtime switcher (original baseline default) |
+| `/projects/submerge-pro/code/A1_II_Φ10/` | Historical archive: original build and A1_II_Φ10_Fix security revision |
 | `/projects/dircleaner/` | DirCleaner project page |
 | `/projects/dircleaner/code/` | DirCleaner branch index |
 | `/projects/dircleaner/code/A1_II_Φ8/` | A1_II_Φ8 application file |
