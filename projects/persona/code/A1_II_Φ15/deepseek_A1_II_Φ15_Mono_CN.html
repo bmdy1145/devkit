@@ -464,19 +464,23 @@
 
     /* ================= 皮肤：等宽 ================= */
     :root {
-        --bg: #0a0d0a;
-        --surface: #111511;
-        --surface-2: #161c16;
-        --surface-3: #1e261e;
-        --border: #2c3a2c;
-        --text: #d8f0d8;
-        --text-2: #8fb08f;
-        --text-3: #668066;
-        --accent: #37f712;
-        --accent-fg: #04120a;
-        --danger: #ff5f7a;
-        --ok: #37f712;
+        color-scheme: light;
+        --bg: #E7E5E4;
+        --surface: #F5F4F2;
+        --surface-2: #EDECEA;
+        --surface-3: #E0DEDC;
+        --border: #C8C5C2;
+        --text: #57514C;
+        --text-2: #57514C;
+        --text-3: #6B6560;
+        --accent: #37F712;
+        --accent-fg: #0A0D0A;
+        --danger: #B31241;
+        --ok: #116B33;
         --accent-soft: rgba(55, 247, 18, 0.14);
+        --shadow: 0 4px 14px -12px rgba(87, 81, 76, 0.40);
+        --share-accent-light: #146B12;
+        --share-accent-dark: #5CFF3D;
     }
 
 
@@ -533,8 +537,8 @@
 
     /* Mono：紧凑密度、全站等宽 / 衬线中文、硬描边、终端气质 */
     body, button, input, select, textarea, .btn, h1, h2, h3 { font-family: var(--font-ui); }
-    .modal-box { border: 1px solid var(--accent); box-shadow: none; }
-    .brand-mark { border: 1px solid var(--accent); }
+    .modal-box { border: 1px solid var(--text); box-shadow: none; }
+    .brand-mark { border: 1px solid color-mix(in srgb, var(--accent) 70%, #0A0D0A); }
     .sidebar .side-head .title, .editor-head .title { text-transform: uppercase; }
 
 
@@ -6176,17 +6180,20 @@
     const SHARE_METRICS = { MARGIN: 96, BODY: 36, H1: 64, H2: 44, LINE: 1.75, GAP: 26 };
 
     function sharePalette(dark) {
+        const cs = getComputedStyle(document.documentElement);
+        const rd = function (k, d) { return (cs.getPropertyValue(k) || '').trim() || d; };
         if (dark) {
-            const cs = getComputedStyle(document.documentElement);
-            const rd = function (k, d) { return (cs.getPropertyValue(k) || '').trim() || d; };
+            // 分享图的「深色」是画布自身的一套深色配色，与界面当前是深是浅无关。
+            // 早先这里读 :root 令牌，界面一旦整体改成浅色，取到的就是浅色值，
+            // 深色渐变底上会变成深字压深底（对比度 1.0x）。改为固定值。
             return {
-                bg: rd('--bg', '#0f1115'),
-                panel: rd('--surface', '#151922'),
-                line: rd('--border', '#2a3140'),
-                text: rd('--text', '#e6e9ef'),
-                text2: rd('--text-2', '#98a2b3'),
-                text3: rd('--text-3', '#6f7a8c'),
-                accent: rd('--accent', '#7fd1c1')
+                bg: '#0f1115',
+                panel: '#151922',
+                line: '#2a3140',
+                text: '#e6e9ef',
+                text2: '#a8b2c3',
+                text3: '#8c96a8',
+                accent: rd('--share-accent-dark', '#7fd1c1')
             };
         }
         // accent 用比界面主色（#2a9d8f）更深一档的 #1f7a6f：浅色渐变底色在
@@ -6194,7 +6201,8 @@
         // 低于 WCAG AA 对非文本 UI 的 3.0；改后最低 4.07。深色模式无需调整（6.0+）。
         return {
             bg: '#f7f8fa', panel: '#ffffff', line: '#d8dee8',
-            text: '#1b202b', text2: '#4a5364', text3: '#6f7a8c', accent: '#1f7a6f'
+            text: '#1b202b', text2: '#4a5364', text3: '#6f7a8c',
+            accent: rd('--share-accent-light', '#1f7a6f')
         };
     }
 

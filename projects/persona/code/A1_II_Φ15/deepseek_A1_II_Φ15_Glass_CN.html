@@ -464,19 +464,23 @@
 
     /* ================= 皮肤：毛玻璃 ================= */
     :root {
-        --bg: #0b1020;
-        --surface: rgba(255,255,255,0.07);
-        --surface-2: rgba(255,255,255,0.10);
-        --surface-3: rgba(255,255,255,0.14);
-        --border: rgba(255,255,255,0.18);
-        --text: #eef2ff;
-        --text-2: #b6c0d8;
-        --text-3: #8494b3;
-        --accent: #6c96ff;
-        --accent-fg: #08122e;
-        --danger: #ff6b81;
-        --ok: #4fd68a;
-        --accent-soft: rgba(108, 150, 255, 0.14);
+        color-scheme: light;
+        --bg: #EEF2FF;
+        --surface: rgba(255,255,255,0.72);
+        --surface-2: rgba(255,255,255,0.86);
+        --surface-3: rgba(255,255,255,0.95);
+        --border: rgba(24,86,255,0.20);
+        --text: #141414;
+        --text-2: #3A344E;
+        --text-3: #5C5A6E;
+        --accent: #1856FF;
+        --accent-fg: #FFFFFF;
+        --danger: #EA2143;
+        --ok: #0A8F4D;
+        --accent-soft: rgba(24, 86, 255, 0.14);
+        --shadow: 0 24px 60px -34px rgba(24, 86, 255, 0.35);
+        --share-accent-light: #0B3AC4;
+        --share-accent-dark: #7A9BFF;
     }
 
 
@@ -6182,17 +6186,20 @@
     const SHARE_METRICS = { MARGIN: 96, BODY: 36, H1: 64, H2: 44, LINE: 1.75, GAP: 26 };
 
     function sharePalette(dark) {
+        const cs = getComputedStyle(document.documentElement);
+        const rd = function (k, d) { return (cs.getPropertyValue(k) || '').trim() || d; };
         if (dark) {
-            const cs = getComputedStyle(document.documentElement);
-            const rd = function (k, d) { return (cs.getPropertyValue(k) || '').trim() || d; };
+            // 分享图的「深色」是画布自身的一套深色配色，与界面当前是深是浅无关。
+            // 早先这里读 :root 令牌，界面一旦整体改成浅色，取到的就是浅色值，
+            // 深色渐变底上会变成深字压深底（对比度 1.0x）。改为固定值。
             return {
-                bg: rd('--bg', '#0f1115'),
-                panel: rd('--surface', '#151922'),
-                line: rd('--border', '#2a3140'),
-                text: rd('--text', '#e6e9ef'),
-                text2: rd('--text-2', '#98a2b3'),
-                text3: rd('--text-3', '#6f7a8c'),
-                accent: rd('--accent', '#7fd1c1')
+                bg: '#0f1115',
+                panel: '#151922',
+                line: '#2a3140',
+                text: '#e6e9ef',
+                text2: '#a8b2c3',
+                text3: '#8c96a8',
+                accent: rd('--share-accent-dark', '#7fd1c1')
             };
         }
         // accent 用比界面主色（#2a9d8f）更深一档的 #1f7a6f：浅色渐变底色在
@@ -6200,7 +6207,8 @@
         // 低于 WCAG AA 对非文本 UI 的 3.0；改后最低 4.07。深色模式无需调整（6.0+）。
         return {
             bg: '#f7f8fa', panel: '#ffffff', line: '#d8dee8',
-            text: '#1b202b', text2: '#4a5364', text3: '#6f7a8c', accent: '#1f7a6f'
+            text: '#1b202b', text2: '#4a5364', text3: '#6f7a8c',
+            accent: rd('--share-accent-light', '#1f7a6f')
         };
     }
 
