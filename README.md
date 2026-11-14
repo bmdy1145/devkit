@@ -188,7 +188,27 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │       ├── index.html               # 项目落地页（打开入口 + 数据安全提示）
 │       └── code/
 │           ├── index.html           # 代码 / 分支索引
-│           ├── A1_II_Φ11/           # 当前版本（导出弹窗缺陷修补）
+│           ├── A1_II_Φ15/           # 当前版本（AI 多轮回复 + 八套皮肤）
+│           │   ├── index.html
+│           │   ├── deepseek_A1_II_Φ15_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Clean_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Glass_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Material_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Minimal_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Mono_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Neon_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Premium_CN.html
+│           │   └── deepseek_A1_II_Φ15_Shadcn_CN.html
+│           ├── A1_II_Φ14/           # 角色形象起始对话 / 起始小说
+│           │   ├── index.html
+│           │   └── deepseek_A1_II_Φ14_CN.html
+│           ├── A1_II_Φ13/           # 姓名来源指定与分享为图片
+│           │   ├── index.html
+│           │   └── deepseek_A1_II_Φ13_CN.html
+│           ├── A1_II_Φ12/           # 记忆与快照数据丢失修复
+│           │   ├── index.html
+│           │   └── deepseek_A1_II_Φ12_CN.html
+│           ├── A1_II_Φ11/           # 导出弹窗缺陷修补
 │           │   ├── index.html
 │           │   └── deepseek_A1_II_Φ11_CN.html
 │           ├── A1_II_Φ10_Fix/       # 导出弹窗缺陷修复
@@ -280,7 +300,11 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 应用文件（历史参照） |
 | `/projects/persona/` | Persona 人设编辑器项目页 |
 | `/projects/persona/code/` | Persona 代码分支索引 |
-| `/projects/persona/code/A1_II_Φ11/` | A1_II_Φ11 应用文件（当前版本 · 导出弹窗缺陷修补） |
+| `/projects/persona/code/A1_II_Φ15/` | A1_II_Φ15 应用文件（当前版本 · 网页内 AI 多轮回复；含 8 套皮肤） |
+| `/projects/persona/code/A1_II_Φ14/` | A1_II_Φ14 应用文件（角色形象起始对话 / 起始小说） |
+| `/projects/persona/code/A1_II_Φ13/` | A1_II_Φ13 应用文件（姓名来源指定与分享为图片） |
+| `/projects/persona/code/A1_II_Φ12/` | A1_II_Φ12 应用文件（记忆与快照数据丢失修复） |
+| `/projects/persona/code/A1_II_Φ11/` | A1_II_Φ11 应用文件（导出弹窗缺陷修补） |
 | `/projects/persona/code/A1_II_Φ10_Fix/` | A1_II_Φ10_Fix 应用文件（导出弹窗缺陷修复） |
 | `/projects/persona/code/A1_II_Φ10/` | A1_II_Φ10 应用文件（导出弹窗改造：复制到剪贴板） |
 | `/projects/persona/code/A1_II_Φ9/` | A1_II_Φ9 应用文件（缺陷修复：导入入口 / 存储提示；含 8 款皮肤） |

@@ -530,7 +530,7 @@
         --font-ui: 'Open Sans', 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif;
         --font-serif: 'Inter', 'Noto Sans SC', 'Songti SC', serif;
         --font-mono: 'Inconsolata', 'Noto Sans SC', ui-monospace, Consolas, monospace;
-        --fw-title: 400;
+        --fw-title: 700;
         --ls-title: 0.06em;
     }
     body, button, input, select, textarea { letter-spacing: var(--ls-title); }
@@ -1343,6 +1343,27 @@
     @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { transition-duration: 0.01ms !important; }
     }
+
+    /* Minimal：skill 的「minimal, clean, BOLD」——
+       标题放大加粗、主按钮近黑实心，保持单色系与零投影。
+       放在基版 CSS 之后，避免同特异性规则被覆盖。 */
+    .side-head .title,
+    .editor-head .title,
+    .result-head .title,
+    .modal-head h2 {
+        font-size: var(--fs-240);
+        font-weight: var(--fw-title);
+        letter-spacing: 0.02em;
+    }
+    .persona-item .p-name { font-weight: var(--fw-title); }
+    .btn.primary {
+        background: #0C0C09;
+        border-color: #0C0C09;
+        color: #FFFFFF;
+        font-weight: var(--fw-title);
+        box-shadow: none;
+    }
+    .btn.primary:hover:not(:disabled) { filter: brightness(1.25); }
 </style>
 </head>
 <body class="app">

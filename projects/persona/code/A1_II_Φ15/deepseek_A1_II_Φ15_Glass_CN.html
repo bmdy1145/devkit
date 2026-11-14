@@ -549,42 +549,6 @@
     .modal-box, .sidebar, .result { box-shadow: var(--shadow); }
     .btn { font-weight: 500; }
 
-    /* ---- bento：侧栏改为卡片容器 ---- */
-    .sidebar {
-        background: transparent;
-        border-right: none;
-        gap: 10px;
-        padding: 10px;
-        overflow-y: auto;
-    }
-    .mode-switch {
-        background: var(--surface-2);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        padding: 3px;
-        margin: 0;
-        -webkit-backdrop-filter: blur(12px);
-        backdrop-filter: blur(12px);
-    }
-    .side-personas, .side-worldviews {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        overflow: hidden;
-        box-shadow: 0 1px 2px rgba(24, 86, 255, 0.06), 0 10px 24px -20px rgba(24, 86, 255, 0.45);
-    }
-    .side-head {
-        border-bottom: 1px solid var(--border);
-    }
-    .side-foot {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        box-shadow: 0 1px 2px rgba(24, 86, 255, 0.06), 0 10px 24px -20px rgba(24, 86, 255, 0.45);
-    }
-    /* 列表内不再画分割线，靠卡片之间的间距分区 */
-    .side-personas .persona-list,
-    .side-worldviews .wv-list { padding: 8px; }
 
 
     html, body { height: 100%; }
@@ -1387,6 +1351,92 @@
     #promptPreview { min-height: min(380px, 50vh); }
     @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+
+    /* ==================================================================
+     * Glass bento 后置覆盖层
+     * ------------------------------------------------------------------
+     * 早先这段写在 <style> 前段，被基版同特异性的 .sidebar / .mode-switch /
+     * .side-foot 规则覆盖，只有部分生效。统一挪到基版 CSS 之后。
+     * 只改卡片外壳，不动 DOM、不改 display/flex/width。
+     * ================================================================== */
+    .workspace { gap: 10px; padding: 10px; }
+    .workspace > .sidebar {
+        background: transparent; border-right: none;
+        gap: 10px; padding: 10px; overflow-y: auto;
+    }
+    .workspace > .sidebar > .mode-switch {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin: 0;
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+    }
+    .workspace .side-personas,
+    .workspace .side-worldviews {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(24, 86, 255, 0.06), 0 10px 24px -20px rgba(24, 86, 255, 0.45);
+    }
+    .workspace .side-foot {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: 0 1px 2px rgba(24, 86, 255, 0.06), 0 10px 24px -20px rgba(24, 86, 255, 0.45);
+    }
+    .workspace .side-personas .persona-list,
+    .workspace .side-worldviews .wv-list { padding: 8px; }
+
+    /* 编辑 / 结果区：浮起卡片外壳，内部表单与流式布局保持不变 */
+    .workspace > .editor:not(.collapsed),
+    .workspace > .result:not(.collapsed) {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: 0 1px 2px rgba(24, 86, 255, 0.06), 0 10px 24px -20px rgba(24, 86, 255, 0.45);
+        overflow: hidden;
+    }
+
+    /* 折叠态：清掉卡片装饰，不让 10px 空隙或阴影残片留下来 */
+    .workspace > .result.collapsed {
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    /* 窄屏页签模式：全宽无外框，保持基版 is-active 切换语义 */
+    @media (max-width: 700px) {
+        .workspace { gap: 0; padding: 0; }
+        .workspace > .sidebar,
+        .workspace > .editor:not(.collapsed),
+        .workspace > .result:not(.collapsed),
+        .workspace > .result.collapsed {
+            border: none; box-shadow: none; border-radius: 0;
+        }
+        /* 窄屏页签回到全幅单面板：各用回自己的底色，不透明、无外框 */
+        .workspace > .sidebar { background: var(--surface); }
+        .workspace > .editor:not(.collapsed) { background: var(--bg); }
+        .workspace > .result:not(.collapsed),
+        .workspace > .result.collapsed { background: var(--surface); }
+    }
+    @media (max-height: 480px) {
+        .workspace { gap: 0; padding: 0; }
+        .workspace > .sidebar,
+        .workspace > .editor:not(.collapsed),
+        .workspace > .result:not(.collapsed),
+        .workspace > .result.collapsed {
+            border: none; box-shadow: none; border-radius: 0;
+        }
+        /* 窄屏页签回到全幅单面板：各用回自己的底色，不透明、无外框 */
+        .workspace > .sidebar { background: var(--surface); }
+        .workspace > .editor:not(.collapsed) { background: var(--bg); }
+        .workspace > .result:not(.collapsed),
+        .workspace > .result.collapsed { background: var(--surface); }
     }
 </style>
 </head>
