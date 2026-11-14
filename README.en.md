@@ -188,7 +188,27 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │       ├── index.html               # Landing page (open entry + data-safety notice)
 │       └── code/
 │           ├── index.html           # Code / branch index
-│           ├── A1_II_Φ11/           # Current version (export dialog defect patches)
+│           ├── A1_II_Φ15/           # Current version (in-page multi-turn AI replies + 8 skins)
+│           │   ├── index.html
+│           │   ├── deepseek_A1_II_Φ15_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Clean_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Glass_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Material_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Minimal_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Mono_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Neon_CN.html
+│           │   ├── deepseek_A1_II_Φ15_Premium_CN.html
+│           │   └── deepseek_A1_II_Φ15_Shadcn_CN.html
+│           ├── A1_II_Φ14/           # Start a conversation / novel from a character profile
+│           │   ├── index.html
+│           │   └── deepseek_A1_II_Φ14_CN.html
+│           ├── A1_II_Φ13/           # Name-source selection and share as image
+│           │   ├── index.html
+│           │   └── deepseek_A1_II_Φ13_CN.html
+│           ├── A1_II_Φ12/           # Memory and snapshot data-loss fixes
+│           │   ├── index.html
+│           │   └── deepseek_A1_II_Φ12_CN.html
+│           ├── A1_II_Φ11/           # Export dialog defect patches
 │           │   ├── index.html
 │           │   └── deepseek_A1_II_Φ11_CN.html
 │           ├── A1_II_Φ10_Fix/       # Export dialog defect fixes
@@ -280,7 +300,11 @@ The site entry is the **root-level** `index.html`, a **project picker**; each pr
 | `/projects/writer/code/A1_I_Φ1/` | A1_I_Φ1 application file (historical reference) |
 | `/projects/persona/` | Persona character-profile editor project page |
 | `/projects/persona/code/` | Persona code/branch index |
-| `/projects/persona/code/A1_II_Φ11/` | A1_II_Φ11 application file (current · export dialog defect patches) |
+| `/projects/persona/code/A1_II_Φ15/` | A1_II_Φ15 application file (current · in-page multi-turn AI replies; 8 skins) |
+| `/projects/persona/code/A1_II_Φ14/` | A1_II_Φ14 application file (start a conversation / novel from a character profile) |
+| `/projects/persona/code/A1_II_Φ13/` | A1_II_Φ13 application file (name-source selection and share as image) |
+| `/projects/persona/code/A1_II_Φ12/` | A1_II_Φ12 application file (memory and snapshot data-loss fixes) |
+| `/projects/persona/code/A1_II_Φ11/` | A1_II_Φ11 application file (export dialog defect patches) |
 | `/projects/persona/code/A1_II_Φ10_Fix/` | A1_II_Φ10_Fix application file (export dialog defect fixes) |
 | `/projects/persona/code/A1_II_Φ10/` | A1_II_Φ10 application file (export dialog: copy to clipboard) |
 | `/projects/persona/code/A1_II_Φ9/` | A1_II_Φ9 application file (defect fixes: import entry / storage notice; 8 skins) |
