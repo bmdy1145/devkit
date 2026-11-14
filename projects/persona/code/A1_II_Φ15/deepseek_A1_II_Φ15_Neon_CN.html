@@ -535,16 +535,7 @@
     }
     body, button, input, select, textarea { letter-spacing: var(--ls-title); }
 
-    /* Neon：撞色渐变背景 + 发光描边 + 加宽字距 */
-    body {
-        background:
-            radial-gradient(900px 560px at 8% -10%, rgba(187,243,81,0.28), transparent 60%),
-            radial-gradient(820px 560px at 96% 2%, rgba(0,188,255,0.18), transparent 62%),
-            var(--bg);
-    }
-    .btn.primary { box-shadow: 0 2px 10px -4px color-mix(in srgb, var(--accent) 55%, transparent); }
-    .modal-box { box-shadow: 0 14px 44px -26px rgba(17,24,39,0.45); }
-    .sidebar .side-head .title, .editor-head .title { text-transform: uppercase; }
+    /* 撞色渐变背景、发光描边与加宽字距统一写在样式结束标签前的后置层，避免被基版覆盖。 */
 
 
     html, body { height: 100%; }
@@ -1348,6 +1339,16 @@
     @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { transition-duration: 0.01ms !important; }
     }
+    /* ===== 皮肤装饰后置层（放在基版 CSS 之后，避免同特异性规则失效） ===== */
+    body {
+        background:
+            radial-gradient(900px 560px at 8% -10%, rgba(187,243,81,0.28), transparent 60%),
+            radial-gradient(820px 560px at 96% 2%, rgba(0,188,255,0.18), transparent 62%),
+            var(--bg);
+    }
+    .btn.primary { box-shadow: 0 2px 10px -4px color-mix(in srgb, var(--accent) 55%, transparent); }
+    .modal-box { box-shadow: 0 14px 44px -26px rgba(17,24,39,0.45); }
+    .sidebar .side-head .title, .editor-head .title { text-transform: uppercase; }
 </style>
 </head>
 <body class="app">
@@ -6201,9 +6202,9 @@
                 accent: rd('--share-accent-dark', '#7fd1c1')
             };
         }
-        // accent 用比界面主色（#2a9d8f）更深一档的 #1f7a6f：浅色渐变底色在
-        // #e0e4f5–#fdf2e6 之间，原来的 #2a9d8f 在这些底上对比度只有 2.63–3.02，
-        // 低于 WCAG AA 对非文本 UI 的 3.0；改后最低 4.07。深色模式无需调整（6.0+）。
+        // 浅色画布的强调色由各皮肤的 --share-accent-light 提供：需在
+        // #e0e4f5–#fdf2e6 渐变上达到 WCAG AA 非文本 UI 的 3.0；
+        // 深色画布则取 --share-accent-dark。缺省值仅用于基版回退。
         return {
             bg: '#f7f8fa', panel: '#ffffff', line: '#d8dee8',
             text: '#1b202b', text2: '#4a5364', text3: '#6f7a8c',

@@ -6206,9 +6206,9 @@
                 accent: rd('--share-accent-dark', '#7fd1c1')
             };
         }
-        // accent 用比界面主色（#2a9d8f）更深一档的 #1f7a6f：浅色渐变底色在
-        // #e0e4f5–#fdf2e6 之间，原来的 #2a9d8f 在这些底上对比度只有 2.63–3.02，
-        // 低于 WCAG AA 对非文本 UI 的 3.0；改后最低 4.07。深色模式无需调整（6.0+）。
+        // 浅色画布的强调色由各皮肤的 --share-accent-light 提供：需在
+        // #e0e4f5–#fdf2e6 渐变上达到 WCAG AA 非文本 UI 的 3.0；
+        // 深色画布则取 --share-accent-dark。缺省值仅用于基版回退。
         return {
             bg: '#f7f8fa', panel: '#ffffff', line: '#d8dee8',
             text: '#1b202b', text2: '#4a5364', text3: '#6f7a8c',

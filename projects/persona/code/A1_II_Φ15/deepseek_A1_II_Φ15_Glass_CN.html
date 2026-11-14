@@ -1358,49 +1358,17 @@
      * ------------------------------------------------------------------
      * 早先这段写在 <style> 前段，被基版同特异性的 .sidebar / .mode-switch /
      * .side-foot 规则覆盖，只有部分生效。统一挪到基版 CSS 之后。
+     *
+     * 只在宽屏桌面三栏（≥1200px 且高度 >480px）启用 bento：
+     *   700–1199px 的侧栏 / 结果栏是 200px / 320px 固定宽，再叠加
+     *   10px gap + 四周 10px padding 会把编辑区压到放不下 .editor-head
+     *   的按钮，而卡片外壳的 overflow:hidden 会直接把它们裁掉；
+     *   ≤699px 或 ≤480px 走基版页签模式，本来就该全宽无外框。
+     * 因此较窄 / 较矮的屏幕完全回到基版布局，不再叠加任何 bento 规则。
      * 只改卡片外壳，不动 DOM、不改 display/flex/width。
      * ================================================================== */
-    .workspace { gap: 10px; padding: 10px; }
-    .workspace > .sidebar {
-        background: transparent; border-right: none;
-        gap: 10px; padding: 10px; overflow-y: auto;
-    }
-    .workspace > .sidebar > .mode-switch {
-        background: var(--surface-2);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        margin: 0;
-        -webkit-backdrop-filter: blur(12px);
-        backdrop-filter: blur(12px);
-    }
-    .workspace .side-personas,
-    .workspace .side-worldviews {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        overflow: hidden;
-        box-shadow: 0 1px 2px rgba(24, 86, 255, 0.06), 0 10px 24px -20px rgba(24, 86, 255, 0.45);
-    }
-    .workspace .side-foot {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        box-shadow: 0 1px 2px rgba(24, 86, 255, 0.06), 0 10px 24px -20px rgba(24, 86, 255, 0.45);
-    }
-    .workspace .side-personas .persona-list,
-    .workspace .side-worldviews .wv-list { padding: 8px; }
-
-    /* 编辑 / 结果区：浮起卡片外壳，内部表单与流式布局保持不变 */
-    .workspace > .editor:not(.collapsed),
-    .workspace > .result:not(.collapsed) {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        box-shadow: 0 1px 2px rgba(24, 86, 255, 0.06), 0 10px 24px -20px rgba(24, 86, 255, 0.45);
-        overflow: hidden;
-    }
-
-    /* 折叠态：清掉卡片装饰，不让 10px 空隙或阴影残片留下来 */
+    /* 基版前段的 .result { box-shadow: var(--shadow) } 会让零宽折叠栏
+       留下阴影残片；这条复位在所有宽度生效，窄屏页签模式也保持隐藏态干净。 */
     .workspace > .result.collapsed {
         border: none;
         border-radius: 0;
@@ -1409,34 +1377,51 @@
         margin: 0;
     }
 
-    /* 窄屏页签模式：全宽无外框，保持基版 is-active 切换语义 */
-    @media (max-width: 700px) {
-        .workspace { gap: 0; padding: 0; }
-        .workspace > .sidebar,
-        .workspace > .editor:not(.collapsed),
-        .workspace > .result:not(.collapsed),
-        .workspace > .result.collapsed {
-            border: none; box-shadow: none; border-radius: 0;
+    @media (min-width: 1200px) and (min-height: 481px) {
+        .workspace { gap: 10px; padding: 10px; }
+        .workspace > .sidebar {
+            background: transparent; border-right: none;
+            gap: 10px; padding: 10px; overflow-y: auto;
         }
-        /* 窄屏页签回到全幅单面板：各用回自己的底色，不透明、无外框 */
-        .workspace > .sidebar { background: var(--surface); }
-        .workspace > .editor:not(.collapsed) { background: var(--bg); }
-        .workspace > .result:not(.collapsed),
-        .workspace > .result.collapsed { background: var(--surface); }
-    }
-    @media (max-height: 480px) {
-        .workspace { gap: 0; padding: 0; }
-        .workspace > .sidebar,
-        .workspace > .editor:not(.collapsed),
-        .workspace > .result:not(.collapsed),
-        .workspace > .result.collapsed {
-            border: none; box-shadow: none; border-radius: 0;
+        .workspace > .sidebar > .mode-switch {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin: 0;
+            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(12px);
         }
-        /* 窄屏页签回到全幅单面板：各用回自己的底色，不透明、无外框 */
-        .workspace > .sidebar { background: var(--surface); }
-        .workspace > .editor:not(.collapsed) { background: var(--bg); }
-        .workspace > .result:not(.collapsed),
-        .workspace > .result.collapsed { background: var(--surface); }
+        .workspace .side-personas,
+        .workspace .side-worldviews {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(24, 86, 255, 0.06), 0 10px 24px -20px rgba(24, 86, 255, 0.45);
+        }
+        .workspace .side-foot {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 1px 2px rgba(24, 86, 255, 0.06), 0 10px 24px -20px rgba(24, 86, 255, 0.45);
+        }
+        .workspace .side-personas .persona-list,
+        .workspace .side-worldviews .wv-list { padding: 8px; }
+
+        /* 编辑 / 结果区：浮起卡片外壳，内部表单与流式布局保持不变 */
+        .workspace > .editor:not(.collapsed),
+        .workspace > .result:not(.collapsed) {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 1px 2px rgba(24, 86, 255, 0.06), 0 10px 24px -20px rgba(24, 86, 255, 0.45);
+            overflow: hidden;
+        }
+
+        /* 折叠态：结果栏宽度归零后，flex 仍会为它与编辑区之间保留 10px gap。
+           用 -10px 左外边距抵消这一段，编辑区才会贴到与展开态卡片相同的
+           右沿（仍保留 workspace 右侧 10px 内距）。 */
+        .workspace > .result.collapsed { margin-left: -10px; }
     }
 </style>
 </head>
@@ -6291,9 +6276,9 @@
                 accent: rd('--share-accent-dark', '#7fd1c1')
             };
         }
-        // accent 用比界面主色（#2a9d8f）更深一档的 #1f7a6f：浅色渐变底色在
-        // #e0e4f5–#fdf2e6 之间，原来的 #2a9d8f 在这些底上对比度只有 2.63–3.02，
-        // 低于 WCAG AA 对非文本 UI 的 3.0；改后最低 4.07。深色模式无需调整（6.0+）。
+        // 浅色画布的强调色由各皮肤的 --share-accent-light 提供：需在
+        // #e0e4f5–#fdf2e6 渐变上达到 WCAG AA 非文本 UI 的 3.0；
+        // 深色画布则取 --share-accent-dark。缺省值仅用于基版回退。
         return {
             bg: '#f7f8fa', panel: '#ffffff', line: '#d8dee8',
             text: '#1b202b', text2: '#4a5364', text3: '#6f7a8c',
