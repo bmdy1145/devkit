@@ -151,7 +151,19 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │   │   ├── index.html
 │   │   └── code/
 │   │       ├── index.html
-│   │       └── A1_II_Φ10/
+│   │       ├── A1_II_Φ11/           # 当前主干：九套主题 + 九合一
+│   │       │   ├── index.html
+│   │       │   ├── deepseek_A1_II_Φ11_CN.html             # 原版基准（Pages 默认）
+│   │       │   ├── deepseek_A1_II_Φ11_Clean_CN.html       # 简约 Clean
+│   │       │   ├── deepseek_A1_II_Φ11_Glass_CN.html       # 毛玻璃 Glassmorphism
+│   │       │   ├── deepseek_A1_II_Φ11_Material_CN.html    # 材料设计 Material
+│   │       │   ├── deepseek_A1_II_Φ11_Minimal_CN.html     # 极简 Minimal
+│   │       │   ├── deepseek_A1_II_Φ11_Mono_CN.html        # 等宽 Mono
+│   │       │   ├── deepseek_A1_II_Φ11_Neon_CN.html        # 霓虹 Neon
+│   │       │   ├── deepseek_A1_II_Φ11_Premium_CN.html     # 高级质感 Premium
+│   │       │   ├── deepseek_A1_II_Φ11_Shadcn_CN.html      # Shadcn
+│   │       │   └── deepseek_A1_II_Φ11_CN_All.html         # 九合一运行时切换版
+│   │       └── A1_II_Φ10/           # 历史归档
 │   │           ├── index.html
 │   │           ├── deepseek_html_20260705_d1ca99.html     # 原始归档
 │   │           └── deepseek_html_20261006_d1ca99_Fix.html # 文件名安全渲染修复
@@ -264,7 +276,7 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 - 每个项目自带一个 `index.html` 作为该项目落地页；项目内部的目录结构与版本号规则**由该项目自定**，仓库不为它们设统一规范。
 - 仓库根 `index.html` 是**项目选择台**，只负责列出全部项目入口。
 - `docs/`（协作约定）与 `.github/`（自动化）是**跨项目通用**的。`auto_release.py` 与 `make_release_notes.py` 已按项目分别发布：DevKit 的标签沿用裸主干名（`A1_V_Φ9.4`），其他项目的标签加项目前缀（`writer/A1_I_Φ4`）避免 Φ 号相撞；`version_guard.py` 覆盖 DevKit、Writer 与 Persona；`size_guard.py` 与 `smoke_test.py` 已改为按 `projects/*/code/*/deepseek_*.html` 自动发现，新增项目无需登记。
-- 当前托管 `devkit`、`submerge-pro`、`dircleaner`、`writer` 与 `persona` 五个项目；新增项目放入 `projects/<名称>/`，并更新根目录项目选择台和 `projects/index.html`。
+- 当前托管 `devkit`、`submerge-pro`、`dircleaner`、`writer` 与 `persona` 五个项目；新增项目放入 `projects/<名称>/`，并更新根目录项目选择台和 `projects/index.html`。SubMerge Pro 当前主干为 `A1_II_Φ11`，九套主题独立版本与一份九合一运行时切换版共用同一套功能代码；八款风格按各自 DESIGN.md 经 Google Fonts 精确加载字体，离线自动回落系统字体。
 
 ### Pages 部署说明
 
@@ -286,7 +298,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/devkit/code/A1_V_Φ4/` | 早期主干（一个版本，历史参照） |
 | `/projects/submerge-pro/` | SubMerge Pro 项目页 |
 | `/projects/submerge-pro/code/` | SubMerge Pro 代码分支索引 |
-| `/projects/submerge-pro/code/A1_II_Φ10/` | 原始归档与 A1_II_Φ10_Fix 安全修订版 |
+| `/projects/submerge-pro/code/A1_II_Φ11/` | 当前版本：九套主题独立版本 + 九合一运行时切换版（默认原版基准） |
+| `/projects/submerge-pro/code/A1_II_Φ10/` | 历史归档：原始归档与 A1_II_Φ10_Fix 安全修订版 |
 | `/projects/dircleaner/` | DirCleaner 项目页 |
 | `/projects/dircleaner/code/` | DirCleaner 代码分支索引 |
 | `/projects/dircleaner/code/A1_II_Φ8/` | A1_II_Φ8 应用文件 |

@@ -22,7 +22,7 @@
     原因：发布目录若设为 “/docs”，GitHub 只会发布 docs/ 目录内的文件，
           本文件与 code/ 都不会上线，站点会 404。
 
-    日期：2026-10-06
+    日期：2026-11-15
     版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
     许可证：GPLv3
     ============================================================
@@ -169,7 +169,23 @@
         transform: translateY(-2px);
     }
     .quick:focus-visible { outline: 2px solid var(--tone2); outline-offset: 3px; }
+    .quick + section .quick { margin-top: 12px; }
     .quick-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+    /* ---------- Φ11 主题直达 ---------- */
+    .theme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .theme-card {
+        display: flex; flex-direction: column; gap: 4px;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 12px 16px; text-decoration: none; color: inherit;
+        transition: border-color 0.2s, transform 0.2s;
+    }
+    .theme-card:hover { border-color: rgba(var(--tone), 0.55); transform: translateY(-1px); }
+    .theme-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+    .theme-card strong { font-family: var(--mono, ui-monospace, Consolas, monospace); font-size: 0.88rem; color: var(--primary); }
+    .theme-card span { font-size: 0.78rem; color: var(--text2); }
     .quick-name {
         font-family: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
         font-weight: 600; color: #7fd8ff; word-break: break-all;
@@ -232,6 +248,7 @@
         body { padding: 36px 16px 48px; }
         h1 { font-size: 1.25rem; }
         .quick-cta { width: 100%; text-align: center; }
+        .theme-grid { grid-template-columns: 1fr; }
     }
 </style>
 </head>
@@ -246,18 +263,58 @@
 
     <p class="lede">
         这里存放 SubMerge Pro 的静态分发文件。<strong>每个版本都是单个自包含的 HTML 文件</strong>——
-        下载后在浏览器里直接打开即可使用，无需安装、无需后端、不依赖任何外部服务。
+        下载后在浏览器里直接打开即可使用，无需安装、无需后端。功能处理完全在本地完成，不依赖任何服务端；
+        八款审美风格版本会按各自设计规范经 Google Fonts 精确加载界面字体（已在文件头标注来源），
+        离线或内网环境自动回落系统字体，不影响字幕处理。原版基准不加载任何外部字体。
         本项目与 DevKit 相互独立，共用一个仓库托管。
     </p>
+
+    <section aria-labelledby="sec-quick">
+        <a class="quick" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_CN.html">
+            <span class="quick-text">
+                <span class="quick-name">A1_II_Φ11_CN · 原版（浅蓝）</span>
+                <span class="quick-meta">当前默认入口 · 单文件 · 无外部字体 · 功能逻辑与 Φ10_Fix 一致</span>
+            </span>
+            <span class="quick-cta">直接打开 →</span>
+        </a>
+    </section>
 
     <section aria-labelledby="sec-branch">
         <h2 id="sec-branch">按分支浏览</h2>
         <a class="card" href="code/">
             <span class="card-top">
-                <span class="card-name">A1_II_Φ10</span>
+                <span class="card-name">A1_II_Φ11</span>
                 <span class="card-go">浏览版本分支 →</span>
             </span>
-            <span class="card-desc">A1_II_Φ10 原始归档及 A1_II_Φ10_Fix 修订版；修复本地文件名按 HTML 解析的问题。</span>
+            <span class="card-desc">当前主干：九套主题独立版本（含原版基准）与一份九合一运行时切换版。</span>
+        </a>
+        <a class="card" href="code/" style="margin-top:12px;">
+            <span class="card-top">
+                <span class="card-name">A1_II_Φ10</span>
+                <span class="card-go">浏览历史归档 →</span>
+            </span>
+            <span class="card-desc">历史归档：A1_II_Φ10 原始版及 A1_II_Φ10_Fix 文件名安全渲染修订版。</span>
+        </a>
+    </section>
+
+    <section aria-labelledby="sec-themes">
+        <h2 id="sec-themes">Φ11 · 主题直达</h2>
+        <div class="theme-grid">
+            <a class="theme-card" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_Clean_CN.html"><strong>简约 Clean</strong><span>8pt 基线 · 克制配色 · 柔和阴影</span></a>
+            <a class="theme-card" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_Glass_CN.html"><strong>毛玻璃 Glassmorphism</strong><span>半透明叠层 · 背景模糊 · 发光描边</span></a>
+            <a class="theme-card" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_Material_CN.html"><strong>材料设计 Material</strong><span>分层表面 · 色调调色板 · 状态层</span></a>
+            <a class="theme-card" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_Minimal_CN.html"><strong>极简 Minimal</strong><span>近单色 · 1px 分隔 · 无投影</span></a>
+            <a class="theme-card" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_Mono_CN.html"><strong>等宽 Mono</strong><span>全等宽 · 1px 硬描边 · 紧凑密度</span></a>
+            <a class="theme-card" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_Neon_CN.html"><strong>霓虹 Neon</strong><span>高对比撞色 · 发光描边</span></a>
+            <a class="theme-card" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_Premium_CN.html"><strong>高级质感 Premium</strong><span>精准间距 · 精细字距行高</span></a>
+            <a class="theme-card" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_Shadcn_CN.html"><strong>Shadcn</strong><span>黑白灰单色 · 1px 边框 · 扁平</span></a>
+        </div>
+        <a class="quick" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_CN_All.html" style="margin-top:12px;">
+            <span class="quick-text">
+                <span class="quick-name">A1_II_Φ11_CN_All · 九合一</span>
+                <span class="quick-meta">单文件内实时切换 9 套主题 · 默认原版 · 不记忆选择</span>
+            </span>
+            <span class="quick-cta">打开 →</span>
         </a>
     </section>
 
@@ -265,6 +322,15 @@
         <h2 id="sec-history">版本历史</h2>
         <ol class="timeline">
             <li class="tl-item">
+                <a class="tl-card" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_CN.html">
+                    <span class="tl-top">
+                        <span class="tl-ver">A1_II_Φ11</span>
+                        <span class="tl-date">2026-11-15</span>
+                    </span>
+                    <span class="tl-desc">按 8 份审美风格 Skill 产出九套主题独立版本，另加一份九合一运行时切换版；功能逻辑与 A1_II_Φ10_Fix 一致，Pages 默认入口为原版基准。</span>
+                    <span class="tl-go">打开该版本 →</span>
+                </a>
+            </li>
                 <a class="tl-card" href="code/A1_II_%CE%A610/deepseek_html_20261006_d1ca99_Fix.html">
                     <span class="tl-top">
                         <span class="tl-ver">A1_II_Φ10_Fix</span>
