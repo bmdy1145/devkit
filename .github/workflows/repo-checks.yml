@@ -85,3 +85,14 @@ jobs:
         run: python3 .github/scripts/share_image_test.py
       - name: 运行起始提示词单测
         run: python3 .github/scripts/start_prompt_test.py
+
+  devkit-logic:
+    name: DevKit 行为单测
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+      # 用真实浏览器加载产品文件的临时副本，经 #selftest 挂载的测试缝
+      # 断言提示词拼装、版本解析、设置归一化与关键交互。
+      - name: 运行 DevKit 行为单测
+        run: python3 .github/scripts/devkit_logic_test.py

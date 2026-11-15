@@ -2168,7 +2168,7 @@ graph LR
         // 作用：导入/读取持久化设置时，若字段类型与预期不符，用 defaultValue 覆盖，
         //       避免出现 'false' 字符串被当作真值而把开关反向翻转之类的诡异行为。
         const SETTING_SPECS = {
-            themePref:              { type: 'enum',    defaultValue: 'auto', values: ['auto', 'dark', 'light'] },
+            themePref:              { type: 'string',  defaultValue: 'auto', values: ['auto', 'dark', 'light'] },
             performanceMode:        { type: 'boolean', defaultValue: false },
             shortcutsEnabled:       { type: 'boolean', defaultValue: true },
             hideBtnText:            { type: 'boolean', defaultValue: false },
@@ -4101,6 +4101,7 @@ graph LR
                 const shortcutHintUI = new ShortcutHintUI(bus, dom);
                 const settingsUI = new SettingsUI(store, bus);
                 const themeUI = new ThemeUI();
+                if (window.__devkitTest) window.__devkitTest.themeUI = themeUI;
                 bus.setService('toast', toastUI);
                 bus.setService('preview', previewUI);
                 bus.setService('projectBar', projectBarUI);
@@ -5185,6 +5186,49 @@ graph LR
                 }
             }
         };
+
+        /* ==========================================================================
+         * 测试缝：仅在 URL 带 #selftest 时挂载，正常访问完全不生效。
+         * 供 .github/scripts/devkit_logic_test.py 在真实浏览器里断言内部逻辑。
+         * ========================================================================== */
+        if (typeof location !== 'undefined' && location.hash === '#selftest') {
+            window.__devkitTest = {
+                // 常量
+                CURRENT_VERSION: CURRENT_VERSION,
+                PROMPT_TEMPLATES: PROMPT_TEMPLATES,
+                DEFAULT_TABS: DEFAULT_TABS,
+                TYPE_ALIASES: TYPE_ALIASES,
+                SETTING_SPECS: SETTING_SPECS,
+                VERSION_HISTORY: VERSION_HISTORY,
+                // 纯逻辑层
+                PromptBuilder: PromptBuilder,
+                Utils: Utils,
+                // 应用与状态
+                App: App,
+                getState: function () { return App.store.getState(); },
+                getService: function (name) { return App.bus.getService(name); },
+                getDom: function (key) { return key ? App.dom[key] : App.dom; },
+                // 便捷入口
+                buildFinalText: function (templateObj) {
+                    return App.bus.getService('prompt').getFinalText(templateObj);
+                },
+                findByLabel: function (type) {
+                    return PromptBuilder.findByLabel(type, PROMPT_TEMPLATES, TYPE_ALIASES);
+                },
+                parseVersion: function (v) {
+                    return App.bus.getService('config').parseVersion(v);
+                },
+                isCompatibleVersion: function (v) {
+                    return App.bus.getService('config').isCompatibleVersion(v);
+                },
+                normalizeSettings: function (src, base) {
+                    return Utils.normalizeSettings(src, base);
+                },
+                // 视图层入口
+                themeUI: null,          // init 之后由 ThemeUI 实例填充
+                pendingTheme: null
+            };
+        }
 
         App.init();
     })();
