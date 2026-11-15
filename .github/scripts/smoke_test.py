@@ -144,10 +144,13 @@ def run_one(browser: str, path: Path, rel: str) -> None:
     # 版本文件的命名固定为 deepseek_*.html，其余都是导航/站点页。
     # 注意：writer 的 body 类名是静态写死的，这一项对它只能算弱检查；
     # 真正兜底的是上面的控制台报错检测。
-    # submerge-pro 的两个历史版本不给 body 设类名（皮肤逻辑不同），对它
-    # 跳过类名检查，只保留控制台报错与 <title> 检查。
+    # submerge-pro 的 A1_II_Φ10 两个历史版本不给 body 设类名（皮肤逻辑不同），
+    # 只对这一代跳过类名检查；Φ11 起的 9 个主题变体与九合一版都带
+    # body.skin-* 类，需照常校验，避免主题层回归被漏掉。
     is_nav = not path.name.startswith("deepseek_")
-    skip_body_class = "submerge-pro" in path.parts
+    skip_body_class = (
+        "submerge-pro" in path.parts and "A1_II_Φ10" in path.parts
+    )
     body = BODY_RE.search(dom_text)
     if is_nav or skip_body_class:
         if not re.search(r"<body\b", dom_text):

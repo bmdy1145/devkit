@@ -103,6 +103,7 @@
             --shadow: 0 12px 30px rgba(0,0,0,0.06);
             --shadow-sm: 0 2px 6px rgba(0,0,0,0.05);
             --glow: 0 0 0 0 transparent;
+            --backdrop: var(--bg);
             --dropzone-active: #3b82f6;
             --radius: 40px;
             --card-radius: 20px;
@@ -171,6 +172,7 @@
             --shadow: 0 8px 24px rgba(15,23,42,0.08);
             --shadow-sm: 0 2px 6px rgba(15,23,42,0.05);
             --glow: 0 0 0 0 transparent;
+            --backdrop: var(--bg);
             --dropzone-active: #3b82f6;
             --radius: 8px;
             --card-radius: 8px;
@@ -239,6 +241,7 @@
             --shadow: 0 16px 40px rgba(59,80,130,0.18);
             --shadow-sm: 0 0 0 1px rgba(24,86,255,0.22), 0 8px 20px -12px rgba(24,86,255,0.70);
             --glow: 0 0 26px -16px rgba(24,86,255,0.90);
+            --backdrop: radial-gradient(900px 520px at 8% -10%, rgba(24,86,255,0.24), transparent 62%), radial-gradient(760px 520px at 96% 4%, rgba(0,188,255,0.18), transparent 60%), radial-gradient(680px 480px at 50% 110%, rgba(58,52,78,0.16), transparent 62%), #eef1f8;
             --dropzone-active: #1856ff;
             --radius: 8px;
             --card-radius: 8px;
@@ -307,6 +310,7 @@
             --shadow: 0 4px 12px rgba(17,24,39,0.14);
             --shadow-sm: 0 1px 3px rgba(17,24,39,0.12);
             --glow: 0 0 0 0 transparent;
+            --backdrop: var(--bg);
             --dropzone-active: #6442d6;
             --radius: 8px;
             --card-radius: 8px;
@@ -375,6 +379,7 @@
             --shadow: 0 0 0 1px rgba(12,12,9,0.10);
             --shadow-sm: none;
             --glow: 0 0 0 0 transparent;
+            --backdrop: var(--bg);
             --dropzone-active: #312c85;
             --radius: 4px;
             --card-radius: 4px;
@@ -443,6 +448,7 @@
             --shadow: 0 2px 0 rgba(24,24,27,0.18);
             --shadow-sm: 0 2px 0 rgba(24,24,27,0.12);
             --glow: 0 0 0 0 transparent;
+            --backdrop: var(--bg);
             --dropzone-active: #15803d;
             --radius: 4px;
             --card-radius: 4px;
@@ -511,6 +517,7 @@
             --shadow: 0 0 0 1px #bbf351, 0 0 22px -8px rgba(187,243,81,0.95);
             --shadow-sm: 0 0 0 1px #bbf351, 0 0 12px -6px rgba(0,188,255,0.80);
             --glow: 0 0 30px -10px rgba(187,243,81,0.75);
+            --backdrop: var(--bg);
             --dropzone-active: #65a30d;
             --radius: 4px;
             --card-radius: 4px;
@@ -579,6 +586,7 @@
             --shadow: 0 10px 28px rgba(15,23,42,0.10);
             --shadow-sm: 0 1px 3px rgba(15,23,42,0.06);
             --glow: 0 0 0 0 transparent;
+            --backdrop: var(--bg);
             --dropzone-active: #3b82f6;
             --radius: 8px;
             --card-radius: 8px;
@@ -647,6 +655,7 @@
             --shadow: 0 1px 2px rgba(0,0,0,0.08);
             --shadow-sm: none;
             --glow: 0 0 0 0 transparent;
+            --backdrop: var(--bg);
             --dropzone-active: #000000;
             --radius: 4px;
             --card-radius: 4px;
@@ -674,7 +683,7 @@
             --raw-neutral: #FFFFFF;
         }
         * { box-sizing: border-box; margin: 0; font-family: var(--font-ui); }
-        body { background: var(--bg); color: var(--text); padding: var(--pad) 12px; min-height: 100vh; display: flex; justify-content: center; letter-spacing: var(--letter-spacing); }
+        body { background: var(--backdrop); background-attachment: fixed; color: var(--text); padding: var(--pad) 12px; min-height: 100vh; display: flex; justify-content: center; letter-spacing: var(--letter-spacing); }
         :focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
         button, select, input, textarea { font-family: inherit; }
         .container { max-width: var(--container-max); width: 100%; background: var(--surface); border-radius: var(--container-radius); border: var(--container-border-width) solid var(--border); box-shadow: var(--shadow), var(--glow); padding: 20px 16px 16px; backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); }
@@ -1584,28 +1593,31 @@ ${mergedText}`;
 <script>
 (function(){
     "use strict";
-    /* 主题辅助脚本：只处理拖拽类名与九合一的选择器，不触碰任何字幕功能逻辑。 */
+    /* 辅助脚本：仅给拖拽区加/删类名，不触碰任何字幕功能逻辑。 */
     var dropZone = document.getElementById('dropZone');
-    if (dropZone) {
-        dropZone.addEventListener('dragover', function(){ dropZone.classList.add('theme-dragover'); }, true);
-        dropZone.addEventListener('dragleave', function(){ dropZone.classList.remove('theme-dragover'); }, true);
-        dropZone.addEventListener('drop', function(){ dropZone.classList.remove('theme-dragover'); }, true);
-    }
+    dropZone.addEventListener('dragover', function(){ dropZone.classList.add('theme-dragover'); }, true);
+    dropZone.addEventListener('dragleave', function(){ dropZone.classList.remove('theme-dragover'); }, true);
+    dropZone.addEventListener('drop', function(){ dropZone.classList.remove('theme-dragover'); }, true);
+})();
+</script>
+
+<script>
+(function(){
+    "use strict";
+    /* 九合一专用：切换 body.skin-* 类，不记忆选择、不跟随系统。 */
     var select = document.getElementById('themeSelect');
-    if (select) {
-        var names = {original:'原版（浅蓝）', clean:'简约 Clean', glass:'毛玻璃 Glassmorphism',
-            material:'材料设计 Material', minimal:'极简 Minimal', mono:'等宽 Mono',
-            neon:'霓虹 Neon', premium:'高级质感 Premium', shadcn:'Shadcn'};
-        var status = document.getElementById('themeStatus');
-        select.addEventListener('change', function(){
-            var rest = Array.prototype.filter.call(document.body.classList, function(c){
-                return c.indexOf('skin-') !== 0;
-            });
-            rest.push('skin-' + select.value);
-            document.body.className = rest.join(' ');
-            if (status) status.textContent = '已切换到' + (names[select.value] || select.value) + '主题';
+    var names = {original:'原版（浅蓝）', clean:'简约 Clean', glass:'毛玻璃 Glassmorphism',
+        material:'材料设计 Material', minimal:'极简 Minimal', mono:'等宽 Mono',
+        neon:'霓虹 Neon', premium:'高级质感 Premium', shadcn:'Shadcn'};
+    var status = document.getElementById('themeStatus');
+    select.addEventListener('change', function(){
+        var rest = Array.prototype.filter.call(document.body.classList, function(c){
+            return c.indexOf('skin-') !== 0;
         });
-    }
+        rest.push('skin-' + select.value);
+        document.body.className = rest.join(' ');
+        status.textContent = '已切换到「' + (names[select.value] || select.value) + '」主题';
+    });
 })();
 </script>
 </body>

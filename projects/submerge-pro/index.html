@@ -169,11 +169,11 @@
         transform: translateY(-2px);
     }
     .quick:focus-visible { outline: 2px solid var(--tone2); outline-offset: 3px; }
-    .quick + section .quick { margin-top: 12px; }
     .quick-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 
     /* ---------- Φ11 主题直达 ---------- */
     .theme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .theme-grid + .quick { margin-top: 12px; }
     .theme-card {
         display: flex; flex-direction: column; gap: 4px;
         background: rgba(var(--tint), 0.90);
@@ -309,7 +309,7 @@
             <a class="theme-card" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_Premium_CN.html"><strong>高级质感 Premium</strong><span>精准间距 · 精细字距行高</span></a>
             <a class="theme-card" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_Shadcn_CN.html"><strong>Shadcn</strong><span>黑白灰单色 · 1px 边框 · 扁平</span></a>
         </div>
-        <a class="quick" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_CN_All.html" style="margin-top:12px;">
+        <a class="quick" href="code/A1_II_%CE%A611/deepseek_A1_II_%CE%A611_CN_All.html">
             <span class="quick-text">
                 <span class="quick-name">A1_II_Φ11_CN_All · 九合一</span>
                 <span class="quick-meta">单文件内实时切换 9 套主题 · 默认原版 · 不记忆选择</span>

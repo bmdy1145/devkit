@@ -48,7 +48,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>SubMerge Pro · 双语字幕翻译</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data:; base-uri 'self'; object-src 'none'; form-action 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; base-uri 'self'; object-src 'none'; form-action 'self';">
     <!-- 本版本为原版基准，沿用系统字体栈，不加载任何外部字体。 -->
     <style>
         :root {
@@ -102,6 +102,7 @@
             --shadow: 0 12px 30px rgba(0,0,0,0.06);
             --shadow-sm: 0 2px 6px rgba(0,0,0,0.05);
             --glow: 0 0 0 0 transparent;
+            --backdrop: var(--bg);
             --dropzone-active: #3b82f6;
             --radius: 40px;
             --card-radius: 20px;
@@ -129,7 +130,7 @@
             --raw-neutral: #F5F7FC;
         }
         * { box-sizing: border-box; margin: 0; font-family: var(--font-ui); }
-        body { background: var(--bg); color: var(--text); padding: var(--pad) 12px; min-height: 100vh; display: flex; justify-content: center; letter-spacing: var(--letter-spacing); }
+        body { background: var(--backdrop); background-attachment: fixed; color: var(--text); padding: var(--pad) 12px; min-height: 100vh; display: flex; justify-content: center; letter-spacing: var(--letter-spacing); }
         :focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
         button, select, input, textarea { font-family: inherit; }
         .container { max-width: var(--container-max); width: 100%; background: var(--surface); border-radius: var(--container-radius); border: var(--container-border-width) solid var(--border); box-shadow: var(--shadow), var(--glow); padding: 20px 16px 16px; backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); }
@@ -1023,28 +1024,11 @@ ${mergedText}`;
 <script>
 (function(){
     "use strict";
-    /* 主题辅助脚本：只处理拖拽类名与九合一的选择器，不触碰任何字幕功能逻辑。 */
+    /* 辅助脚本：仅给拖拽区加/删类名，不触碰任何字幕功能逻辑。 */
     var dropZone = document.getElementById('dropZone');
-    if (dropZone) {
-        dropZone.addEventListener('dragover', function(){ dropZone.classList.add('theme-dragover'); }, true);
-        dropZone.addEventListener('dragleave', function(){ dropZone.classList.remove('theme-dragover'); }, true);
-        dropZone.addEventListener('drop', function(){ dropZone.classList.remove('theme-dragover'); }, true);
-    }
-    var select = document.getElementById('themeSelect');
-    if (select) {
-        var names = {original:'原版（浅蓝）', clean:'简约 Clean', glass:'毛玻璃 Glassmorphism',
-            material:'材料设计 Material', minimal:'极简 Minimal', mono:'等宽 Mono',
-            neon:'霓虹 Neon', premium:'高级质感 Premium', shadcn:'Shadcn'};
-        var status = document.getElementById('themeStatus');
-        select.addEventListener('change', function(){
-            var rest = Array.prototype.filter.call(document.body.classList, function(c){
-                return c.indexOf('skin-') !== 0;
-            });
-            rest.push('skin-' + select.value);
-            document.body.className = rest.join(' ');
-            if (status) status.textContent = '已切换到' + (names[select.value] || select.value) + '主题';
-        });
-    }
+    dropZone.addEventListener('dragover', function(){ dropZone.classList.add('theme-dragover'); }, true);
+    dropZone.addEventListener('dragleave', function(){ dropZone.classList.remove('theme-dragover'); }, true);
+    dropZone.addEventListener('drop', function(){ dropZone.classList.remove('theme-dragover'); }, true);
 })();
 </script>
 </body>
