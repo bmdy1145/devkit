@@ -61,7 +61,7 @@ DevKit 是一个**纯 HTML 单文件**的本地开发辅助工具，直接用浏
 ## 使用方式
 
 1. **最省事：直接下 Release。** 每次 `main` 更新都会自动发布一版，按主干打包附上该代全部皮肤，点一下就下载，不必逐层点进目录。入口见 https://github.com/bmdy1145/devkit/releases
-2. **在线阅读：**从站点首页进入 https://bmdy1145.github.io/devkit/projects/devkit/ ，顶部「九款皮肤 · 直接打开」点一下即用；也可以直接下载 `projects/devkit/code/A1_V_Φ9_Fix_Fix/deepseek_A1_V_Φ9_Clean_Fix_Fix_CN.html`
+2. **在线阅读：**从站点首页进入 https://bmdy1145.github.io/devkit/projects/devkit/ ，顶部「最新版本 · 直接打开」点一下即用；也可以直接下载 `projects/devkit/code/A1_V_Φ10/deepseek_A1_V_Φ10_Refactor_CN.html`
 3. 双击用浏览器打开（Chrome / Edge 等现代浏览器）
 4. 在「工作流步骤」中选择步骤 → 填写灵感、粘贴代码 → 点击「复制」→ 粘贴到 AI 对话工具
 
@@ -107,7 +107,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │   │   ├── index.html               # 项目落地页（皮肤直达 + 下载直达 + 分支卡片）
 │   │   └── code/
 │   │       ├── index.html                   # 分支目录索引
-│   │       ├── A1_V_Φ9_Fix_Fix/             # 当前主干（Fix_Fix 层，修 ReDoS）
+│   │       ├── A1_V_Φ10/                    # 当前主干（重构版：Premium 单套 · 深/浅双主题）
+│   │       ├── A1_V_Φ9_Fix_Fix/             # 上一代主干（Fix_Fix 层，修 ReDoS）
 │   │       ├── A1_V_Φ9/                     # 上一迭代层（Fix）
 │   │       │   ├── index.html                              # 本分支版本列表
 │   │       │   ├── deepseek_A1_V_Φ9_Clean_Fix_CN.html          # 简约
@@ -276,7 +277,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/` | 项目目录索引 |
 | `/projects/devkit/` | DevKit 项目落地页：九款皮肤直达 + 下载直达 + 分支卡片 |
 | `/projects/devkit/code/` | DevKit 分支目录（Φ9 / Φ8 / Φ7 / Φ5 / Φ4） |
-| `/projects/devkit/code/A1_V_Φ9_Fix_Fix/` | 当前主干的版本列表（九套皮肤，Fix_Fix 层） |
+| `/projects/devkit/code/A1_V_Φ10/` | 当前主干的版本列表（重构版 · Premium 单套） |
+| `/projects/devkit/code/A1_V_Φ9_Fix_Fix/` | 上一代主干的版本列表（九套皮肤，Fix_Fix 层） |
 | `/projects/devkit/code/A1_V_Φ9/` | 上一迭代层（九套皮肤，Fix 层） |
 | `/projects/devkit/code/A1_V_Φ9_fix-archive/` | Φ9 原始版本归档（九款未修复版本，供对照与回退） |
 | `/projects/devkit/code/A1_V_Φ8/` | 上一代主干的版本列表（九套皮肤，Fix_Fix，与 Φ9 并行可选） |
