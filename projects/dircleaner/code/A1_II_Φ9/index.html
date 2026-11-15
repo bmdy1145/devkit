@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A1_II_Φ9 · DirCleaner</title>
+<meta name="description" content="DirCleaner A1_II_Φ9 版本文件。">
+<!--
+    ============================================================
+    项目名称：DirCleaner · 站点外壳
+    文件性质：GitHub Pages 目录索引，不属于应用版本架构，不占用版本号。
+    职责：列出 A1_II_Φ9 下的应用文件。
+    日期：2026-11-15
+    版权：Copyright (C) 2026-至今 北冥的鱼, DeepSeek
+    许可证：GPLv3
+    ============================================================
+-->
+<style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+        color-scheme: dark;
+        --bg: #08090d;
+        --surface: rgba(10, 12, 17, 0.92);
+        --text: #e9f2ec;
+        --muted: #8b9aa6;
+        --accent: #bbf351;
+        --edge: rgba(187, 243, 81, 0.28);
+        --warning: #ffd58a;
+    }
+    body {
+        min-height: 100vh;
+        margin: 0;
+        padding: 48px 20px;
+        color: var(--text);
+        background: radial-gradient(900px 600px at 10% 0%, rgba(187,243,81,.09), transparent 60%), var(--bg);
+        font: 16px/1.65 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+    }
+    main { width: min(100%, 820px); margin: auto; }
+    nav { color: var(--muted); font-size: .85rem; margin-bottom: 28px; }
+    nav a { color: var(--muted); text-decoration: none; }
+    nav a:hover, nav a:focus-visible { color: var(--accent); }
+    h1 { margin: 0; color: var(--accent); font-size: clamp(1.7rem, 5vw, 2.6rem); }
+    .sub { color: var(--muted); margin: 6px 0 24px; }
+    .card, .warning {
+        padding: 20px 22px;
+        border: 1px solid var(--edge);
+        border-radius: 12px;
+        background: var(--surface);
+        box-shadow: 0 0 26px -16px rgba(187,243,81,.8);
+    }
+    .card a { color: var(--accent); font-weight: 650; overflow-wrap: anywhere; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; color: var(--muted); font-size: .78rem; }
+    .meta span { padding: 2px 9px; border: 1px solid var(--edge); border-radius: 99px; }
+    .warning { margin-top: 16px; border-color: rgba(255,213,138,.42); color: var(--warning); }
+    footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid rgba(187,243,81,.16); color: var(--muted); font-size: .78rem; text-align: center; }
+    @media (max-width: 560px) { body { padding: 32px 16px; } .card, .warning { padding: 17px; } }
+</style>
+</head>
+<body>
+<main>
+    <nav aria-label="面包屑导航"><a href="../../">DirCleaner</a> / <a href="../">code</a> / <span>A1_II_Φ9</span></nav>
+    <h1>A1_II_Φ9</h1>
+    <p class="sub">自动清空指定目录工具 · 中文版 · 2026-11-15</p>
+
+    <section class="card" aria-label="版本文件">
+        <a href="deepseek_html_20261115_phi9.html">打开或下载 deepseek_html_20261115_phi9.html</a>
+        <div class="meta"><span>75,211 bytes</span><span>单文件 HTML</span><span>GPLv3</span></div>
+        <p>按 8 套审美风格 Skill 重建多主题（Clean / Glassmorphism / Material / Minimal / Mono / Neon / Premium / Shadcn），功能色按 WCAG 2.2 AA 修正；关键目录强制阻止、白名单双方案、可执行文件额外确认、操作统计及移动端布局保持不变。</p>
+    </section>
+
+    <aside class="warning" role="note">
+        <strong>不可逆操作：</strong>运行前仔细核对已选择的目标目录，并备份重要数据。该程序会在用户授权和确认后递归删除目录内容。
+    </aside>
+
+    <footer>
+        DirCleaner  Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3<br>
+        本程序是自由软件，基于 GPLv3 发布，无任何担保。
+    </footer>
+</main>
+</body>
+</html>

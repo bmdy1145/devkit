@@ -159,6 +159,9 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │   │   ├── index.html
 │   │   └── code/
 │   │       ├── index.html
+│   │       ├── A1_II_Φ9/             # Current version (8 Skill-based themes)
+│   │       │   ├── index.html
+│   │       │   └── deepseek_html_20261115_phi9.html
 │   │       └── A1_II_Φ8/
 │   │           ├── index.html
 │   │           └── deepseek_html_20261005_ada08c.html
@@ -289,6 +292,7 @@ The site entry is the **root-level** `index.html`, a **project picker**; each pr
 | `/projects/submerge-pro/code/A1_II_Φ10/` | Original archive and A1_II_Φ10_Fix security revision |
 | `/projects/dircleaner/` | DirCleaner project page |
 | `/projects/dircleaner/code/` | DirCleaner branch index |
+| `/projects/dircleaner/code/A1_II_Φ9/` | A1_II_Φ9 application file (current · 8 Skill-based themes) |
 | `/projects/dircleaner/code/A1_II_Φ8/` | A1_II_Φ8 application file |
 | `/projects/writer/` | Writer novel-editor project page |
 | `/projects/writer/code/` | Writer code/branch index |

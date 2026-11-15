@@ -159,6 +159,9 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │   │   ├── index.html
 │   │   └── code/
 │   │       ├── index.html
+│   │       ├── A1_II_Φ9/             # 当前版本（8 套审美 Skill 多主题）
+│   │       │   ├── index.html
+│   │       │   └── deepseek_html_20261115_phi9.html
 │   │       └── A1_II_Φ8/
 │   │           ├── index.html
 │   │           └── deepseek_html_20261005_ada08c.html
@@ -289,6 +292,7 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/submerge-pro/code/A1_II_Φ10/` | 原始归档与 A1_II_Φ10_Fix 安全修订版 |
 | `/projects/dircleaner/` | DirCleaner 项目页 |
 | `/projects/dircleaner/code/` | DirCleaner 代码分支索引 |
+| `/projects/dircleaner/code/A1_II_Φ9/` | A1_II_Φ9 应用文件（当前版本 · 8 套审美 Skill 多主题） |
 | `/projects/dircleaner/code/A1_II_Φ8/` | A1_II_Φ8 应用文件 |
 | `/projects/writer/` | Writer 小说编辑器项目页 |
 | `/projects/writer/code/` | Writer 代码分支索引 |

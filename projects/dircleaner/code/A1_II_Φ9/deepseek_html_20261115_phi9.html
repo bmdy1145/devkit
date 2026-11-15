@@ -1,0 +1,1762 @@
+<!--
+  项目名称：DirCleaner（自动清空指定目录工具）
+  版本代号：A1_II_Φ9
+  基于分支：A1 分支（自动清空目录工具独立开发线——HTML 纯浏览器实现）
+  父版本：A1_II_Φ8（强制阻止关键目录、白名单双方案、强制确认可执行文件、便携化、布局居中）
+  修改说明：1. 按 .claude/skills/ 下 8 套审美风格 Skill（Clean / Glassmorphism / Material /
+               Minimal / Mono / Neon / Premium / Shadcn）的 DESIGN.md 重建 8 套主题；
+               theme-0 = 简约 Clean 为默认；主题切换逻辑、不持久化约定、业务 JS 与 IndexedDB 均不变；
+           2. 保留 19 个 --md-sys-color-* 令牌名，新增字体 / 字阶 / 间距 / 语义状态 / 装饰令牌；
+              字体不新增外链，用系统字体栈近似；主题装饰 CSS 置于基版与响应式规则之后；
+           3. 硬编码色令牌化（页面底色、焦点光晕、exe 警告、日志 success 等），深色主题不再漏色；
+           4. WCAG 2.2 AA 功能色修正（正文 >=4.5:1、大字与 UI 边界 >=3:1，括号内为对白底对比度）；
+              原始亮色只保留在注释与非文字装饰中：
+              Clean / Premium   primary  #3B82F6 -> #1D4ED8 (3.68 -> 6.70)
+                                secondary #8B5CF6 -> #6D28D9 (4.23 -> 7.10)
+              Glassmorphism     success  #07CA6B -> #047857 (2.17 -> 5.48)
+                                warning  #E89558 -> #7C3D12 (2.37 -> 8.29)
+                                danger   #EA2143 -> #C81E3A (4.38 -> 5.67)
+              Material          secondary #C8B3FD -> #6D28D9 (1.85 -> 7.10)，原浅紫不作前景
+              八套通用           success  #16A34A -> #166534 (3.30 -> 7.13)
+                                warning  #D97706 -> #92400E (3.19 -> 7.09)
+                                danger   #DC2626 -> #B91C1C (4.83 -> 6.47)
+              Mono              primary  #37F712 -> #166534 (1.45 -> 7.13)
+                                secondary #00A6F4 -> #075985 (2.71 -> 7.56)
+                                success  #00A63D -> #166534 (3.22 -> 7.13)
+                                warning  #FE9900 -> #92400E (2.15 -> 7.09)
+                                danger   #FF2157 -> #9F1239 (3.75 -> 8.02)
+                                text     #78716B -> #44403C (对 #E7E5E4：3.82 -> 8.18)
+              Neon              primary  #BBF351 -> #3F6212 (1.31 -> 7.08)
+                                secondary #00BCFF -> #0369A1 (2.18 -> 5.93)
+           5. 关键目录强制阻止、白名单双方案、可执行文件强制确认、统计与上次目录记忆保持不变。
+  日期：2026-11-15
+  版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+  许可证：GPLv3
+
+  ========== 以下是当前项目的完整版本结构文字表述，供维护参考 ==========
+  当前最新版本：A1_II_Φ9
+
+  Beta（基线版本，2026-05-01创建）
+  └── A1 分支（自动清空目录工具，2026-05-05创建）
+      ├── A1_I（初始创建：核心清空逻辑，2026-05-05创建，基于Beta）
+      │   ├── A1_I_Φ1（增加 Tkinter GUI，2026-05-05创建，基于A1_I）
+      │   └── A1_I_Φ2（增加 PowerShell GUI，2026-05-05创建，基于A1_I_Φ1）
+      ├── A1_II（推翻重做为纯 HTML 浏览器应用，2026-05-05创建，基于A1_I_Φ2）
+      ├── A1_II_Φ1（HTML 版增加清空统计卡片，2026-05-05创建，基于A1_II）
+      ├── A1_II_Φ2（安全加固：取消机制、强化确认、关键目录警告等，2026-05-06创建，基于A1_II_Φ1）
+      ├── A1_II_Φ3（累计统计、可执行文件检测、界面美化，2026-06-11创建，基于A1_II_Φ2）
+      ├── A1_II_Φ4（上次文件夹记忆与快速选择，2026-08-18创建，基于A1_II_Φ3）
+      ├── A1_II_Φ5（主题切换功能，2026-08-18创建，基于A1_II_Φ4）
+      ├── A1_II_Φ6（主题样式修正：恢复原始浅色为默认、修复重复、霓虹增加光源，2026-08-18创建，基于A1_II_Φ5）
+      ├── A1_II_Φ7（白名单功能，2026-08-18创建，基于A1_II_Φ6）
+      ├── A1_II_Φ8（强制阻止关键目录、白名单双方案、强制确认可执行文件、便携化、布局居中，2026-08-19创建，基于A1_II_Φ7）
+      └── A1_II_Φ9（8 套审美 Skill 多主题与 WCAG 2.2 AA 功能色修正，2026-11-15创建，基于A1_II_Φ8）
+  ====================================================================
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DirCleaner - 目录清空工具</title>
+  <style>
+    /* ========== 主题 CSS 变量（来源：.claude/skills/<name>/DESIGN.md） ==========
+       theme-0 简约 Clean / theme-1 毛玻璃 Glassmorphism / theme-2 材料 Material
+       theme-3 极简 Minimal / theme-4 等宽 Mono / theme-5 霓虹 Neon
+       theme-6 高级质感 Premium / theme-7 单色 Shadcn
+       19 个 --md-sys-color-* 名称与 Φ8 完全一致，业务样式无需改动；不满足 WCAG 2.2 AA
+       的功能色已在文件头注释列出「原色 -> 修正色 -> 对比度」。 */
+    :root {
+      /* theme-0 简约 Clean：白底、8pt 间距基准、克制配色、轻表面 */
+      --md-sys-color-primary: #1D4ED8; --md-sys-color-on-primary: #FFFFFF;
+      --md-sys-color-primary-container: #DBEAFE; --md-sys-color-on-primary-container: #111827;
+      --md-sys-color-secondary: #6D28D9; --md-sys-color-on-secondary: #FFFFFF;
+      --md-sys-color-secondary-container: #EDE9FE; --md-sys-color-on-secondary-container: #111827;
+      --md-sys-color-surface: #FFFFFF; --md-sys-color-on-surface: #111827;
+      --md-sys-color-surface-variant: #F8FAFC; --md-sys-color-on-surface-variant: #4B5563;
+      --md-sys-color-outline: #6B7280;
+      --md-sys-color-error: #B91C1C; --md-sys-color-on-error: #FFFFFF;
+      --md-sys-color-error-container: #FEE2E2; --md-sys-color-on-error-container: #7F1D1D;
+      --md-sys-color-background: #FFFFFF; --md-sys-color-on-background: #111827;
+      --md-sys-shape-corner-medium: 8px; --md-sys-shape-corner-small: 4px;
+      --md-sys-elevation-1: 0 1px 2px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+      --md-sys-elevation-2: 0 2px 6px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.05);
+      --md-sys-elevation-3: 0 4px 12px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
+      /* Roboto / Poppins / Inconsolata -> 系统字体栈近似，不新增外链 */
+      --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Microsoft YaHei', sans-serif;
+      --font-display: system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      --font-mono: ui-monospace, 'Cascadia Code', Consolas, 'Courier New', monospace;
+      --font-size-h1: 2rem; --space-sm: 8px; --space-md: 16px;
+      --md-sys-color-focus-ring: #1D4ED8; --md-sys-color-success: #166534;
+      --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
+      --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
+      --fx-page-bg: #FFFFFF;
+      --fx-card-bg: #FFFFFF; --fx-card-border: 0;
+      --fx-card-shadow: 0 4px 12px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
+    }
+
+    /* ========== theme-1 毛玻璃 Glassmorphism：半透明层 / 模糊 / 发光描边 ========== */
+    body.theme-1 {
+      --md-sys-color-primary: #1856FF; --md-sys-color-on-primary: #FFFFFF;
+      --md-sys-color-primary-container: #E6EDFF; --md-sys-color-on-primary-container: #141414;
+      --md-sys-color-secondary: #3A344E; --md-sys-color-on-secondary: #FFFFFF;
+      --md-sys-color-secondary-container: #E9E7F0; --md-sys-color-on-secondary-container: #141414;
+      --md-sys-color-surface: #FFFFFF; --md-sys-color-on-surface: #141414;
+      --md-sys-color-surface-variant: #F6F7FC; --md-sys-color-on-surface-variant: #4B5563;
+      --md-sys-color-outline: #6B7280;
+      --md-sys-color-error: #C81E3A; --md-sys-color-on-error: #FFFFFF;
+      --md-sys-color-error-container: #FDE8EC; --md-sys-color-on-error-container: #7A1227;
+      --md-sys-color-background: #EEF2FF; --md-sys-color-on-background: #141414;
+      --md-sys-shape-corner-medium: 8px; --md-sys-shape-corner-small: 4px;
+      --md-sys-elevation-1: 0 1px 3px rgba(24,86,255,0.10);
+      --md-sys-elevation-2: 0 4px 12px rgba(24,86,255,0.14);
+      --md-sys-elevation-3: 0 8px 32px rgba(24,86,255,0.16);
+      --font-ui: system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
+      --font-size-h1: 3rem; --space-sm: 8px; --space-md: 16px;
+      --md-sys-color-focus-ring: #1856FF; --md-sys-color-success: #047857;
+      --md-sys-color-warning: #7C3D12; --md-sys-color-warning-container: #FFF7ED;
+      --md-sys-color-on-warning-container: #7C3D12; --md-sys-color-warning-outline: #B45309;
+      /* 卡片文字层始终近白：#141414 文字对合成后底色对比 >17:1 */
+      --fx-page-bg: radial-gradient(900px 600px at 12% 0%, rgba(24,86,255,0.14), transparent 60%), radial-gradient(700px 500px at 88% 100%, rgba(58,52,78,0.10), transparent 60%), #EEF2FF;
+      --fx-card-bg: rgba(255,255,255,0.88); --fx-card-border: 1px solid rgba(24,86,255,0.28);
+      --fx-card-shadow: 0 8px 32px rgba(24,86,255,0.14), 0 4px 12px rgba(24,86,255,0.14);
+    }
+
+    /* ========== theme-2 材料 Material：分层表面 / 三档 elevation / 动态主题色 ========== */
+    body.theme-2 {
+      --md-sys-color-primary: #6442D6; --md-sys-color-on-primary: #FFFFFF;
+      --md-sys-color-primary-container: #EDE7FF; --md-sys-color-on-primary-container: #111827;
+      --md-sys-color-secondary: #6D28D9; --md-sys-color-on-secondary: #FFFFFF;
+      --md-sys-color-secondary-container: #EDE9FE; --md-sys-color-on-secondary-container: #111827;
+      --md-sys-color-surface: #FFFFFF; --md-sys-color-on-surface: #111827;
+      --md-sys-color-surface-variant: #F5F3FF; --md-sys-color-on-surface-variant: #4B5563;
+      --md-sys-color-outline: #6B7280;
+      --md-sys-color-error: #B91C1C; --md-sys-color-on-error: #FFFFFF;
+      --md-sys-color-error-container: #FEE2E2; --md-sys-color-on-error-container: #7F1D1D;
+      --md-sys-color-background: #FFFFFF; --md-sys-color-on-background: #111827;
+      --md-sys-shape-corner-medium: 8px; --md-sys-shape-corner-small: 4px;
+      --md-sys-elevation-1: 0 1px 2px rgba(100,66,214,0.10), 0 1px 3px rgba(0,0,0,0.06);
+      --md-sys-elevation-2: 0 2px 6px rgba(100,66,214,0.14), 0 2px 8px rgba(0,0,0,0.06);
+      --md-sys-elevation-3: 0 4px 12px rgba(100,66,214,0.18), 0 4px 8px rgba(0,0,0,0.08);
+      --font-ui: system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
+      --font-size-h1: 2rem; --space-sm: 4px; --space-md: 8px;
+      --md-sys-color-focus-ring: #6442D6; --md-sys-color-success: #166534;
+      --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
+      --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
+      --fx-page-bg: #FFFFFF; --fx-card-bg: #FFFFFF; --fx-card-border: 0;
+      --fx-card-shadow: 0 4px 12px rgba(100,66,214,0.18), 0 4px 8px rgba(0,0,0,0.08);
+    }
+
+    /* ========== theme-3 极简 Minimal：米白底 / 扁平细边 / 大字标题 / 极轻阴影 ========== */
+    body.theme-3 {
+      --md-sys-color-primary: #0C0C09; --md-sys-color-on-primary: #FFFFFF;
+      --md-sys-color-primary-container: #E7E7E2; --md-sys-color-on-primary-container: #0C0C09;
+      --md-sys-color-secondary: #312C85; --md-sys-color-on-secondary: #FFFFFF;
+      --md-sys-color-secondary-container: #E9E8F7; --md-sys-color-on-secondary-container: #0C0C09;
+      --md-sys-color-surface: #F4F4F1; --md-sys-color-on-surface: #0C0C09;
+      --md-sys-color-surface-variant: #EAEAE6; --md-sys-color-on-surface-variant: #4B5563;
+      --md-sys-color-outline: #6B7280;
+      --md-sys-color-error: #B91C1C; --md-sys-color-on-error: #FFFFFF;
+      --md-sys-color-error-container: #FEE2E2; --md-sys-color-on-error-container: #7F1D1D;
+      --md-sys-color-background: #F4F4F1; --md-sys-color-on-background: #0C0C09;
+      --md-sys-shape-corner-medium: 8px; --md-sys-shape-corner-small: 4px;
+      --md-sys-elevation-1: 0 1px 2px rgba(12,12,9,0.05);
+      --md-sys-elevation-2: 0 2px 6px rgba(12,12,9,0.07);
+      --md-sys-elevation-3: 0 4px 12px rgba(12,12,9,0.08);
+      --font-ui: system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      --font-mono: ui-monospace, 'Cascadia Code', Consolas, 'Courier New', monospace;
+      --font-size-h1: 3rem; --space-sm: 4px; --space-md: 8px;
+      --md-sys-color-focus-ring: #0C0C09; --md-sys-color-success: #166534;
+      --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
+      --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
+      --fx-page-bg: #F4F4F1; --fx-card-bg: #F4F4F1;
+      --fx-card-border: 1px solid #D6D6CF; --fx-card-shadow: 0 1px 2px rgba(12,12,9,0.05);
+    }
+
+    /* ========== theme-4 等宽 Mono：灰石表面 / 等宽字体 / 紧凑密度 / 单一终端隐喻 ==========
+       mono Skill：avoid mixing multiple visual metaphors、avoid decorative motion without purpose，
+       因此只用 1px 实边与底色表达层级，不加渐变、光晕或毛玻璃。 */
+    body.theme-4 {
+      --md-sys-color-primary: #166534; --md-sys-color-on-primary: #FFFFFF;
+      --md-sys-color-primary-container: #DCFCE7; --md-sys-color-on-primary-container: #44403C;
+      --md-sys-color-secondary: #075985; --md-sys-color-on-secondary: #FFFFFF;
+      --md-sys-color-secondary-container: #E0F2FE; --md-sys-color-on-secondary-container: #44403C;
+      --md-sys-color-surface: #E7E5E4; --md-sys-color-on-surface: #44403C;
+      --md-sys-color-surface-variant: #D6D3D1; --md-sys-color-on-surface-variant: #57534E;
+      --md-sys-color-outline: #57534E;
+      --md-sys-color-error: #9F1239; --md-sys-color-on-error: #FFFFFF;
+      --md-sys-color-error-container: #FFE4E6; --md-sys-color-on-error-container: #881337;
+      --md-sys-color-background: #E7E5E4; --md-sys-color-on-background: #44403C;
+      --md-sys-shape-corner-medium: 8px; --md-sys-shape-corner-small: 4px;
+      --md-sys-elevation-1: none; --md-sys-elevation-2: none; --md-sys-elevation-3: none;
+      --font-ui: ui-monospace, 'Cascadia Code', Consolas, 'Courier New', monospace;
+      --font-display: ui-monospace, 'Cascadia Code', Consolas, 'Courier New', monospace;
+      --font-mono: ui-monospace, 'Cascadia Code', Consolas, 'Courier New', monospace;
+      --font-size-h1: 3rem; --space-sm: 4px; --space-md: 8px;
+      --md-sys-color-focus-ring: #166534; --md-sys-color-success: #166534;
+      --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
+      --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
+      --fx-page-bg: #E7E5E4; --fx-card-bg: #E7E5E4;
+      --fx-card-border: 1px solid #57534E; --fx-card-shadow: none;
+    }
+
+    /* ========== theme-5 霓虹 Neon：深色舞台 + 浅色卡片 ==========
+       原始 #BBF351 / #00BCFF 仅用于静态背景渐变与外发光，不作文字或按钮前景。 */
+    body.theme-5 {
+      --md-sys-color-primary: #3F6212; --md-sys-color-on-primary: #FFFFFF;
+      --md-sys-color-primary-container: #ECFCCB; --md-sys-color-on-primary-container: #111827;
+      --md-sys-color-secondary: #0369A1; --md-sys-color-on-secondary: #FFFFFF;
+      --md-sys-color-secondary-container: #E0F2FE; --md-sys-color-on-secondary-container: #111827;
+      --md-sys-color-surface: #FFFFFF; --md-sys-color-on-surface: #111827;
+      --md-sys-color-surface-variant: #F3F4F6; --md-sys-color-on-surface-variant: #4B5563;
+      --md-sys-color-outline: #6B7280;
+      --md-sys-color-error: #B91C1C; --md-sys-color-on-error: #FFFFFF;
+      --md-sys-color-error-container: #FEE2E2; --md-sys-color-on-error-container: #7F1D1D;
+      --md-sys-color-background: #10130A; --md-sys-color-on-background: #F9FAFB;
+      --md-sys-shape-corner-medium: 8px; --md-sys-shape-corner-small: 4px;
+      --md-sys-elevation-1: 0 1px 2px rgba(187,243,81,0.16);
+      --md-sys-elevation-2: 0 2px 6px rgba(0,188,255,0.16);
+      --md-sys-elevation-3: 0 4px 12px rgba(0,0,0,0.28);
+      --font-ui: system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      --font-display: Georgia, 'Times New Roman', 'STIX Two Text', serif;
+      --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
+      --font-size-h1: 2.5rem; --space-sm: 4px; --space-md: 8px;
+      --md-sys-color-focus-ring: #3F6212; --md-sys-color-success: #166534;
+      --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
+      --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
+      --fx-page-bg: radial-gradient(800px 500px at 15% 0%, rgba(187,243,81,0.18), transparent 60%), radial-gradient(700px 500px at 85% 100%, rgba(0,188,255,0.14), transparent 60%), #10130A;
+      --fx-card-bg: #FFFFFF; --fx-card-border: 1px solid rgba(187,243,81,0.55);
+      --fx-card-shadow: 0 0 24px rgba(187,243,81,0.20), 0 0 56px rgba(0,188,255,0.12), 0 4px 12px rgba(0,0,0,0.28);
+    }
+
+    /* ========== theme-6 高级质感 Premium：精细细边 / 柔阴影 / 2.25rem 标题 ========== */
+    body.theme-6 {
+      --md-sys-color-primary: #1D4ED8; --md-sys-color-on-primary: #FFFFFF;
+      --md-sys-color-primary-container: #DBEAFE; --md-sys-color-on-primary-container: #111827;
+      --md-sys-color-secondary: #6D28D9; --md-sys-color-on-secondary: #FFFFFF;
+      --md-sys-color-secondary-container: #EDE9FE; --md-sys-color-on-secondary-container: #111827;
+      --md-sys-color-surface: #FFFFFF; --md-sys-color-on-surface: #111827;
+      --md-sys-color-surface-variant: #F8FAFC; --md-sys-color-on-surface-variant: #4B5563;
+      --md-sys-color-outline: #6B7280;
+      --md-sys-color-error: #B91C1C; --md-sys-color-on-error: #FFFFFF;
+      --md-sys-color-error-container: #FEE2E2; --md-sys-color-on-error-container: #7F1D1D;
+      --md-sys-color-background: #FFFFFF; --md-sys-color-on-background: #111827;
+      --md-sys-shape-corner-medium: 8px; --md-sys-shape-corner-small: 4px;
+      --md-sys-elevation-1: 0 1px 2px rgba(17,24,39,0.04);
+      --md-sys-elevation-2: 0 2px 8px rgba(17,24,39,0.06);
+      --md-sys-elevation-3: 0 8px 28px rgba(17,24,39,0.08), 0 1px 2px rgba(17,24,39,0.04);
+      --font-ui: system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
+      --font-size-h1: 2.25rem; --space-sm: 4px; --space-md: 8px;
+      --md-sys-color-focus-ring: #1D4ED8; --md-sys-color-success: #166534;
+      --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
+      --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
+      --fx-page-bg: #FFFFFF; --fx-card-bg: #FFFFFF;
+      --fx-card-border: 1px solid #E5E7EB;
+      --fx-card-shadow: 0 8px 28px rgba(17,24,39,0.08), 0 1px 2px rgba(17,24,39,0.04);
+    }
+
+    /* ========== theme-7 单色 Shadcn：黑白灰 / 扁平细边 / 语义状态色不作装饰 ========== */
+    body.theme-7 {
+      --md-sys-color-primary: #000000; --md-sys-color-on-primary: #FFFFFF;
+      --md-sys-color-primary-container: #F4F4F5; --md-sys-color-on-primary-container: #111827;
+      --md-sys-color-secondary: #111111; --md-sys-color-on-secondary: #FFFFFF;
+      --md-sys-color-secondary-container: #E4E4E7; --md-sys-color-on-secondary-container: #111827;
+      --md-sys-color-surface: #FFFFFF; --md-sys-color-on-surface: #111827;
+      --md-sys-color-surface-variant: #FAFAFA; --md-sys-color-on-surface-variant: #52525B;
+      --md-sys-color-outline: #52525B;
+      --md-sys-color-error: #B91C1C; --md-sys-color-on-error: #FFFFFF;
+      --md-sys-color-error-container: #FEE2E2; --md-sys-color-on-error-container: #7F1D1D;
+      --md-sys-color-background: #FFFFFF; --md-sys-color-on-background: #111827;
+      --md-sys-shape-corner-medium: 8px; --md-sys-shape-corner-small: 4px;
+      --md-sys-elevation-1: 0 1px 2px rgba(0,0,0,0.04);
+      --md-sys-elevation-2: 0 1px 3px rgba(0,0,0,0.06);
+      --md-sys-elevation-3: 0 2px 8px rgba(0,0,0,0.07);
+      --font-ui: system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
+      --font-size-h1: 2rem; --space-sm: 4px; --space-md: 8px;
+      --md-sys-color-focus-ring: #000000; --md-sys-color-success: #166534;
+      --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
+      --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
+      --fx-page-bg: #FFFFFF; --fx-card-bg: #FFFFFF;
+      --fx-card-border: 1px solid #E4E4E7; --fx-card-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    /* ========== 全局基础样式 ========== */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: var(--space-sm);
+      background: var(--fx-page-bg);
+      color: var(--md-sys-color-on-background);
+      font-family: var(--font-ui);
+      transition: background 0.3s ease;
+      position: relative;
+    }
+
+    /* 白名单侧边栏固定左侧 */
+    .whitelist-sidebar {
+      position: fixed;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 260px;
+      background: var(--fx-card-bg);
+      border: var(--fx-card-border);
+      border-radius: var(--md-sys-shape-corner-medium);
+      box-shadow: var(--fx-card-shadow);
+      padding: var(--space-md);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+      z-index: 20;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 700px;
+      background: var(--fx-card-bg);
+      border: var(--fx-card-border);
+      border-radius: var(--md-sys-shape-corner-medium);
+      box-shadow: var(--fx-card-shadow);
+      padding: var(--space-md) calc(var(--space-md) * 2);
+      display: flex;
+      flex-direction: column;
+      gap: calc(var(--space-md) * 1.5);
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+      margin: 0 auto;
+    }
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    h1 {
+      font-size: var(--font-size-h1);
+      font-family: var(--font-display);
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: var(--md-sys-color-on-surface);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
+    h1 .material-symbols-outlined {
+      font-size: 32px;
+      color: var(--md-sys-color-primary);
+    }
+
+    /* ========== 白名单侧边栏样式 ========== */
+    .whitelist-sidebar h2 {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--md-sys-color-on-surface);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .whitelist-sidebar .whitelist-desc {
+      font-size: 0.8rem;
+      color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .whitelist-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .whitelist-list {
+      list-style: none;
+      max-height: 300px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .whitelist-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--md-sys-color-surface-variant);
+      padding: 6px 10px;
+      border-radius: var(--md-sys-shape-corner-small);
+      font-size: 0.85rem;
+    }
+
+    .whitelist-item .wl-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .whitelist-item .wl-remove {
+      background: none;
+      border: none;
+      color: var(--md-sys-color-error);
+      cursor: pointer;
+      padding: 2px;
+      display: flex;
+      align-items: center;
+    }
+
+    .whitelist-empty {
+      font-size: 0.8rem;
+      color: var(--md-sys-color-on-surface-variant);
+      text-align: center;
+      padding: 12px 0;
+    }
+
+    /* ========== 主题切换按钮样式 ========== */
+    .theme-btn {
+      background: var(--md-sys-color-secondary-container);
+      border: 1px solid var(--md-sys-color-outline);
+      color: var(--md-sys-color-on-surface-variant);
+      padding: 6px 10px;
+      border-radius: var(--md-sys-shape-corner-small);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      transition: background 0.2s;
+    }
+    .theme-btn:hover {
+      background: var(--md-sys-color-surface-variant);
+    }
+
+    .theme-menu {
+      position: absolute;
+      top: 48px;
+      right: 10px;
+      background: var(--md-sys-color-surface-variant);
+      border: 1px solid var(--md-sys-color-outline);
+      border-radius: var(--md-sys-shape-corner-small);
+      padding: 4px;
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 500;
+      min-width: 160px;
+      box-shadow: var(--md-sys-elevation-2);
+    }
+    .theme-option {
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      border-radius: 4px;
+      color: var(--md-sys-color-on-surface);
+    }
+    .theme-option:hover {
+      background: var(--md-sys-color-secondary-container);
+    }
+    .theme-option.active {
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+    }
+
+    /* ========== 浏览器不支持提示区 ========== */
+    .api-unsupported {
+      display: none;
+      background: var(--md-sys-color-error-container);
+      color: var(--md-sys-color-on-error-container);
+      padding: 12px;
+      border-radius: var(--md-sys-shape-corner-small);
+      font-size: 0.9rem;
+    }
+
+    /* ========== 目录选择区域 ========== */
+    .dir-selection {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .dir-input-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .dir-input-row input {
+      flex: 1;
+      min-width: 200px;
+      padding: 12px 16px;
+      border: 1px solid var(--md-sys-color-outline);
+      border-radius: var(--md-sys-shape-corner-small);
+      font-family: var(--font-ui);
+      font-size: 0.95rem;
+      background: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      box-shadow: 0 0 0 0 transparent;
+    }
+
+    .dir-input-row input:focus {
+      border-color: var(--md-sys-color-focus-ring);
+      box-shadow: 0 0 0 3px var(--md-sys-color-primary-container);
+    }
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border: none;
+      border-radius: var(--md-sys-shape-corner-small);
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+      font-family: var(--font-ui);
+      font-weight: 500;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--md-sys-color-primary);
+      filter: brightness(1.1);
+      box-shadow: var(--md-sys-elevation-2);
+      transform: translateY(-1px);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      background: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-secondary-container);
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .outlined-btn {
+      background: transparent;
+      border: 1px solid var(--md-sys-color-outline);
+      color: var(--md-sys-color-primary);
+    }
+
+    .outlined-btn:hover:not(:disabled) {
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+    }
+
+    .danger-btn {
+      background: var(--md-sys-color-error);
+      color: var(--md-sys-color-on-error);
+    }
+
+    .danger-btn:hover:not(:disabled) {
+      background: var(--md-sys-color-error);
+      filter: brightness(0.9);
+    }
+
+    /* 安全确认区域 */
+    .confirm-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: var(--md-sys-color-surface-variant);
+      border-radius: var(--md-sys-shape-corner-small);
+      padding: 14px;
+    }
+
+    .confirm-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .confirm-row input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--md-sys-color-primary);
+    }
+
+    .confirm-extra {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 2px;
+    }
+
+    .confirm-extra input {
+      padding: 8px 12px;
+      border: 1px solid var(--md-sys-color-outline);
+      border-radius: var(--md-sys-shape-corner-small);
+      font-family: var(--font-ui);
+      font-size: 0.9rem;
+      width: 220px;
+      background: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+    }
+
+    .warning-text {
+      color: var(--md-sys-color-error);
+      font-weight: 500;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .critical-warning {
+      display: none;
+      background: var(--md-sys-color-error-container);
+      color: var(--md-sys-color-on-error-container);
+      padding: 12px;
+      border-radius: var(--md-sys-shape-corner-small);
+      font-weight: 500;
+    }
+
+    .exe-warning {
+      display: none;
+      background: var(--md-sys-color-warning-container);
+      color: var(--md-sys-color-on-warning-container);
+      padding: 12px;
+      border-radius: var(--md-sys-shape-corner-small);
+      border: 1px solid var(--md-sys-color-warning-outline);
+    }
+
+    .exe-warning a {
+      color: var(--md-sys-color-primary);
+    }
+
+    /* 进度条 */
+    .progress-container {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    progress {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      accent-color: var(--md-sys-color-primary);
+    }
+
+    progress::-webkit-progress-bar {
+      background-color: var(--md-sys-color-secondary-container);
+      border-radius: 4px;
+    }
+
+    progress::-webkit-progress-value {
+      background-color: var(--md-sys-color-primary);
+      border-radius: 4px;
+    }
+
+    .status-text {
+      font-size: 0.85rem;
+      color: var(--md-sys-color-on-surface-variant);
+      min-height: 1.2em;
+    }
+
+    /* ========== 统计结果卡片 ========== */
+    .stats-section {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .stats-group-label {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--md-sys-color-on-surface-variant);
+      margin-bottom: 2px;
+      padding-left: 4px;
+    }
+
+    .stats-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: var(--space-sm);
+    }
+
+    .stat-card {
+      background: var(--md-sys-color-surface-variant);
+      border-radius: var(--md-sys-shape-corner-small);
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      box-shadow: var(--md-sys-elevation-1);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--md-sys-elevation-2);
+    }
+
+    .stat-card .stat-value {
+      font-size: 1.6rem;
+      font-weight: 500;
+      color: var(--md-sys-color-primary);
+      line-height: 1.2;
+    }
+
+    .stat-card .stat-label {
+      font-size: 0.75rem;
+      color: var(--md-sys-color-on-surface-variant);
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    .stat-card.error-card .stat-value {
+      color: var(--md-sys-color-error);
+    }
+
+    .stat-card.total-card .stat-value {
+      color: var(--md-sys-color-primary);
+    }
+
+    /* 日志区域 */
+    .log-area {
+      background: var(--md-sys-color-surface-variant);
+      border-radius: var(--md-sys-shape-corner-small);
+      padding: 12px;
+      height: 140px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--md-sys-color-on-surface-variant);
+      border: 1px solid var(--md-sys-color-outline);
+      white-space: pre-wrap;
+    }
+
+    .log-area .error { color: var(--md-sys-color-error); }
+    .log-area .success { color: var(--md-sys-color-success); }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .log-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-left: auto;
+    }
+
+    /* ========== 响应式移动端调整 ========== */
+    @media (max-width: 1000px) {
+      .whitelist-sidebar {
+        position: static;
+        transform: none;
+        width: 100%;
+        margin-bottom: 16px;
+      }
+      .app-container {
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 500px) {
+      .app-container { padding: 18px; gap: 16px; }
+      .app-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .dir-input-row { flex-direction: column; align-items: stretch; }
+      .actions { flex-direction: column; }
+      .log-actions { margin-left: 0; margin-top: 8px; }
+      .stats-container { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* ========== 主题装饰后置层（置于基版与响应式规则之后，避免同特异性失效） ========== */
+    /* 密度：各主题的 --space-* 取自 DESIGN.md 的 compact / comfortable / 8pt 基准 */
+    .theme-menu { gap: var(--space-sm); }
+    .whitelist-actions { gap: var(--space-sm); }
+    /* 深色舞台下卡片文字显式取卡片前景，避免继承 body 的浅色文字 */
+    .app-container, .whitelist-sidebar { color: var(--md-sys-color-on-surface); }
+    /* Glassmorphism：仅在支持时启用模糊；卡片文字层与内部区块始终不透明 */
+    @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+      body.theme-1 .app-container,
+      body.theme-1 .whitelist-sidebar {
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+  </style>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" />
+</head>
+<body class="theme-0">
+  <!-- 白名单侧边栏（固定左侧） -->
+  <aside class="whitelist-sidebar">
+    <h2><span class="material-symbols-outlined">verified_user</span> 白名单</h2>
+    <p class="whitelist-desc">加入白名单的目录清空时免输入名称确认</p>
+    <div class="whitelist-actions">
+      <button id="addCurrentToWhitelistBtn" class="outlined-btn" disabled>
+        <span class="material-symbols-outlined">playlist_add</span> 添加当前目录
+      </button>
+      <button id="browseAddToWhitelistBtn" class="outlined-btn">
+        <span class="material-symbols-outlined">folder_add</span> 浏览添加
+      </button>
+    </div>
+    <ul class="whitelist-list" id="whitelistList"></ul>
+  </aside>
+
+  <!-- 主内容容器（居中） -->
+  <div class="app-container">
+    <!-- 顶部标题栏与主题切换 -->
+    <div class="app-header">
+      <h1>
+        <span class="material-symbols-outlined">folder_delete</span>
+        DirCleaner
+      </h1>
+      <div style="position:relative;">
+        <button class="theme-btn" id="themeBtn" title="切换主题">
+          <span class="material-symbols-outlined">palette</span>
+          主题
+        </button>
+        <div class="theme-menu" id="themeMenu">
+          <div class="theme-option active" data-theme="0">简约 Clean</div>
+          <div class="theme-option" data-theme="1">毛玻璃 Glassmorphism</div>
+          <div class="theme-option" data-theme="2">材料 Material</div>
+          <div class="theme-option" data-theme="3">极简 Minimal</div>
+          <div class="theme-option" data-theme="4">等宽 Mono</div>
+          <div class="theme-option" data-theme="5">霓虹 Neon</div>
+          <div class="theme-option" data-theme="6">高级质感 Premium</div>
+          <div class="theme-option" data-theme="7">单色 Shadcn</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 浏览器不支持提示 -->
+    <div id="apiUnsupported" class="api-unsupported">
+      ⚠️ 您的浏览器不支持 File System Access API。<br>
+      请使用最新版 <strong>Chrome</strong>、<strong>Edge</strong> 或其他基于 Chromium 的浏览器。
+    </div>
+
+    <!-- 目录选择 -->
+    <div class="dir-selection">
+      <label for="dirPath"><strong>目标目录</strong></label>
+      <div class="dir-input-row">
+        <input type="text" id="dirPath" placeholder="点击右侧按钮选择目录..." readonly />
+        <button id="browseBtn" class="outlined-btn" title="选择新目录">
+          <span class="material-symbols-outlined">folder_open</span> 浏览
+        </button>
+        <button id="lastDirBtn" class="outlined-btn" title="选择上次使用的目录">
+          <span class="material-symbols-outlined">history</span> 上次文件夹
+        </button>
+      </div>
+    </div>
+
+    <!-- 安全确认区域 -->
+    <div class="confirm-section">
+      <!-- 关键目录警告（强制阻止） -->
+      <div id="criticalWarning" class="critical-warning">
+        ⛔ 该目录为系统关键目录，禁止清空！
+      </div>
+
+      <div class="confirm-row">
+        <input type="checkbox" id="confirmCheck" />
+        <label for="confirmCheck">我已确认清空该目录下的全部内容（不可逆）</label>
+      </div>
+      <div class="confirm-extra" id="confirmNameRow">
+        <label for="confirmNameInput">请输入目录名称以确认：</label>
+        <input type="text" id="confirmNameInput" placeholder="目录名称" disabled />
+      </div>
+      <div id="whitelistHint" style="display:none; color: var(--md-sys-color-primary); font-size:0.85rem;">✅ 此目录在白名单中，无需输入名称确认</div>
+
+      <!-- 可执行文件警告 -->
+      <div id="exeWarning" class="exe-warning">
+        <strong>⚠️ 此目录包含可执行文件（.exe / .dll）。</strong><br>
+        删除可能影响程序运行。如需卸载程序，请使用
+        <a href="https://geekuninstaller.com/" target="_blank" rel="noopener noreferrer">Geek Uninstaller</a>。<br>
+        <label style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+          <input type="checkbox" id="exeConfirmCheck" />
+          我了解风险，仍要删除
+        </label>
+      </div>
+
+      <div id="warningMessage" class="warning-text" style="display:none;"></div>
+    </div>
+
+    <!-- 统计卡片区 -->
+    <div class="stats-section">
+      <div class="stats-group-label">📊 本次清空结果</div>
+      <div class="stats-container">
+        <div class="stat-card">
+          <div class="stat-value" id="statFiles">-</div>
+          <div class="stat-label">文件</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statDirs">-</div>
+          <div class="stat-label">目录</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statSize">-</div>
+          <div class="stat-label">释放空间</div>
+        </div>
+        <div class="stat-card error-card">
+          <div class="stat-value" id="statErrors">-</div>
+          <div class="stat-label">失败</div>
+        </div>
+      </div>
+
+      <div class="stats-group-label">📈 累计统计（所有操作）</div>
+      <div class="stats-container">
+        <div class="stat-card total-card">
+          <div class="stat-value" id="totalFiles">0</div>
+          <div class="stat-label">累计文件</div>
+        </div>
+        <div class="stat-card total-card">
+          <div class="stat-value" id="totalDirs">0</div>
+          <div class="stat-label">累计目录</div>
+        </div>
+        <div class="stat-card total-card">
+          <div class="stat-value" id="totalSize">0 B</div>
+          <div class="stat-label">累计空间</div>
+        </div>
+        <div class="stat-card total-card">
+          <div class="stat-value" id="totalErrors">0</div>
+          <div class="stat-label">累计失败</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 进度和状态 -->
+    <div class="progress-container">
+      <progress id="progressBar" value="0" max="100"></progress>
+      <div class="status-text" id="statusText">就绪</div>
+    </div>
+
+    <!-- 日志输出 -->
+    <div class="log-area" id="logOutput"></div>
+
+    <!-- 操作按钮区域 -->
+    <div class="actions">
+      <button id="startBtn">
+        <span class="material-symbols-outlined">play_arrow</span> 开始清空
+      </button>
+      <button id="cancelBtn" class="danger-btn" disabled>
+        <span class="material-symbols-outlined">stop</span> 取消
+      </button>
+      <div class="log-actions">
+        <button id="clearLogBtn" class="outlined-btn">
+          <span class="material-symbols-outlined">delete_sweep</span> 清空日志
+        </button>
+        <label for="obfuscateCheck" style="display:flex;align-items:center;gap:4px;font-size:0.8rem;white-space:nowrap;">
+          <input type="checkbox" id="obfuscateCheck" /> 模糊日志
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========== 全局状态 ==========
+    let selectedDirectoryHandle = null;
+    let abortController = null;
+    let isProcessing = false;
+    let whitelistEntries = []; // 白名单数组，元素为 { handle, mode: 'marker'|'handle' }
+    let exeFound = false;
+    let exeScanned = false;
+
+    // 累计统计（会话级，不持久化）
+    const totalStats = {
+      totalFiles: 0,
+      totalDirs: 0,
+      totalBytes: 0,
+      totalErrors: 0
+    };
+
+    // DOM 元素
+    const apiUnsupported = document.getElementById('apiUnsupported');
+    const dirPathInput = document.getElementById('dirPath');
+    const browseBtn = document.getElementById('browseBtn');
+    const lastDirBtn = document.getElementById('lastDirBtn');
+    const confirmCheck = document.getElementById('confirmCheck');
+    const confirmNameInput = document.getElementById('confirmNameInput');
+    const confirmNameRow = document.getElementById('confirmNameRow');
+    const whitelistHint = document.getElementById('whitelistHint');
+    const criticalWarning = document.getElementById('criticalWarning');
+    const exeWarning = document.getElementById('exeWarning');
+    const exeConfirmCheck = document.getElementById('exeConfirmCheck');
+    const warningMessage = document.getElementById('warningMessage');
+    const progressBar = document.getElementById('progressBar');
+    const statusText = document.getElementById('statusText');
+    const logOutput = document.getElementById('logOutput');
+    const startBtn = document.getElementById('startBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const clearLogBtn = document.getElementById('clearLogBtn');
+    const obfuscateCheck = document.getElementById('obfuscateCheck');
+    const addCurrentToWhitelistBtn = document.getElementById('addCurrentToWhitelistBtn');
+    const browseAddToWhitelistBtn = document.getElementById('browseAddToWhitelistBtn');
+    const whitelistList = document.getElementById('whitelistList');
+
+    const statFilesEl = document.getElementById('statFiles');
+    const statDirsEl = document.getElementById('statDirs');
+    const statSizeEl = document.getElementById('statSize');
+    const statErrorsEl = document.getElementById('statErrors');
+    const totalFilesEl = document.getElementById('totalFiles');
+    const totalDirsEl = document.getElementById('totalDirs');
+    const totalSizeEl = document.getElementById('totalSize');
+    const totalErrorsEl = document.getElementById('totalErrors');
+
+    // ========== 主题切换相关（不持久化记忆） ==========
+    const themeBtn = document.getElementById('themeBtn');
+    const themeMenu = document.getElementById('themeMenu');
+    const themeOptions = document.querySelectorAll('.theme-option');
+
+    function applyTheme(themeIndex) {
+      document.body.className = document.body.className
+        .split(' ')
+        .filter(c => !c.startsWith('theme-'))
+        .concat('theme-' + themeIndex)
+        .join(' ');
+      themeOptions.forEach(opt => {
+        opt.classList.toggle('active', parseInt(opt.dataset.theme) === themeIndex);
+      });
+      // 不写入 localStorage
+    }
+
+    themeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isVisible = themeMenu.style.display === 'flex';
+      themeMenu.style.display = isVisible ? 'none' : 'flex';
+    });
+
+    themeOptions.forEach(opt => {
+      opt.addEventListener('click', (e) => {
+        const themeIdx = parseInt(opt.dataset.theme);
+        applyTheme(themeIdx);
+        themeMenu.style.display = 'none';
+      });
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!themeMenu.contains(e.target) && e.target !== themeBtn) {
+        themeMenu.style.display = 'none';
+      }
+    });
+
+    // ========== 关键目录名称黑名单 ==========
+    const CRITICAL_DIR_NAMES = new Set([
+      'Windows', 'System32', 'SysWOW64', 'Program Files', 'Program Files (x86)',
+      'Users', 'Documents and Settings', 'bin', 'sbin', 'etc', 'dev', 'proc', 'sys',
+      'boot', 'root', 'home', 'var', 'tmp', 'Volumes', 'Applications', 'Library'
+    ]);
+
+    const MAX_RECURSION_DEPTH = 20;
+    const MAX_FILE_COUNT = 10000;
+    const MAX_SCAN_FOR_EXE = 2000;
+    const WHITELIST_MARKER_FILENAME = '.dircleaner_whitelist';
+
+    // ========== IndexedDB 持久化（上次目录 + 白名单） ==========
+    const DB_NAME = 'DirCleanerDB';
+    const DB_VERSION = 2;
+    const STORE_HANDLES = 'handles';
+    const STORE_WHITELIST = 'whitelist';
+    const LAST_DIR_KEY = 'lastDirectoryHandle';
+    const WHITELIST_KEY = 'whitelistEntries';
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(STORE_HANDLES)) {
+            db.createObjectStore(STORE_HANDLES);
+          }
+          if (!db.objectStoreNames.contains(STORE_WHITELIST)) {
+            db.createObjectStore(STORE_WHITELIST);
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function saveLastDirectory(handle) {
+      try {
+        const db = await openDB();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_HANDLES, 'readwrite');
+          const store = tx.objectStore(STORE_HANDLES);
+          store.put(handle, LAST_DIR_KEY);
+          tx.oncomplete = resolve;
+          tx.onerror = () => reject(tx.error);
+        });
+        db.close();
+      } catch (err) {
+        console.warn('无法保存上次目录句柄:', err);
+        log('上次文件夹记忆保存失败（可能被浏览器隐私模式阻止）', 'error');
+      }
+    }
+
+    async function loadLastDirectory() {
+      try {
+        const db = await openDB();
+        const handle = await new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_HANDLES, 'readonly');
+          const store = tx.objectStore(STORE_HANDLES);
+          const request = store.get(LAST_DIR_KEY);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        db.close();
+        return handle || null;
+      } catch (err) {
+        console.warn('无法读取上次目录句柄:', err);
+        return null;
+      }
+    }
+
+    async function saveWhitelist() {
+      try {
+        const db = await openDB();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_WHITELIST, 'readwrite');
+          const store = tx.objectStore(STORE_WHITELIST);
+          store.put(whitelistEntries, WHITELIST_KEY);
+          tx.oncomplete = resolve;
+          tx.onerror = () => reject(tx.error);
+        });
+        db.close();
+      } catch (err) {
+        console.warn('无法保存白名单:', err);
+        log('白名单保存失败', 'error');
+      }
+    }
+
+    async function loadWhitelist() {
+      try {
+        const db = await openDB();
+        const stored = await new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_WHITELIST, 'readonly');
+          const store = tx.objectStore(STORE_WHITELIST);
+          const request = store.get(WHITELIST_KEY);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        db.close();
+        if (Array.isArray(stored)) {
+          whitelistEntries = stored.map(entry => {
+            if (entry && typeof entry === 'object' && entry.handle) {
+              return { handle: entry.handle, mode: entry.mode || 'handle' };
+            } else if (entry && entry.isSameEntry) {
+              return { handle: entry, mode: 'handle' };
+            } else {
+              return null;
+            }
+          }).filter(Boolean);
+        } else {
+          whitelistEntries = [];
+        }
+      } catch (err) {
+        console.warn('无法读取白名单:', err);
+        whitelistEntries = [];
+      }
+      renderWhitelist();
+    }
+
+    // ========== 白名单渲染与匹配 ==========
+    function renderWhitelist() {
+      whitelistList.innerHTML = '';
+      if (whitelistEntries.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'whitelist-empty';
+        empty.textContent = '暂无白名单目录';
+        whitelistList.appendChild(empty);
+        return;
+      }
+      whitelistEntries.forEach((entry, index) => {
+        const li = document.createElement('li');
+        li.className = 'whitelist-item';
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'wl-name';
+        nameSpan.textContent = entry.handle.name;
+        const modeLabel = entry.mode === 'marker' ? '标记' : '路径';
+        const modeSpan = document.createElement('span');
+        modeSpan.style.fontSize = '0.7rem';
+        modeSpan.style.color = 'var(--md-sys-color-on-surface-variant)';
+        modeSpan.textContent = modeLabel;
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'wl-remove';
+        removeBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">close</span>';
+        removeBtn.title = '移除';
+        removeBtn.addEventListener('click', () => {
+          removeFromWhitelist(entry);
+        });
+        li.appendChild(nameSpan);
+        li.appendChild(modeSpan);
+        li.appendChild(removeBtn);
+        whitelistList.appendChild(li);
+      });
+    }
+
+    async function findWhitelistEntry(handle) {
+      if (!handle) return null;
+      for (const entry of whitelistEntries) {
+        if (entry.handle.isSameEntry) {
+          try {
+            const same = entry.handle.isSameEntry(handle);
+            if (same) {
+              if (entry.mode === 'marker') {
+                try {
+                  const fileHandle = await handle.getFileHandle(WHITELIST_MARKER_FILENAME);
+                  return entry;
+                } catch (e) {
+                  continue;
+                }
+              } else {
+                return entry;
+              }
+            }
+          } catch (e) {
+            if (entry.handle.name === handle.name) {
+              return entry;
+            }
+          }
+        } else {
+          if (entry.handle.name === handle.name) {
+            return entry;
+          }
+        }
+      }
+      return null;
+    }
+
+    async function isInWhitelist(handle) {
+      return (await findWhitelistEntry(handle)) !== null;
+    }
+
+    async function addToWhitelist(handle) {
+      if (!handle) return;
+      if (CRITICAL_DIR_NAMES.has(handle.name)) {
+        log('关键目录不能加入白名单', 'error');
+        return;
+      }
+      const choice = confirm(`请选择白名单验证方式：\n\n点击“确定”使用标记文件方案（在目录中创建 .dircleaner_whitelist 标记文件）\n点击“取消”使用路径句柄匹配方案`);
+      let mode = choice ? 'marker' : 'handle';
+      let entry = { handle, mode };
+
+      if (mode === 'marker') {
+        try {
+          const fileHandle = await handle.getFileHandle(WHITELIST_MARKER_FILENAME, { create: true });
+          const writable = await fileHandle.createWritable();
+          await writable.write('DirCleaner Whitelist Marker');
+          await writable.close();
+          log(`已在 ${handle.name} 创建标记文件`, 'success');
+        } catch (err) {
+          log(`创建标记文件失败：${err.message}，回退到路径匹配方案`, 'error');
+          mode = 'handle';
+          entry = { handle, mode };
+        }
+      }
+
+      if (!confirm(`确定将目录 "${handle.name}" 加入白名单吗？\n验证方式：${mode === 'marker' ? '标记文件' : '路径句柄'}`)) {
+        return;
+      }
+      const existing = await findWhitelistEntry(handle);
+      if (existing) {
+        log('该目录已在白名单中', 'info');
+        return;
+      }
+      whitelistEntries.push(entry);
+      await saveWhitelist();
+      renderWhitelist();
+      updateWhitelistUI();
+      log(`已将 ${handle.name} 加入白名单（${mode === 'marker' ? '标记文件' : '路径句柄'}）`, 'success');
+    }
+
+    async function removeFromWhitelist(entry) {
+      if (!confirm(`确定将 "${entry.handle.name}" 从白名单移除吗？`)) return;
+      whitelistEntries = whitelistEntries.filter(e => !(e.handle.isSameEntry ? (() => { try { return e.handle.isSameEntry(entry.handle); } catch (err) { return e.handle.name === entry.handle.name; } })() : e.handle.name === entry.handle.name));
+      await saveWhitelist();
+      renderWhitelist();
+      updateWhitelistUI();
+      log(`已将 ${entry.handle.name} 移出白名单`, 'info');
+    }
+
+    function updateWhitelistUI() {
+      (async () => {
+        const inWhitelist = selectedDirectoryHandle ? await isInWhitelist(selectedDirectoryHandle) : false;
+        const addBtn = addCurrentToWhitelistBtn;
+        if (selectedDirectoryHandle && !CRITICAL_DIR_NAMES.has(selectedDirectoryHandle.name)) {
+          addBtn.disabled = inWhitelist;
+          addBtn.textContent = inWhitelist ? '已在白名单' : '添加当前目录';
+        } else {
+          addBtn.disabled = true;
+          addBtn.textContent = '添加当前目录';
+        }
+        if (inWhitelist) {
+          confirmNameRow.style.display = 'none';
+          whitelistHint.style.display = 'block';
+          confirmNameInput.disabled = true;
+          confirmNameInput.value = '';
+        } else {
+          confirmNameRow.style.display = 'flex';
+          whitelistHint.style.display = 'none';
+          confirmNameInput.disabled = false;
+        }
+        updateStartButtonState();
+      })();
+    }
+
+    // ========== 工具函数 ==========
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      let i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+      let value = bytes / Math.pow(1024, i);
+      return value.toFixed(i > 0 ? 2 : 0) + ' ' + units[i];
+    }
+
+    function log(message, type = 'info') {
+      const line = document.createElement('div');
+      const timestamp = new Date().toLocaleTimeString();
+      let displayMsg = message;
+      if (obfuscateCheck.checked) {
+        if (message.startsWith('已删除文件:') || message.startsWith('已删除目录:')) {
+          const colonIdx = message.indexOf(':');
+          if (colonIdx !== -1) {
+            displayMsg = message.substring(0, colonIdx) + ': [已删除]';
+          }
+        }
+      }
+      line.textContent = `[${timestamp}] ${displayMsg}`;
+      if (type === 'error') line.classList.add('error');
+      else if (type === 'success') line.classList.add('success');
+      logOutput.appendChild(line);
+      logOutput.scrollTop = logOutput.scrollHeight;
+    }
+
+    function resetCurrentStats() {
+      statFilesEl.textContent = '-';
+      statDirsEl.textContent = '-';
+      statSizeEl.textContent = '-';
+      statErrorsEl.textContent = '-';
+    }
+
+    function updateCurrentStats(stats) {
+      statFilesEl.textContent = stats.deletedFiles;
+      statDirsEl.textContent = stats.deletedDirs;
+      statSizeEl.textContent = formatBytes(stats.totalBytes);
+      statErrorsEl.textContent = stats.errors.length;
+    }
+
+    function updateTotalStatsDisplay() {
+      totalFilesEl.textContent = totalStats.totalFiles;
+      totalDirsEl.textContent = totalStats.totalDirs;
+      totalSizeEl.textContent = formatBytes(totalStats.totalBytes);
+      totalErrorsEl.textContent = totalStats.totalErrors;
+    }
+
+    function accumulateTotalStats(stats) {
+      totalStats.totalFiles += stats.deletedFiles;
+      totalStats.totalDirs += stats.deletedDirs;
+      totalStats.totalBytes += stats.totalBytes;
+      totalStats.totalErrors += stats.errors.length;
+      updateTotalStatsDisplay();
+    }
+
+    // ========== 关键目录检测 ==========
+    function checkCriticalDir(dirName) {
+      if (CRITICAL_DIR_NAMES.has(dirName)) {
+        criticalWarning.style.display = 'block';
+        return true;
+      }
+      criticalWarning.style.display = 'none';
+      return false;
+    }
+
+    // ========== 可执行文件检测 ==========
+    async function containsExecutables(dirHandle, depth = 0, fileCounter = { count: 0 }) {
+      if (depth > 10) return false;
+      for await (const entry of dirHandle.values()) {
+        if (fileCounter.count >= MAX_SCAN_FOR_EXE) break;
+        try {
+          if (entry.kind === 'file') {
+            fileCounter.count++;
+            const nameLower = entry.name.toLowerCase();
+            if (nameLower.endsWith('.exe') || nameLower.endsWith('.dll')) {
+              return true;
+            }
+          } else if (entry.kind === 'directory') {
+            const subDir = await dirHandle.getDirectoryHandle(entry.name);
+            const found = await containsExecutables(subDir, depth + 1, fileCounter);
+            if (found) return true;
+          }
+        } catch (e) {
+          // 忽略无法访问的条目
+        }
+        if (fileCounter.count >= MAX_SCAN_FOR_EXE) break;
+      }
+      return false;
+    }
+
+    // ========== 确认控件逻辑 ==========
+    function updateStartButtonState() {
+      const critical = selectedDirectoryHandle ? checkCriticalDir(selectedDirectoryHandle.name) : false;
+      if (critical) {
+        startBtn.disabled = true;
+        return;
+      }
+      if (!selectedDirectoryHandle) {
+        startBtn.disabled = true;
+        return;
+      }
+      const inWhitelist = selectedDirectoryHandle ? whitelistEntries.some(e => e.handle.isSameEntry ? (() => { try { return e.handle.isSameEntry(selectedDirectoryHandle); } catch (err) { return e.handle.name === selectedDirectoryHandle.name; } })() : e.handle.name === selectedDirectoryHandle.name) : false;
+      if (inWhitelist) {
+        startBtn.disabled = !confirmCheck.checked || isProcessing || (exeFound && !exeConfirmCheck.checked);
+      } else {
+        const dirName = selectedDirectoryHandle.name;
+        const confirmedName = confirmNameInput.value.trim();
+        const check = confirmCheck.checked && (confirmedName === dirName);
+        startBtn.disabled = !check || isProcessing || (exeFound && !exeConfirmCheck.checked);
+      }
+    }
+
+    confirmCheck.addEventListener('change', () => {
+      if (confirmCheck.checked) {
+        const inWhitelist = selectedDirectoryHandle ? whitelistEntries.some(e => e.handle.isSameEntry ? (() => { try { return e.handle.isSameEntry(selectedDirectoryHandle); } catch (err) { return e.handle.name === selectedDirectoryHandle.name; } })() : e.handle.name === selectedDirectoryHandle.name) : false;
+        if (!inWhitelist) {
+          confirmNameInput.disabled = false;
+        } else {
+          confirmNameInput.disabled = true;
+        }
+      } else {
+        confirmNameInput.disabled = true;
+        confirmNameInput.value = '';
+        warningMessage.style.display = 'none';
+      }
+      updateStartButtonState();
+    });
+    confirmNameInput.addEventListener('input', updateStartButtonState);
+    exeConfirmCheck.addEventListener('change', updateStartButtonState);
+
+    function resetConfirmation() {
+      confirmCheck.checked = false;
+      confirmNameInput.disabled = true;
+      confirmNameInput.value = '';
+      exeConfirmCheck.checked = false;
+      exeWarning.style.display = 'none';
+      warningMessage.style.display = 'none';
+      updateStartButtonState();
+      updateWhitelistUI();
+    }
+
+    // ========== 目录选择 ==========
+    browseBtn.addEventListener('click', async () => {
+      try {
+        if (typeof window.showDirectoryPicker !== 'function') {
+          apiUnsupported.style.display = 'block';
+          return;
+        }
+        selectedDirectoryHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        dirPathInput.value = selectedDirectoryHandle.name;
+        log(`已选择目录: ${selectedDirectoryHandle.name}`, 'info');
+        statusText.textContent = `当前目录: ${selectedDirectoryHandle.name}`;
+        exeFound = false;
+        exeScanned = false;
+        resetConfirmation();
+        resetCurrentStats();
+        checkCriticalDir(selectedDirectoryHandle.name);
+        await saveLastDirectory(selectedDirectoryHandle);
+        log('已记忆当前文件夹为“上次文件夹”。', 'success');
+        updateWhitelistUI();
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          log(`选择目录失败: ${err}`, 'error');
+        }
+      }
+    });
+
+    // ========== 选择上次文件夹 ==========
+    lastDirBtn.addEventListener('click', async () => {
+      try {
+        if (typeof window.showDirectoryPicker !== 'function') {
+          apiUnsupported.style.display = 'block';
+          return;
+        }
+        const lastHandle = await loadLastDirectory();
+        if (!lastHandle) {
+          log('没有找到上次使用的文件夹记录。', 'error');
+          statusText.textContent = '无上次文件夹记录';
+          return;
+        }
+        const permission = await lastHandle.requestPermission({ mode: 'readwrite' });
+        if (permission !== 'granted') {
+          log('权限被拒绝，无法使用上次文件夹。', 'error');
+          statusText.textContent = '权限被拒绝';
+          return;
+        }
+        selectedDirectoryHandle = lastHandle;
+        dirPathInput.value = lastHandle.name;
+        log(`已恢复上次目录: ${lastHandle.name}`, 'success');
+        statusText.textContent = `当前目录: ${lastHandle.name}`;
+        exeFound = false;
+        exeScanned = false;
+        resetConfirmation();
+        resetCurrentStats();
+        checkCriticalDir(lastHandle.name);
+        updateWhitelistUI();
+      } catch (err) {
+        log(`恢复上次文件夹失败: ${err}`, 'error');
+        statusText.textContent = '恢复失败';
+      }
+    });
+
+    // ========== 白名单相关事件 ==========
+    addCurrentToWhitelistBtn.addEventListener('click', () => {
+      if (selectedDirectoryHandle) {
+        addToWhitelist(selectedDirectoryHandle);
+      }
+    });
+
+    browseAddToWhitelistBtn.addEventListener('click', async () => {
+      try {
+        const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        await addToWhitelist(handle);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          log(`浏览添加白名单失败: ${err}`, 'error');
+        }
+      }
+    });
+
+    // ========== 递归清空（带标记文件跳过逻辑） ==========
+    async function clearDirectory(dirHandle, signal, depth = 0, fileCount = { current: 0 }, whitelistEntry = null) {
+      if (signal.aborted) throw new DOMException('操作已取消', 'AbortError');
+      if (depth > MAX_RECURSION_DEPTH) throw new Error(`已达到最大目录深度限制 (${MAX_RECURSION_DEPTH})`);
+
+      const stats = { deletedFiles: 0, deletedDirs: 0, totalBytes: 0, errors: [] };
+
+      for await (const entry of dirHandle.values()) {
+        if (signal.aborted) throw new DOMException('操作已取消', 'AbortError');
+        try {
+          if (entry.kind === 'file') {
+            if (fileCount.current >= MAX_FILE_COUNT) throw new Error(`已达到最大文件数限制 (${MAX_FILE_COUNT})`);
+            // 如果当前目录是白名单标记模式，且文件是标记文件，则跳过删除
+            if (whitelistEntry && whitelistEntry.mode === 'marker' && entry.name === WHITELIST_MARKER_FILENAME) {
+              log(`跳过白名单标记文件: ${entry.name}`, 'info');
+              continue;
+            }
+            const fileHandle = await dirHandle.getFileHandle(entry.name);
+            const file = await fileHandle.getFile();
+            const fileSize = file.size;
+            await dirHandle.removeEntry(entry.name);
+            stats.deletedFiles++;
+            stats.totalBytes += fileSize;
+            fileCount.current++;
+            log(`已删除文件: ${entry.name} (${formatBytes(fileSize)})`, 'info');
+          } else if (entry.kind === 'directory') {
+            const subDirHandle = await dirHandle.getDirectoryHandle(entry.name);
+            const subStats = await clearDirectory(subDirHandle, signal, depth + 1, fileCount, whitelistEntry);
+            stats.deletedFiles += subStats.deletedFiles;
+            stats.deletedDirs += subStats.deletedDirs;
+            stats.totalBytes += subStats.totalBytes;
+            if (subStats.errors.length > 0) stats.errors.push(...subStats.errors);
+            await dirHandle.removeEntry(entry.name, { recursive: true });
+            stats.deletedDirs++;
+            log(`已删除目录: ${entry.name}`, 'info');
+          }
+        } catch (err) {
+          if (err.name === 'AbortError') throw err;
+          const msg = `无法删除 ${entry.name}: ${err.message || err}`;
+          stats.errors.push(msg);
+          log(msg, 'error');
+        }
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      return stats;
+    }
+
+    // ========== 取消操作 ==========
+    function cancelOperation() {
+      if (abortController) {
+        abortController.abort();
+        abortController = null;
+        cancelBtn.disabled = true;
+        statusText.textContent = '正在取消...';
+      }
+    }
+    cancelBtn.addEventListener('click', cancelOperation);
+
+    // ========== 开始清空 ==========
+    startBtn.addEventListener('click', async () => {
+      if (!selectedDirectoryHandle) {
+        statusText.textContent = '请先选择目录';
+        return;
+      }
+      if (checkCriticalDir(selectedDirectoryHandle.name)) {
+        statusText.textContent = '该目录为关键目录，禁止清空';
+        return;
+      }
+      if (!confirmCheck.checked) {
+        statusText.textContent = '请先勾选确认复选框';
+        return;
+      }
+      const whitelistEntry = await findWhitelistEntry(selectedDirectoryHandle);
+      if (!whitelistEntry) {
+        const dirName = selectedDirectoryHandle.name;
+        const confirmedName = confirmNameInput.value.trim();
+        if (confirmedName !== dirName) {
+          statusText.textContent = `请输入正确的目录名称 "${dirName}"`;
+          return;
+        }
+      }
+
+      // 扫描可执行文件（如果尚未扫描）
+      if (!exeScanned) {
+        statusText.textContent = '正在检查危险文件...';
+        startBtn.disabled = true;
+        browseBtn.disabled = true;
+        lastDirBtn.disabled = true;
+        addCurrentToWhitelistBtn.disabled = true;
+        browseAddToWhitelistBtn.disabled = true;
+        try {
+          exeFound = await containsExecutables(selectedDirectoryHandle);
+          exeScanned = true;
+          if (exeFound) {
+            exeWarning.style.display = 'block';
+            statusText.textContent = '发现可执行文件，请勾选额外确认';
+          } else {
+            exeWarning.style.display = 'none';
+          }
+        } catch (e) {
+          log('扫描可执行文件时出错，将继续执行。', 'error');
+        } finally {
+          startBtn.disabled = false;
+          browseBtn.disabled = false;
+          lastDirBtn.disabled = false;
+          updateWhitelistUI();
+          updateStartButtonState();
+        }
+        return;
+      }
+
+      // 若发现可执行文件且未勾选额外确认，阻止
+      if (exeFound && !exeConfirmCheck.checked) {
+        statusText.textContent = '请勾选“我了解风险，仍要删除”';
+        return;
+      }
+
+      const dirName = selectedDirectoryHandle.name;
+
+      let confirmMsg = `确定要清空目录 "${dirName}" 下的所有内容吗？\n此操作不可逆。`;
+      if (whitelistEntry) {
+        confirmMsg += '\n\n（白名单目录：已跳过名称确认）';
+      }
+      if (exeFound) {
+        confirmMsg += '\n\n⚠️ 警告：该目录内包含可执行文件（.exe / .dll），删除后可能影响程序运行。';
+        confirmMsg += '\n如需卸载程序，请使用 Geek Uninstaller（https://geekuninstaller.com/）';
+      }
+      if (!confirm(confirmMsg)) {
+        statusText.textContent = '已取消。';
+        updateStartButtonState();
+        return;
+      }
+
+      abortController = new AbortController();
+      cancelBtn.disabled = false;
+      isProcessing = true;
+      progressBar.value = 0;
+      resetCurrentStats();
+      statusText.textContent = '正在清空...';
+      log('===== 开始清空操作 =====', 'info');
+
+      try {
+        const stats = await clearDirectory(selectedDirectoryHandle, abortController.signal, 0, { current: 0 }, whitelistEntry);
+        progressBar.value = 100;
+        statusText.textContent = '操作完成';
+        updateCurrentStats(stats);
+        accumulateTotalStats(stats);
+        log('===== 清空完成 =====', 'success');
+        log(`本次删除文件: ${stats.deletedFiles}`, 'success');
+        log(`本次删除目录: ${stats.deletedDirs}`, 'success');
+        log(`本次释放空间: ${formatBytes(stats.totalBytes)}`, 'success');
+        if (stats.errors.length > 0) {
+          log(`失败项: ${stats.errors.length}`, 'error');
+          stats.errors.forEach(e => log(e, 'error'));
+        } else {
+          log('无错误。', 'success');
+        }
+        await saveLastDirectory(selectedDirectoryHandle);
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          statusText.textContent = '操作已取消';
+          log('===== 操作已被用户取消 =====', 'error');
+        } else {
+          statusText.textContent = '发生错误';
+          log(`严重错误: ${err.message || err}`, 'error');
+        }
+      } finally {
+        startBtn.disabled = false;
+        browseBtn.disabled = false;
+        lastDirBtn.disabled = false;
+        addCurrentToWhitelistBtn.disabled = false;
+        browseAddToWhitelistBtn.disabled = false;
+        cancelBtn.disabled = true;
+        isProcessing = false;
+        abortController = null;
+        exeScanned = false; // 下次需重新扫描
+        resetConfirmation();
+        if (selectedDirectoryHandle) checkCriticalDir(selectedDirectoryHandle.name);
+      }
+    });
+
+    // 清除日志
+    clearLogBtn.addEventListener('click', () => { logOutput.innerHTML = ''; });
+
+    // ========== 初始化 ==========
+    window.addEventListener('load', async () => {
+      // 主题默认 theme-0，不读取存储
+      applyTheme(0);
+      await loadWhitelist();
+      if (typeof window.showDirectoryPicker !== 'function') {
+        apiUnsupported.style.display = 'block';
+        browseBtn.disabled = true;
+        lastDirBtn.disabled = true;
+        startBtn.disabled = true;
+        addCurrentToWhitelistBtn.disabled = true;
+        browseAddToWhitelistBtn.disabled = true;
+      }
+      updateTotalStatsDisplay();
+      updateWhitelistUI();
+      log('DirCleaner 已就绪。请选择目标目录。', 'info');
+    });
+  </script>
+</body>
+</html>
+
+<!-- ========== 许可证声明 ==========
+DirCleaner  Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+本程序是自由软件，基于 GPLv3 发布，无任何担保。
+-->
