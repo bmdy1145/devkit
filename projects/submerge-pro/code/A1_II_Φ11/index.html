@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A1_II_Φ11 · SubMerge Pro</title>
+<meta name="description" content="SubMerge Pro A1_II_Φ11 分支：九套主题独立版本与九合一运行时切换版。">
+<!--
+    ============================================================
+    项目名称：SubMerge Pro · 站点外壳
+    文件性质：GitHub Pages 目录索引（/projects/submerge-pro/code/A1_II_Φ11/）。
+              不属于 SubMerge Pro 应用的版本架构，不占用版本号。
+    职责：列出本分支下的全部版本文件，供逐层浏览。
+    日期：2026-11-15
+    版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+    许可证：GPLv3
+    ============================================================
+    维护提示：新增版本时，复制一个 <a class="card"> 块，改 href / 版本号 /
+              说明 / 日期 / 大小即可。若新版本成为最新，把 .latest 徽标
+              移到新卡片上，并更新项目落地页对应的版本说明。
+    约定：href 中的 Φ 一律用百分号编码 %CE%A6，避免个别浏览器/服务器对
+          非 ASCII 路径处理不一致；页面显示文字仍写 Φ。
+    ============================================================
+-->
+<style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --tone: 187, 243, 81;
+        --tone2: 0, 188, 255;
+        --tint: 10, 12, 17;
+        --text: #e9f2ec;
+        --text2: #8b9aa6;
+        --primary: #bbf351;
+        --primary-fg: #08090d;
+        --edge: 0.24;
+        --radius: 10px;
+        --mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+    }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+        min-height: 100vh;
+        font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+        color: var(--text);
+        background:
+            radial-gradient(1100px 700px at 10% -14%, rgba(187,243,81,0.10), transparent 58%),
+            radial-gradient(900px 620px at 96% 2%, rgba(0,188,255,0.09), transparent 60%),
+            radial-gradient(760px 520px at 50% 116%, rgba(187,243,81,0.06), transparent 58%),
+            #08090d;
+        background-attachment: fixed;
+        line-height: 1.6;
+        padding: 56px 24px 72px;
+        display: flex; justify-content: center;
+    }
+
+    .wrap { width: 100%; max-width: 880px; }
+
+    nav.crumbs {
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        color: var(--text2);
+        margin-bottom: 20px;
+        letter-spacing: 0.02em;
+    }
+    nav.crumbs a { color: var(--text2); text-decoration: none; }
+    nav.crumbs a:hover { color: var(--primary); }
+    nav.crumbs a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    nav.crumbs .sep { opacity: 0.45; margin: 0 6px; }
+    nav.crumbs .here { color: var(--primary); }
+
+    h1 {
+        font-family: var(--mono);
+        font-size: 1.35rem; font-weight: 600;
+        color: var(--primary);
+        text-shadow: 0 0 18px rgba(var(--tone), 0.55);
+        margin-bottom: 6px;
+        word-break: break-all;
+    }
+    .sub { color: var(--text2); font-size: 0.88rem; margin-bottom: 32px; }
+
+    h2 {
+        font-size: 0.78rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.12em;
+        color: var(--text2);
+        font-family: var(--mono);
+        margin-bottom: 12px;
+        display: flex; align-items: center; gap: 10px;
+    }
+    h2::after {
+        content: ''; flex: 1; height: 1px;
+        background: linear-gradient(90deg, rgba(var(--tone), 0.4), transparent);
+    }
+
+    .quick {
+        display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone2), 0.28);
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone2), 0.20), 0 0 30px -16px rgba(var(--tone2), 1);
+        text-decoration: none; color: inherit;
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+        margin-bottom: 24px;
+    }
+    .quick:hover {
+        border-color: rgba(var(--tone2), 0.55);
+        box-shadow: 0 0 0 1px rgba(var(--tone2), 0.45), 0 0 36px -12px rgba(var(--tone2), 1);
+        transform: translateY(-2px);
+    }
+    .quick:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+    .quick-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .quick-name { font-family: var(--mono); font-weight: 600; color: #7fd8ff; word-break: break-all; }
+    .quick-meta { font-size: 0.8rem; color: var(--text2); }
+    .quick-cta {
+        font-size: 0.85rem; font-weight: 600; color: var(--primary-fg);
+        background: var(--primary); border-radius: 6px; padding: 7px 16px; white-space: nowrap;
+        box-shadow: 0 0 20px -6px rgba(var(--tone), 1);
+    }
+
+    .card {
+        display: block; text-decoration: none; color: inherit;
+        background: rgba(var(--tint), 0.90);
+        border: 1px solid rgba(var(--tone), var(--edge));
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone), var(--edge)), 0 0 26px -16px rgba(var(--tone), 1);
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    }
+    .card + .card { margin-top: 12px; }
+    .card:hover {
+        border-color: rgba(var(--tone), 0.55);
+        box-shadow: 0 0 0 1px rgba(var(--tone), 0.55), 0 0 34px -12px rgba(var(--tone), 1);
+        transform: translateY(-2px);
+    }
+    .card:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+
+    .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .ver {
+        font-family: var(--mono);
+        font-size: 1rem; font-weight: 600; color: var(--primary);
+        text-shadow: 0 0 14px rgba(var(--tone), 0.55);
+        word-break: break-all;
+    }
+    .latest {
+        font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
+        color: var(--primary-fg); background: var(--primary);
+        border-radius: 999px; padding: 1px 9px; margin-left: 8px;
+        vertical-align: middle; white-space: nowrap;
+        box-shadow: 0 0 16px -4px rgba(var(--tone), 1);
+    }
+    .card-go { font-size: 0.8rem; color: var(--text2); white-space: nowrap; }
+    .card:hover .card-go { color: var(--primary); }
+    .card-desc { display: block; font-size: 0.85rem; color: var(--text2); margin-top: 6px; }
+
+    .meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .chip {
+        font-family: var(--mono); font-size: 0.72rem;
+        color: var(--text2);
+        border: 1px solid rgba(var(--tone), 0.25);
+        border-radius: 999px; padding: 1px 10px;
+    }
+    .chip.lang { border-color: rgba(var(--tone2), 0.35); color: #7fd8ff; }
+
+    .filename {
+        display: block; margin-top: 12px;
+        font-family: var(--mono); font-size: 0.74rem;
+        color: var(--text2); opacity: 0.75;
+        word-break: break-all;
+    }
+
+    footer {
+        margin-top: 48px; padding-top: 20px;
+        border-top: 1px solid rgba(var(--tone), 0.16);
+        font-size: 0.78rem; color: var(--text2);
+        display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    footer a { color: var(--text2); text-decoration: none; border-bottom: 1px solid rgba(var(--tone), 0.35); }
+    footer a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+    footer a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+    @media (max-width: 560px) {
+        body { padding: 36px 16px 48px; }
+        .quick-cta { width: 100%; text-align: center; }
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+    <nav class="crumbs" aria-label="面包屑导航">
+        <a href="../../">SubMerge Pro</a><span class="sep">/</span><a href="../">code</a><span class="sep">/</span><span class="here">A1_II_Φ11</span>
+    </nav>
+
+    <h1>A1_II_Φ11</h1>
+    <p class="sub">A1 分支 · II 罗马层 · Φ11。按 8 份审美风格 Skill 产出九套主题，另附一份九合一运行时切换版。功能逻辑与 A1_II_Φ10_Fix 完全一致。</p>
+
+    <a class="quick" href="deepseek_A1_II_%CE%A611_CN.html">
+        <span class="quick-text">
+            <span class="quick-name">直接打开原版（浅蓝）</span>
+            <span class="quick-meta">Pages 默认入口 · 单文件 · 系统字体 · 无外部依赖</span>
+        </span>
+        <span class="quick-cta">打开 →</span>
+    </a>
+
+    <h2>原版基准</h2>
+
+    <a class="card" href="deepseek_A1_II_%CE%A611_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_II_Φ11_CN <span class="latest">最新</span></span>
+            <span class="card-go">打开 →</span>
+        </span>
+        <span class="card-desc">原版基准：保留父版本浅蓝配色，功能逻辑不变，不加载外部字体。</span>
+        <span class="meta">
+            <span class="chip">2026-11-15</span>
+            <span class="chip">约 51 KB</span>
+            <span class="chip lang">中文</span>
+        </span>
+        <span class="filename">deepseek_A1_II_Φ11_CN.html</span>
+    </a>
+
+    <h2 style="margin-top:36px;">八款审美风格独立版本</h2>
+
+    <a class="card" href="deepseek_A1_II_%CE%A611_Clean_CN.html">
+        <span class="card-top"><span class="ver">A1_II_Φ11_Clean_CN</span><span class="card-go">打开 →</span></span>
+        <span class="card-desc">简约 Clean：8pt 基线网格、克制配色、柔和阴影、大留白。</span>
+        <span class="meta"><span class="chip">2026-11-15</span><span class="chip">约 51 KB</span><span class="chip lang">中文</span></span>
+        <span class="filename">deepseek_A1_II_Φ11_Clean_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_II_%CE%A611_Glass_CN.html">
+        <span class="card-top"><span class="ver">A1_II_Φ11_Glass_CN</span><span class="card-go">打开 →</span></span>
+        <span class="card-desc">毛玻璃 Glassmorphism：半透明叠层、背景模糊、发光描边。</span>
+        <span class="meta"><span class="chip">2026-11-15</span><span class="chip">约 52 KB</span><span class="chip lang">中文</span></span>
+        <span class="filename">deepseek_A1_II_Φ11_Glass_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_II_%CE%A611_Material_CN.html">
+        <span class="card-top"><span class="ver">A1_II_Φ11_Material_CN</span><span class="card-go">打开 →</span></span>
+        <span class="card-desc">材料设计 Material：分层表面、色调调色板、状态层叠加。</span>
+        <span class="meta"><span class="chip">2026-11-15</span><span class="chip">约 51 KB</span><span class="chip lang">中文</span></span>
+        <span class="filename">deepseek_A1_II_Φ11_Material_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_II_%CE%A611_Minimal_CN.html">
+        <span class="card-top"><span class="ver">A1_II_Φ11_Minimal_CN</span><span class="card-go">打开 →</span></span>
+        <span class="card-desc">极简 Minimal：近乎单色加单一靛蓝强调，1px 分隔线，无投影。</span>
+        <span class="meta"><span class="chip">2026-11-15</span><span class="chip">约 51 KB</span><span class="chip lang">中文</span></span>
+        <span class="filename">deepseek_A1_II_Φ11_Minimal_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_II_%CE%A611_Mono_CN.html">
+        <span class="card-top"><span class="ver">A1_II_Φ11_Mono_CN</span><span class="card-go">打开 →</span></span>
+        <span class="card-desc">等宽 Mono：全等宽字体、1px 硬描边、紧凑密度、矩阵绿降饱和达 AA。</span>
+        <span class="meta"><span class="chip">2026-11-15</span><span class="chip">约 52 KB</span><span class="chip lang">中文</span></span>
+        <span class="filename">deepseek_A1_II_Φ11_Mono_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_II_%CE%A611_Neon_CN.html">
+        <span class="card-top"><span class="ver">A1_II_Φ11_Neon_CN</span><span class="card-go">打开 →</span></span>
+        <span class="card-desc">霓虹 Neon：高对比撞色、电光柠檬绿描边与外发光。</span>
+        <span class="meta"><span class="chip">2026-11-15</span><span class="chip">约 51 KB</span><span class="chip lang">中文</span></span>
+        <span class="filename">deepseek_A1_II_Φ11_Neon_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_II_%CE%A611_Premium_CN.html">
+        <span class="card-top"><span class="ver">A1_II_Φ11_Premium_CN</span><span class="card-go">打开 →</span></span>
+        <span class="card-desc">高级质感 Premium：精准间距节奏、精细字距行高、柔和阴影层次。</span>
+        <span class="meta"><span class="chip">2026-11-15</span><span class="chip">约 51 KB</span><span class="chip lang">中文</span></span>
+        <span class="filename">deepseek_A1_II_Φ11_Premium_CN.html</span>
+    </a>
+
+    <a class="card" href="deepseek_A1_II_%CE%A611_Shadcn_CN.html">
+        <span class="card-top"><span class="ver">A1_II_Φ11_Shadcn_CN</span><span class="card-go">打开 →</span></span>
+        <span class="card-desc">Shadcn：黑白灰单色系、1px 边框分层、扁平无投影。</span>
+        <span class="meta"><span class="chip">2026-11-15</span><span class="chip">约 51 KB</span><span class="chip lang">中文</span></span>
+        <span class="filename">deepseek_A1_II_Φ11_Shadcn_CN.html</span>
+    </a>
+
+    <h2 style="margin-top:36px;">九合一运行时切换版</h2>
+
+    <a class="card" href="deepseek_A1_II_%CE%A611_CN_All.html">
+        <span class="card-top"><span class="ver">A1_II_Φ11_CN_All</span><span class="card-go">打开 →</span></span>
+        <span class="card-desc">以 body.skin-* 类名命名空间隔离 9 套主题，右上角可实时切换；默认原版（浅蓝），不记忆选择、不跟随系统。</span>
+        <span class="meta"><span class="chip">2026-11-15</span><span class="chip">约 74 KB</span><span class="chip lang">中文</span></span>
+        <span class="filename">deepseek_A1_II_Φ11_CN_All.html</span>
+    </a>
+
+    <p class="sub" style="margin:24px 0 0; font-size:0.82rem;">
+        字体说明：八款风格各自按 DESIGN.md 精确加载 Google Fonts 对应字体，并在文件头标注来源；离线或内网环境自动回落系统字体栈，不影响字幕处理功能。原版基准不加载任何外部字体。
+    </p>
+
+    <footer>
+        <span>Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3</span>
+        <span><a href="../">← 返回 code 目录</a></span>
+    </footer>
+
+</div>
+</body>
+</html>
