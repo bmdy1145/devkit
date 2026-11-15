@@ -526,7 +526,8 @@
       box-shadow: none;
       transform: none;
     }
-    .theme-option.active {
+    .theme-option.active,
+    .theme-option.active:hover:not(:disabled) {
       background: var(--md-sys-color-primary-container);
       color: var(--md-sys-color-on-primary-container);
     }
@@ -863,8 +864,13 @@
     /* ========== 主题装饰后置层（置于基版与响应式规则之后，避免同特异性失效） ========== */
     /* 密度：各主题的 --space-* / --font-size-* 取自 DESIGN.md 的 compact / comfortable / 8pt 基准 */
     .whitelist-actions { gap: var(--space-sm); }
-    /* 8 项 x 44px 命中区可能高于矮视口，菜单自身可滚动 */
-    .theme-menu { max-height: min(60vh, 400px); overflow-y: auto; }
+    /* 8 项 x 44px + 间距 + 内边距约 416px：上限留足，只在矮视口才滚动并留出滚动余量 */
+    .theme-menu {
+      max-height: min(80vh, 460px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scroll-padding-block: var(--space-xs);
+    }
     /* WCAG 2.2 AA 2.4.7：键盘焦点必须可见，焦点色对相邻背景 >=3:1 */
     button:focus-visible,
     input:focus-visible,
@@ -914,7 +920,7 @@
       </h1>
       <div style="position:relative;">
         <button class="theme-btn" id="themeBtn" type="button" title="切换主题"
-                aria-haspopup="true" aria-expanded="false" aria-controls="themeMenu">
+                aria-expanded="false" aria-controls="themeMenu">
           <span class="material-symbols-outlined">palette</span>
           主题
         </button>
