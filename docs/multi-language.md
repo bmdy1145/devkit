@@ -56,6 +56,18 @@ DevKit 有 9 个皮肤，另有 1 个「九皮肤合一」版本：
 合并版把 9 套 CSS 用类名命名空间包起来，运行时切换 `<body>` 上的类，
 与现有 `themePref` / `theme` 机制一致。体积约为单皮肤的 2.3 倍（约 525 KB）。
 
+> 上述数字是 DevKit 九份完整皮肤 CSS 的历史数据，不套用于其它项目。
+> SubMerge Pro 的 `A1_II_Φ11` 另采用「9 个独立主题变体 + 1 个 `deepseek_A1_II_Φ11_CN_All.html` 合并版」：
+> 9 个独立版本各自只带一套 `body.skin-*` 令牌，合并版把 9 套令牌块放在同一份组件 CSS 里，
+> 由右上角 `<select>` 运行时切换 `body` 上的 `skin-*` 类；默认 `skin-original`，不持久化选择。
+> 10 份文件的功能脚本与 `A1_II_Φ10_Fix` 逐字一致，差异仅在视觉层。
+>
+> **维护约束**：为保持功能脚本零改动，视觉层用 `[style*="color:#94a3b8"]`、
+> `#tableBody td[style*="font-family:monospace"]` 与 `#dropZone { border-color: … !important }`
+> 覆盖母本写入的内联样式。若以后修改母本的内联色值或内联字体写法，必须同步更新这三处选择器
+> 与 `--empty-text` / `--font-code` / `--border` / `--dropzone-active` 令牌，
+> 否则主题变量会静默失效。`size_guard.py` 会校验 10 份文件的组件 CSS 与功能脚本同源。
+
 Writer `A1_I_Φ6` 同样采用「同主干并行皮肤」：`deepseek_A1_I_Φ6_<Variant>_CN.html`，
 变体词为 `Clean / Glass / Material / Minimal / Mono / Neon / Premium / Shadcn`，
 依据 `.claude/skills/<风格>/SKILL.md` 与 `DESIGN.md` 派生。每个文件内部
