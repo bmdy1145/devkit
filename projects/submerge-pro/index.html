@@ -250,10 +250,27 @@
         .quick-cta { width: 100%; text-align: center; }
         .theme-grid { grid-template-columns: 1fr; }
     }
+
+    /* ---------- 面包屑导航（与其它项目页保持一致） ---------- */
+    nav.crumbs {
+        font-family: var(--mono, ui-monospace, Consolas, monospace);
+        font-size: 0.78rem;
+        color: var(--text2);
+        margin-bottom: 20px;
+        letter-spacing: 0.02em;
+    }
+    nav.crumbs a { color: var(--text2); text-decoration: none; }
+    nav.crumbs a:hover { color: var(--primary); }
+    nav.crumbs .sep { opacity: 0.45; margin: 0 6px; }
+    nav.crumbs .here { color: var(--primary); }
 </style>
 </head>
 <body>
 <div class="wrap">
+
+    <nav class="crumbs" aria-label="面包屑导航">
+        <a href="../">projects</a><span class="sep">/</span><span class="here">SubMerge Pro</span>
+    </nav>
 
     <div class="brand">
         <div class="brand-mark" aria-hidden="true">S</div>
@@ -355,7 +372,7 @@
 
     <footer>
         <span>Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3</span>
-        <span><a href="../">← 返回 projects 目录</a></span>
+        <span><a href="code/">浏览全部代码文件</a> &nbsp;·&nbsp; <a href="../">← 所有项目</a></span>
     </footer>
 
 </div>

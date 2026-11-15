@@ -40,6 +40,8 @@
     a { color: var(--accent); }
     nav a { color: var(--muted); text-decoration: none; }
     nav a:hover, nav a:focus-visible { color: var(--accent); }
+    nav .sep { opacity: 0.45; margin: 0 6px; }
+    nav .here { color: var(--accent); }
     h1 { margin: 0; color: var(--accent); font-size: clamp(2rem, 6vw, 3.2rem); }
     .eyebrow { color: var(--muted); letter-spacing: .12em; text-transform: uppercase; font-size: .75rem; }
     .lede { color: var(--muted); margin: 8px 0 28px; }
@@ -106,7 +108,9 @@
 </head>
 <body>
 <main>
-    <nav aria-label="面包屑导航"><a href="../">projects</a> / <span>dircleaner</span></nav>
+    <nav class="crumbs" aria-label="面包屑导航">
+        <a href="../">projects</a><span class="sep">/</span><span class="here">DirCleaner</span>
+    </nav>
     <header>
         <p class="eyebrow">Local browser utility</p>
         <h1>DirCleaner</h1>
@@ -150,8 +154,9 @@
     </aside>
 
     <footer>
-        DirCleaner  Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3<br>
-        本程序是自由软件，基于 GPLv3 发布，无任何担保。
+        <span>DirCleaner  Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3<br>
+        本程序是自由软件，基于 GPLv3 发布，无任何担保。</span>
+        <span><a href="code/">浏览全部代码文件</a> &nbsp;·&nbsp; <a href="../">← 所有项目</a></span>
     </footer>
 </main>
 </body>
