@@ -28,7 +28,11 @@
                                 text     #78716B -> #44403C (对 #E7E5E4：3.82 -> 8.18)
               Neon              primary  #BBF351 -> #3F6212 (1.31 -> 7.08)
                                 secondary #00BCFF -> #0369A1 (2.18 -> 5.93)
-           5. 关键目录强制阻止、白名单双方案、可执行文件强制确认、统计与上次目录记忆保持不变。
+           5. 关键目录强制阻止、白名单双方案、可执行文件强制确认、统计与上次目录记忆保持不变；
+           6. PR #86 审查补强：主题菜单改为 button 并补键盘可达性（aria-pressed / aria-expanded、
+              Escape / 方向键 / Home / End、焦点返回、focus-visible、>=44px 命中区）；
+              修复 <=1000px 窄屏横向溢出（body 改纵向布局）；剩余固定 padding / gap / 字号
+              与 filter:brightness() hover 改为令牌与显式 hover 状态。清空业务逻辑本身未改。
   日期：2026-11-15
   版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
   许可证：GPLv3
@@ -87,6 +91,9 @@
       --font-display: system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
       --font-mono: ui-monospace, 'Cascadia Code', Consolas, 'Courier New', monospace;
       --font-size-h1: 2rem; --space-sm: 8px; --space-md: 16px;
+      --font-size-body: 0.9rem; --font-size-label: 0.8rem; --font-size-value: 1.6rem;
+      --space-xs: 4px;
+      --md-sys-color-primary-hover: #1E40AF; --md-sys-color-error-hover: #991B1B;
       --md-sys-color-focus-ring: #1D4ED8; --md-sys-color-success: #166534;
       --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
       --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
@@ -115,6 +122,9 @@
       --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
       --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
       --font-size-h1: 3rem; --space-sm: 8px; --space-md: 16px;
+      --font-size-body: 0.9rem; --font-size-label: 0.8rem; --font-size-value: 2rem;
+      --space-xs: 4px;
+      --md-sys-color-primary-hover: #1546D1; --md-sys-color-error-hover: #A91631;
       --md-sys-color-focus-ring: #1856FF; --md-sys-color-success: #047857;
       --md-sys-color-warning: #7C3D12; --md-sys-color-warning-container: #FFF7ED;
       --md-sys-color-on-warning-container: #7C3D12; --md-sys-color-warning-outline: #B45309;
@@ -144,6 +154,9 @@
       --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
       --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
       --font-size-h1: 2rem; --space-sm: 4px; --space-md: 8px;
+      --font-size-body: 0.9rem; --font-size-label: 0.8rem; --font-size-value: 1.6rem;
+      --space-xs: 2px;
+      --md-sys-color-primary-hover: #5335B8; --md-sys-color-error-hover: #991B1B;
       --md-sys-color-focus-ring: #6442D6; --md-sys-color-success: #166534;
       --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
       --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
@@ -171,6 +184,9 @@
       --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
       --font-mono: ui-monospace, 'Cascadia Code', Consolas, 'Courier New', monospace;
       --font-size-h1: 3rem; --space-sm: 4px; --space-md: 8px;
+      --font-size-body: 0.9rem; --font-size-label: 0.8rem; --font-size-value: 2rem;
+      --space-xs: 2px;
+      --md-sys-color-primary-hover: #262626; --md-sys-color-error-hover: #991B1B;
       --md-sys-color-focus-ring: #0C0C09; --md-sys-color-success: #166534;
       --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
       --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
@@ -198,6 +214,9 @@
       --font-display: ui-monospace, 'Cascadia Code', Consolas, 'Courier New', monospace;
       --font-mono: ui-monospace, 'Cascadia Code', Consolas, 'Courier New', monospace;
       --font-size-h1: 3rem; --space-sm: 4px; --space-md: 8px;
+      --font-size-body: 0.9rem; --font-size-label: 0.8rem; --font-size-value: 2rem;
+      --space-xs: 2px;
+      --md-sys-color-primary-hover: #14532D; --md-sys-color-error-hover: #881337;
       --md-sys-color-focus-ring: #166534; --md-sys-color-success: #166534;
       --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
       --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
@@ -226,6 +245,9 @@
       --font-display: Georgia, 'Times New Roman', 'STIX Two Text', serif;
       --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
       --font-size-h1: 2.5rem; --space-sm: 4px; --space-md: 8px;
+      --font-size-body: 1rem; --font-size-label: 0.875rem; --font-size-value: 1.8rem;
+      --space-xs: 2px;
+      --md-sys-color-primary-hover: #365410; --md-sys-color-error-hover: #991B1B;
       --md-sys-color-focus-ring: #3F6212; --md-sys-color-success: #166534;
       --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
       --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
@@ -254,6 +276,9 @@
       --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
       --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
       --font-size-h1: 2.25rem; --space-sm: 4px; --space-md: 8px;
+      --font-size-body: 0.9rem; --font-size-label: 0.8rem; --font-size-value: 1.6rem;
+      --space-xs: 2px;
+      --md-sys-color-primary-hover: #1E40AF; --md-sys-color-error-hover: #991B1B;
       --md-sys-color-focus-ring: #1D4ED8; --md-sys-color-success: #166534;
       --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
       --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
@@ -282,6 +307,9 @@
       --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
       --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
       --font-size-h1: 2rem; --space-sm: 4px; --space-md: 8px;
+      --font-size-body: 0.9rem; --font-size-label: 0.8rem; --font-size-value: 1.6rem;
+      --space-xs: 2px;
+      --md-sys-color-primary-hover: #27272A; --md-sys-color-error-hover: #991B1B;
       --md-sys-color-focus-ring: #000000; --md-sys-color-success: #166534;
       --md-sys-color-warning: #92400E; --md-sys-color-warning-container: #FFFBEB;
       --md-sys-color-on-warning-container: #92400E; --md-sys-color-warning-outline: #B45309;
@@ -352,8 +380,8 @@
       color: var(--md-sys-color-on-surface);
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 4px;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-xs);
     }
 
     h1 .material-symbols-outlined {
@@ -363,23 +391,23 @@
 
     /* ========== 白名单侧边栏样式 ========== */
     .whitelist-sidebar h2 {
-      font-size: 1.1rem;
+      font-size: calc(var(--font-size-body) * 1.2);
       font-weight: 500;
       color: var(--md-sys-color-on-surface);
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: var(--space-xs);
     }
 
     .whitelist-sidebar .whitelist-desc {
-      font-size: 0.8rem;
+      font-size: var(--font-size-label);
       color: var(--md-sys-color-on-surface-variant);
     }
 
     .whitelist-actions {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: var(--space-sm);
     }
 
     .whitelist-list {
@@ -388,8 +416,8 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      margin-top: 4px;
+      gap: var(--space-xs);
+      margin-top: var(--space-xs);
     }
 
     .whitelist-item {
@@ -397,9 +425,9 @@
       align-items: center;
       justify-content: space-between;
       background: var(--md-sys-color-surface-variant);
-      padding: 6px 10px;
+      padding: var(--space-xs) var(--space-sm);
       border-radius: var(--md-sys-shape-corner-small);
-      font-size: 0.85rem;
+      font-size: var(--font-size-body);
     }
 
     .whitelist-item .wl-name {
@@ -414,16 +442,26 @@
       border: none;
       color: var(--md-sys-color-error);
       cursor: pointer;
-      padding: 2px;
+      padding: var(--space-xs);
+      min-width: 44px;
+      min-height: 44px;
       display: flex;
       align-items: center;
+      justify-content: center;
+    }
+
+    .whitelist-item .wl-remove:hover:not(:disabled) {
+      background: var(--md-sys-color-error-container);
+      color: var(--md-sys-color-on-error-container);
+      box-shadow: none;
+      transform: none;
     }
 
     .whitelist-empty {
-      font-size: 0.8rem;
+      font-size: var(--font-size-label);
       color: var(--md-sys-color-on-surface-variant);
       text-align: center;
-      padding: 12px 0;
+      padding: var(--space-md) 0;
     }
 
     /* ========== 主题切换按钮样式 ========== */
@@ -431,17 +469,22 @@
       background: var(--md-sys-color-secondary-container);
       border: 1px solid var(--md-sys-color-outline);
       color: var(--md-sys-color-on-surface-variant);
-      padding: 6px 10px;
+      padding: var(--space-sm) var(--space-md);
       border-radius: var(--md-sys-shape-corner-small);
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-size: 0.85rem;
+      justify-content: center;
+      gap: var(--space-xs);
+      font-family: var(--font-ui);
+      font-size: var(--font-size-body);
+      min-height: 44px;
       transition: background 0.2s;
     }
-    .theme-btn:hover {
+    .app-header .theme-btn:hover:not(:disabled) {
       background: var(--md-sys-color-surface-variant);
+      box-shadow: none;
+      transform: none;
     }
 
     .theme-menu {
@@ -451,23 +494,37 @@
       background: var(--md-sys-color-surface-variant);
       border: 1px solid var(--md-sys-color-outline);
       border-radius: var(--md-sys-shape-corner-small);
-      padding: 4px;
+      padding: var(--space-xs);
       display: none;
       flex-direction: column;
-      gap: 2px;
+      gap: var(--space-sm);
       z-index: 500;
       min-width: 160px;
       box-shadow: var(--md-sys-elevation-2);
     }
     .theme-option {
-      padding: 6px 12px;
-      cursor: pointer;
-      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100%;
+      min-height: 44px;
+      padding: var(--space-sm) var(--space-md);
+      border: none;
       border-radius: 4px;
+      background: transparent;
       color: var(--md-sys-color-on-surface);
+      font-family: var(--font-ui);
+      font-size: var(--font-size-body);
+      font-weight: 400;
+      text-align: left;
+      white-space: normal;
+      cursor: pointer;
     }
-    .theme-option:hover {
+    .theme-menu .theme-option:hover:not(:disabled) {
       background: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-secondary-container);
+      box-shadow: none;
+      transform: none;
     }
     .theme-option.active {
       background: var(--md-sys-color-primary-container);
@@ -479,21 +536,21 @@
       display: none;
       background: var(--md-sys-color-error-container);
       color: var(--md-sys-color-on-error-container);
-      padding: 12px;
+      padding: var(--space-md);
       border-radius: var(--md-sys-shape-corner-small);
-      font-size: 0.9rem;
+      font-size: var(--font-size-body);
     }
 
     /* ========== 目录选择区域 ========== */
     .dir-selection {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: var(--space-sm);
     }
 
     .dir-input-row {
       display: flex;
-      gap: 10px;
+      gap: var(--space-sm);
       align-items: center;
       flex-wrap: wrap;
     }
@@ -501,11 +558,11 @@
     .dir-input-row input {
       flex: 1;
       min-width: 200px;
-      padding: 12px 16px;
+      padding: var(--space-sm) var(--space-md);
       border: 1px solid var(--md-sys-color-outline);
       border-radius: var(--md-sys-shape-corner-small);
       font-family: var(--font-ui);
-      font-size: 0.95rem;
+      font-size: var(--font-size-body);
       background: var(--md-sys-color-surface);
       color: var(--md-sys-color-on-surface);
       outline: none;
@@ -522,23 +579,24 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      padding: 10px 18px;
+      gap: var(--space-sm);
+      padding: var(--space-sm) var(--space-md);
+      min-height: 44px;
       border: none;
       border-radius: var(--md-sys-shape-corner-small);
       background: var(--md-sys-color-primary);
       color: var(--md-sys-color-on-primary);
       font-family: var(--font-ui);
       font-weight: 500;
-      font-size: 0.9rem;
+      font-size: var(--font-size-body);
       cursor: pointer;
       transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
       white-space: nowrap;
     }
 
+    /* 显式 hover：不再用 filter:brightness()，主/次/危险按钮各自覆盖背景令牌 */
     button:hover:not(:disabled) {
-      background: var(--md-sys-color-primary);
-      filter: brightness(1.1);
+      background: var(--md-sys-color-primary-hover);
       box-shadow: var(--md-sys-elevation-2);
       transform: translateY(-1px);
     }
@@ -572,45 +630,44 @@
     }
 
     .danger-btn:hover:not(:disabled) {
-      background: var(--md-sys-color-error);
-      filter: brightness(0.9);
+      background: var(--md-sys-color-error-hover);
     }
 
     /* 安全确认区域 */
     .confirm-section {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: var(--space-sm);
       background: var(--md-sys-color-surface-variant);
       border-radius: var(--md-sys-shape-corner-small);
-      padding: 14px;
+      padding: var(--space-md);
     }
 
     .confirm-row {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: var(--space-sm);
     }
 
     .confirm-row input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
+      width: 24px;
+      height: 24px;
       accent-color: var(--md-sys-color-primary);
     }
 
     .confirm-extra {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-top: 2px;
+      gap: var(--space-sm);
+      margin-top: var(--space-xs);
     }
 
     .confirm-extra input {
-      padding: 8px 12px;
+      padding: var(--space-sm) var(--space-md);
       border: 1px solid var(--md-sys-color-outline);
       border-radius: var(--md-sys-shape-corner-small);
       font-family: var(--font-ui);
-      font-size: 0.9rem;
+      font-size: var(--font-size-body);
       width: 220px;
       background: var(--md-sys-color-surface);
       color: var(--md-sys-color-on-surface);
@@ -619,17 +676,17 @@
     .warning-text {
       color: var(--md-sys-color-error);
       font-weight: 500;
-      font-size: 0.9rem;
+      font-size: var(--font-size-body);
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: var(--space-xs);
     }
 
     .critical-warning {
       display: none;
       background: var(--md-sys-color-error-container);
       color: var(--md-sys-color-on-error-container);
-      padding: 12px;
+      padding: var(--space-md);
       border-radius: var(--md-sys-shape-corner-small);
       font-weight: 500;
     }
@@ -638,7 +695,7 @@
       display: none;
       background: var(--md-sys-color-warning-container);
       color: var(--md-sys-color-on-warning-container);
-      padding: 12px;
+      padding: var(--space-md);
       border-radius: var(--md-sys-shape-corner-small);
       border: 1px solid var(--md-sys-color-warning-outline);
     }
@@ -651,7 +708,7 @@
     .progress-container {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: var(--space-xs);
     }
 
     progress {
@@ -673,7 +730,7 @@
     }
 
     .status-text {
-      font-size: 0.85rem;
+      font-size: var(--font-size-body);
       color: var(--md-sys-color-on-surface-variant);
       min-height: 1.2em;
     }
@@ -682,12 +739,12 @@
     .stats-section {
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: var(--space-md);
     }
 
     .stats-group-label {
       font-family: var(--font-mono);
-      font-size: 0.8rem;
+      font-size: var(--font-size-label);
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -705,7 +762,7 @@
     .stat-card {
       background: var(--md-sys-color-surface-variant);
       border-radius: var(--md-sys-shape-corner-small);
-      padding: 12px 10px;
+      padding: var(--space-md) var(--space-sm);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -720,14 +777,14 @@
     }
 
     .stat-card .stat-value {
-      font-size: 1.6rem;
+      font-size: var(--font-size-value);
       font-weight: 500;
       color: var(--md-sys-color-primary);
       line-height: 1.2;
     }
 
     .stat-card .stat-label {
-      font-size: 0.75rem;
+      font-size: var(--font-size-label);
       color: var(--md-sys-color-on-surface-variant);
       margin-top: 4px;
       font-weight: 500;
@@ -745,11 +802,11 @@
     .log-area {
       background: var(--md-sys-color-surface-variant);
       border-radius: var(--md-sys-shape-corner-small);
-      padding: 12px;
+      padding: var(--space-md);
       height: 140px;
       overflow-y: auto;
       font-family: var(--font-mono);
-      font-size: 0.8rem;
+      font-size: var(--font-size-label);
       color: var(--md-sys-color-on-surface-variant);
       border: 1px solid var(--md-sys-color-outline);
       white-space: pre-wrap;
@@ -760,25 +817,32 @@
 
     .actions {
       display: flex;
-      gap: 8px;
+      gap: var(--space-sm);
       flex-wrap: wrap;
       align-items: center;
     }
 
     .log-actions {
       display: flex;
-      gap: 6px;
+      gap: var(--space-xs);
       align-items: center;
       margin-left: auto;
     }
 
     /* ========== 响应式移动端调整 ========== */
     @media (max-width: 1000px) {
+      /* 固定侧栏在此断点回到文档流：body 改纵向，避免侧栏与主容器并排挤出横向滚动 */
+      body {
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: stretch;
+        padding: var(--space-md);
+      }
       .whitelist-sidebar {
         position: static;
         transform: none;
         width: 100%;
-        margin-bottom: 16px;
+        margin-bottom: var(--space-md);
       }
       .app-container {
         max-width: 100%;
@@ -786,18 +850,28 @@
     }
 
     @media (max-width: 500px) {
-      .app-container { padding: 18px; gap: 16px; }
-      .app-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .app-container { padding: var(--space-md); gap: var(--space-md); }
+      .app-header { flex-direction: column; align-items: flex-start; gap: var(--space-sm); }
       .dir-input-row { flex-direction: column; align-items: stretch; }
       .actions { flex-direction: column; }
-      .log-actions { margin-left: 0; margin-top: 8px; }
+      .log-actions { margin-left: 0; margin-top: var(--space-sm); }
       .stats-container { grid-template-columns: repeat(2, 1fr); }
+      /* 菜单锚点从右对齐改为左对齐，避免窄屏下被视口左侧裁切 */
+      .theme-menu { left: 0; right: auto; }
     }
 
     /* ========== 主题装饰后置层（置于基版与响应式规则之后，避免同特异性失效） ========== */
-    /* 密度：各主题的 --space-* 取自 DESIGN.md 的 compact / comfortable / 8pt 基准 */
-    .theme-menu { gap: var(--space-sm); }
+    /* 密度：各主题的 --space-* / --font-size-* 取自 DESIGN.md 的 compact / comfortable / 8pt 基准 */
     .whitelist-actions { gap: var(--space-sm); }
+    /* 8 项 x 44px 命中区可能高于矮视口，菜单自身可滚动 */
+    .theme-menu { max-height: min(60vh, 400px); overflow-y: auto; }
+    /* WCAG 2.2 AA 2.4.7：键盘焦点必须可见，焦点色对相邻背景 >=3:1 */
+    button:focus-visible,
+    input:focus-visible,
+    .theme-option:focus-visible {
+      outline: 2px solid var(--md-sys-color-focus-ring);
+      outline-offset: 2px;
+    }
     /* 深色舞台下卡片文字显式取卡片前景，避免继承 body 的浅色文字 */
     .app-container, .whitelist-sidebar { color: var(--md-sys-color-on-surface); }
     /* Glassmorphism：仅在支持时启用模糊；卡片文字层与内部区块始终不透明 */
@@ -839,19 +913,20 @@
         DirCleaner
       </h1>
       <div style="position:relative;">
-        <button class="theme-btn" id="themeBtn" title="切换主题">
+        <button class="theme-btn" id="themeBtn" type="button" title="切换主题"
+                aria-haspopup="true" aria-expanded="false" aria-controls="themeMenu">
           <span class="material-symbols-outlined">palette</span>
           主题
         </button>
-        <div class="theme-menu" id="themeMenu">
-          <div class="theme-option active" data-theme="0">简约 Clean</div>
-          <div class="theme-option" data-theme="1">毛玻璃 Glassmorphism</div>
-          <div class="theme-option" data-theme="2">材料 Material</div>
-          <div class="theme-option" data-theme="3">极简 Minimal</div>
-          <div class="theme-option" data-theme="4">等宽 Mono</div>
-          <div class="theme-option" data-theme="5">霓虹 Neon</div>
-          <div class="theme-option" data-theme="6">高级质感 Premium</div>
-          <div class="theme-option" data-theme="7">单色 Shadcn</div>
+        <div class="theme-menu" id="themeMenu" role="group" aria-label="选择主题">
+          <button type="button" class="theme-option active" data-theme="0" aria-pressed="true">简约 Clean</button>
+          <button type="button" class="theme-option" data-theme="1" aria-pressed="false">毛玻璃 Glassmorphism</button>
+          <button type="button" class="theme-option" data-theme="2" aria-pressed="false">材料 Material</button>
+          <button type="button" class="theme-option" data-theme="3" aria-pressed="false">极简 Minimal</button>
+          <button type="button" class="theme-option" data-theme="4" aria-pressed="false">等宽 Mono</button>
+          <button type="button" class="theme-option" data-theme="5" aria-pressed="false">霓虹 Neon</button>
+          <button type="button" class="theme-option" data-theme="6" aria-pressed="false">高级质感 Premium</button>
+          <button type="button" class="theme-option" data-theme="7" aria-pressed="false">单色 Shadcn</button>
         </div>
       </div>
     </div>
@@ -891,14 +966,14 @@
         <label for="confirmNameInput">请输入目录名称以确认：</label>
         <input type="text" id="confirmNameInput" placeholder="目录名称" disabled />
       </div>
-      <div id="whitelistHint" style="display:none; color: var(--md-sys-color-primary); font-size:0.85rem;">✅ 此目录在白名单中，无需输入名称确认</div>
+      <div id="whitelistHint" style="display:none; color: var(--md-sys-color-primary); font-size: var(--font-size-body);">✅ 此目录在白名单中，无需输入名称确认</div>
 
       <!-- 可执行文件警告 -->
       <div id="exeWarning" class="exe-warning">
         <strong>⚠️ 此目录包含可执行文件（.exe / .dll）。</strong><br>
         删除可能影响程序运行。如需卸载程序，请使用
         <a href="https://geekuninstaller.com/" target="_blank" rel="noopener noreferrer">Geek Uninstaller</a>。<br>
-        <label style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+        <label style="display:flex; align-items:center; gap:var(--space-xs); margin-top:var(--space-xs);">
           <input type="checkbox" id="exeConfirmCheck" />
           我了解风险，仍要删除
         </label>
@@ -971,7 +1046,7 @@
         <button id="clearLogBtn" class="outlined-btn">
           <span class="material-symbols-outlined">delete_sweep</span> 清空日志
         </button>
-        <label for="obfuscateCheck" style="display:flex;align-items:center;gap:4px;font-size:0.8rem;white-space:nowrap;">
+        <label for="obfuscateCheck" style="display:flex;align-items:center;gap:var(--space-xs);font-size:var(--font-size-label);white-space:nowrap;">
           <input type="checkbox" id="obfuscateCheck" /> 模糊日志
         </label>
       </div>
@@ -1028,10 +1103,10 @@
     const totalSizeEl = document.getElementById('totalSize');
     const totalErrorsEl = document.getElementById('totalErrors');
 
-    // ========== 主题切换相关（不持久化记忆） ==========
+    // ========== 主题切换相关（不持久化记忆、键盘可达） ==========
     const themeBtn = document.getElementById('themeBtn');
     const themeMenu = document.getElementById('themeMenu');
-    const themeOptions = document.querySelectorAll('.theme-option');
+    const themeOptions = Array.from(document.querySelectorAll('.theme-option'));
 
     function applyTheme(themeIndex) {
       document.body.className = document.body.className
@@ -1040,28 +1115,53 @@
         .concat('theme-' + themeIndex)
         .join(' ');
       themeOptions.forEach(opt => {
-        opt.classList.toggle('active', parseInt(opt.dataset.theme) === themeIndex);
+        const active = parseInt(opt.dataset.theme) === themeIndex;
+        opt.classList.toggle('active', active);
+        opt.setAttribute('aria-pressed', active ? 'true' : 'false');
       });
       // 不写入 localStorage
     }
 
+    function setMenuOpen(open, focusIndex) {
+      themeMenu.style.display = open ? 'flex' : 'none';
+      themeBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open && focusIndex !== undefined) themeOptions[focusIndex].focus();
+    }
+
     themeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const isVisible = themeMenu.style.display === 'flex';
-      themeMenu.style.display = isVisible ? 'none' : 'flex';
+      setMenuOpen(themeMenu.style.display !== 'flex', 0);
     });
 
-    themeOptions.forEach(opt => {
-      opt.addEventListener('click', (e) => {
-        const themeIdx = parseInt(opt.dataset.theme);
-        applyTheme(themeIdx);
-        themeMenu.style.display = 'none';
+    themeOptions.forEach((opt, idx) => {
+      opt.addEventListener('click', () => {
+        applyTheme(parseInt(opt.dataset.theme));
+        setMenuOpen(false);
+        themeBtn.focus();
       });
+      opt.addEventListener('keydown', (e) => {
+        let next = null;
+        if (e.key === 'ArrowDown') next = (idx + 1) % themeOptions.length;
+        else if (e.key === 'ArrowUp') next = (idx - 1 + themeOptions.length) % themeOptions.length;
+        else if (e.key === 'Home') next = 0;
+        else if (e.key === 'End') next = themeOptions.length - 1;
+        if (next !== null) {
+          e.preventDefault();
+          themeOptions[next].focus();
+        }
+      });
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && themeMenu.style.display === 'flex') {
+        setMenuOpen(false);
+        themeBtn.focus();
+      }
     });
 
     document.addEventListener('click', (e) => {
       if (!themeMenu.contains(e.target) && e.target !== themeBtn) {
-        themeMenu.style.display = 'none';
+        setMenuOpen(false);
       }
     });
 
