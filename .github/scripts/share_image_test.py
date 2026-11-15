@@ -391,7 +391,49 @@ DRIVER = r"""
             ok(pd2.meta.suggestScale === null ||
                (pd2.meta.suggestScale >= 0.5 && pd2.meta.suggestScale < 1.0),
                '建议缩放应落在 50%–100% 之间或为 null', String(pd2.meta.suggestScale));
+            // 极长内容连 50% 都放不下：此时不该给出建议，但也不能禁止导出
+            ok(pd2.meta.suggestScale === null,
+               '400 段内容超出 50% 容量，应不给出建议值', String(pd2.meta.suggestScale));
         }
+
+        /* ---------- 9d. 建议值必须真的能装下（二分核心逻辑） ---------- */
+        // 9c 的内容远超下限，走不到二分分支；这里用中等长度内容强制二分生效。
+        var origSweep = T.MemoryService.load;
+        var suggCases = 0;
+        for (var sn = 2; sn <= 8; sn += 2) {
+            var midText = '';
+            for (var si = 0; si < sn; si++) midText += '第' + si + '段：中等长度内容，用于验证建议值。\n';
+            var fakeMid = { id: 'mem_m' + sn, personaId: T.memoryKey(card, world), raw: midText,
+                turns: [{ role: 'other', text: midText }], importedAt: Date.now() };
+            T.MemoryService.load = (function (fake) {
+                return async function () { return fake; };
+            })(fakeMid);
+            var pm;
+            try {
+                pm = await T.planShare({
+                    name: true, mem: true, wv: false,
+                    ratio: 4 / 3, longEdge: 1080, mode: 'strict', dark: true
+                });
+            } finally { T.MemoryService.load = origSweep; }
+            if (pm.error || pm.meta.fit !== false || typeof pm.meta.suggestScale !== 'number') continue;
+            suggCases++;
+            T.MemoryService.load = (function (fake) {
+                return async function () { return fake; };
+            })(fakeMid);
+            var pm2;
+            try {
+                pm2 = await T.planShare({
+                    name: true, mem: true, wv: false,
+                    ratio: 4 / 3, longEdge: 1080, mode: 'strict', dark: true,
+                    textScale: pm.meta.suggestScale
+                });
+            } finally { T.MemoryService.load = origSweep; }
+            ok(pm2.meta.fit === true,
+               '应用建议缩放后必须能装下（' + sn + ' 段）',
+               'suggest=' + pm.meta.suggestScale +
+               ' need=' + pm2.meta.overflowNeed + ' avail=' + pm2.meta.overflowAvail);
+        }
+        ok(suggCases > 0, '应至少有一个用例触发二分建议值', 'cases=' + suggCases);
 
         /* ---------- 10. 自动多张 ---------- */
         // 造一段足够长的记忆，逼出多页
@@ -670,10 +712,19 @@ DRIVER = r"""
         num.value = '1300';
         num.dispatchEvent(new Event('change'));
         ok(Number(num.value) === 1300, '输入框应保留非档位值', num.value);
-        ok(Number(range.value) > 0 && Number(range.value) < 1,
-           '非档位值时滑条应停在档间', 'slider=' + range.value);
+        // step=1 的滑条承载不了小数，会落到最近整档；只要不越界即可，
+        // 尺寸仍按输入框的 1300 计算。
+        ok(Number(range.value) >= 0 && Number(range.value) <= Number(range.max),
+           '滑条值应仍在档位范围内', 'slider=' + range.value);
         ok(document.querySelector('#resLabel').textContent.indexOf('1300') === 0,
            '尺寸文案应显示输入的长边', document.querySelector('#resLabel').textContent);
+        // 键盘方向键必须真的能换档（step=1 后 2 → 3）
+        range.value = '2';
+        range.dispatchEvent(new Event('input'));
+        range.value = String(Number(range.value) + Number(range.step));
+        range.dispatchEvent(new Event('input'));
+        ok(Number(range.value) === 3 && Number(num.value) === L.RES_STEPS[3],
+           '方向键应能换到下一档', 'slider=' + range.value + ' res=' + num.value);
 
         /* ---------- 15. 像素宽高联动 ---------- */
         var pxW = document.querySelector('#pxW');
@@ -715,6 +766,31 @@ DRIVER = r"""
         pxH.value = '1000'; pxH.dispatchEvent(new Event('change'));
         ok(Number(rwBox.value) === 16 && Number(rhBox.value) === 9,
            '约不进 32 的像素比不应改写比例框', rwBox.value + ':' + rhBox.value);
+
+        /* ---------- 15b. 像素输入必须真正驱动输出 ---------- */
+        // 这是上一轮审查漏掉的关键回归：像素框只改自己、不写回长边时，
+        // 用户以为改了尺寸，实际导出仍是旧值。
+        rwBox.value = '4'; rhBox.value = '3';
+        rhBox.dispatchEvent(new Event('change'));
+        num.value = '2160'; num.dispatchEvent(new Event('change'));
+        pxW.value = '1920';
+        pxW.dispatchEvent(new Event('change'));
+        ok(Number(num.value) === 1920, '改像素宽后长边应随之为 1920', num.value);
+        ok(Number(pxH.value) === 1440, '4:3 下 1920 宽应得 1440 高', pxH.value);
+        ok(document.querySelector('#resLabel').textContent.indexOf('1920 × 1440') === 0,
+           '尺寸文案应同步为 1920 × 1440',
+           document.querySelector('#resLabel').textContent);
+        // 改高同样要写回长边（取较长边）
+        pxH.value = '2000';
+        pxH.dispatchEvent(new Event('change'));
+        ok(Number(num.value) === 2667, '改像素高后长边应取较长边 2667', num.value);
+        // 极小像素不得悄悄改掉比例：4:3 输入宽 1 仍是 4:3
+        rwBox.value = '4'; rhBox.value = '3';
+        rhBox.dispatchEvent(new Event('change'));
+        pxW.value = '1';
+        pxW.dispatchEvent(new Event('change'));
+        ok(Number(rwBox.value) === 4 && Number(rhBox.value) === 3,
+           '极小像素不应改写比例', rwBox.value + ':' + rhBox.value);
 
         /* ---------- 16. 文字缩放框与自动值 ---------- */
         num.value = '1080'; num.dispatchEvent(new Event('change'));

@@ -1226,6 +1226,11 @@
     #sharePreview { max-width: 100%; max-height: 36vh; height: auto; border-radius: var(--radius-sm); }
     .share-meta { margin-top: var(--sp-4); font-size: var(--fs-170); color: var(--text-3); }
     .share-meta.err { color: var(--danger); }
+    /* 严格单张放不下：用警示色，但不阻止导出 */
+    .share-meta.warn { color: #ffd58a; }   /* 与 .store-note.warn 同色，全站警示一致 */
+    /* .btn 设了 display:inline-flex，会压过浏览器默认的 [hidden]{display:none}，
+       用 hidden 属性隐藏的按钮必须靠这条兜底，否则会留下空白占位并可被点到。 */
+    .btn[hidden] { display: none; }
 
     /* ================= 窄屏页签（默认隐藏） ================= */
     .mobile-tabs { display: none; }
@@ -1884,16 +1889,16 @@
                 </div>
                 <span class="ratio-custom" style="margin-top:10px;">
                     像素
-                    <input type="number" id="pxW" min="100" max="10000" step="10" aria-label="像素宽">
+                    <input type="number" id="pxW" min="1" max="10000" step="1" aria-label="像素宽">
                     ×
-                    <input type="number" id="pxH" min="100" max="10000" step="10" aria-label="像素高">
+                    <input type="number" id="pxH" min="1" max="10000" step="1" aria-label="像素高">
                 </span>
             </div>
 
             <div class="field">
                 <label for="resRange">分辨率</label>
                 <div class="res-row">
-                    <input type="range" id="resRange" min="0" max="5" step="0.01" value="2">
+                    <input type="range" id="resRange" min="0" max="5" step="1" value="2">
                     <input type="number" id="resInput" min="480" max="10000" step="10" value="2160" aria-label="长边像素">
                 </div>
                 <div class="res-scale">
@@ -6576,35 +6581,53 @@
     }
 
     /** 把像素宽高输入框与「宽:高」比例框对齐；ratio 由长边与当前比例算出。 */
+    /**
+     * 按当前比例与长边，把像素宽高框刷新成对应尺寸。
+     * 只写显示，不改长边与比例。
+     */
     function syncPixelInputs(ratio) {
         const maxEdge = 10000;
-        const minEdge = 100;
         const longEdge = Math.max(480, Math.min(maxEdge, Number(Utils.$('#resInput').value) || 2160));
         let w, h;
         if (ratio >= 1) {
             w = Math.min(maxEdge, longEdge);
-            h = Math.max(minEdge, Math.round(w / ratio));
+            h = Math.max(1, Math.round(w / ratio));
         } else {
             h = Math.min(maxEdge, longEdge);
-            w = Math.max(minEdge, Math.round(h * ratio));
+            w = Math.max(1, Math.round(h * ratio));
         }
         Utils.$('#pxW').value = w;
         Utils.$('#pxH').value = h;
     }
 
     /**
-     * 由像素宽高反算比例并回填「宽:高」。
-     * 像素比若能用 ≤32 的整数表达（如 1280×720 → 16:9），就回填该最简比；
-     * 否则保留用户当前选择的比例，避免把 2667:2000 这种近似值写进比例框后
-     * 又被 parseRatio 的上限拒绝、悄悄退回旧比例。
+     * 像素输入是权威值：写回比例框（能约进 32 时）与长边（= 较长的一边），
+     * 再让 resLabel / 预览跟着更新。这样像素框才真正驱动导出尺寸。
+     * 返回实际采用的 {w,h}（越界值会被夹住），供调用方回写输入框。
      */
-    function applyRatioFromPixels(w, h) {
-        const s = ShareLayout.simplifyRatio(w, h);
-        if (s.w <= 32 && s.h <= 32) {
-            Utils.$('#ratioW').value = s.w;
-            Utils.$('#ratioH').value = s.h;
+    function applyPixels(w0, h0) {
+        const clampPx = function (v) { return Math.max(1, Math.min(10000, Math.round(Number(v) || 0) || 1)); };
+        let w = clampPx(w0), h = clampPx(h0);
+        const effectiveLong = Math.max(1, Math.min(10000, Math.max(w, h)));
+
+        // 只有像素值大到能表达比例时才回填比例框：
+        // 1×1 这类过小的值约分后是 1:1，会把用户选的 4:3 悄悄改掉，
+        // 而且反过来还会影响后续像素换算。
+        const cur = shareOptsFromUI();
+        const expectedH = w / (cur.ratio || 1);
+        const representable = Math.abs(expectedH - h) <= 1 && w >= 2 && h >= 2;
+        if (representable) {
+            const s = ShareLayout.simplifyRatio(w, h);
+            if (s.w <= 32 && s.h <= 32) {
+                Utils.$('#ratioW').value = s.w;
+                Utils.$('#ratioH').value = s.h;
+            }
         }
+        Utils.$('#resInput').value = effectiveLong;
+        Utils.$('#resRange').value = ShareLayout.resToSlider(effectiveLong).toFixed(2);
         syncRatioLabel();
+        syncResUI(true);
+        return { w: w, h: h };
     }
 
     function syncTextScaleUI() {
@@ -6700,10 +6723,16 @@
         // 严格单张装不下：不禁止导出，只提示并给一个「刚好装得下」的建议值。
         const sug = Utils.$('#applySuggestBtn');
         if (o.mode === 'strict' && plan.meta.fit === false) {
-            const over = plan.meta.overflowAvail > 0
-                ? Math.round((plan.meta.overflowNeed / plan.meta.overflowAvail - 1) * 100)
-                : 0;
-            parts.push('内容超出约 ' + over + '%');
+            // 可用高度可能被页眉/页脚吃掉以致 ≤0（例如 480 长边 + 300% 文字），
+            // 这时百分比没有意义，改用「约需 X 倍页高」描述。
+            if (plan.meta.overflowAvail > 0) {
+                const over = Math.round((plan.meta.overflowNeed / plan.meta.overflowAvail - 1) * 100);
+                parts.push('内容超出约 ' + over + '%');
+            } else {
+                // 可用高度 ≤0 时按页高（而不是负的可用高）折算，倍数才有意义
+                const times = Math.max(2, Math.ceil(plan.meta.overflowNeed / Math.max(1, plan.size.h)));
+                parts.push('文字过大，内容约需 ' + times + ' 倍页高');
+            }
             if (plan.meta.suggestScale) {
                 sug.hidden = false;
                 sug.textContent = '建议缩到 ' + Math.round(plan.meta.suggestScale * 100) + '%';
@@ -6910,26 +6939,31 @@
             });
         });
 
-        // 像素宽 × 高：改一个自动算另一个，并反推比例
+        // 像素宽 × 高：改一个按当前比例算另一个，并真正驱动长边与比例
         const clampEdge = function (v) {
-            return Math.max(100, Math.min(10000, Math.round(Number(v) || 0) || 100));
+            return Math.max(1, Math.min(10000, Math.round(Number(v) || 0) || 1));
         };
         Utils.$('#pxW').addEventListener('change', function () {
-            const w = clampEdge(this.value);
             const o = shareOptsFromUI();
-            const h = Math.max(100, Math.min(10000, Math.round(w / o.ratio)));
+            // 太小的宽无法表达当前比例（1px 除以 4:3 只能得 1），
+            // 此时把宽抬到「另一边至少 1px」的最小值，避免比例被静默改掉。
+            const minW = o.ratio >= 1 ? 1 : Math.ceil(1 / o.ratio);
+            const w = Math.max(minW, clampEdge(this.value));
+            const h = Math.max(1, Math.min(10000, Math.round(w / o.ratio)));
             this.value = w;
             Utils.$('#pxH').value = h;
-            applyRatioFromPixels(w, h);
+            applyPixels(w, h);
             scheduleSharePreview();
         });
         Utils.$('#pxH').addEventListener('change', function () {
-            const h = clampEdge(this.value);
             const o = shareOptsFromUI();
-            const w = Math.max(100, Math.min(10000, Math.round(h * o.ratio)));
+            // 同理：竖版比例下高太小时，宽也会被压到 1px 而改掉比例
+            const minH = o.ratio >= 1 ? Math.ceil(o.ratio) : 1;
+            const h = Math.max(minH, clampEdge(this.value));
+            const w = Math.max(1, Math.min(10000, Math.round(h * o.ratio)));
             this.value = h;
             Utils.$('#pxW').value = w;
-            applyRatioFromPixels(w, h);
+            applyPixels(w, h);
             scheduleSharePreview();
         });
 
@@ -6958,9 +6992,10 @@
         });
 
         // 滑条只停在档位：把拖出的非整数值吸附回最近档位
+        // 滑条 step=1：拖动与键盘方向键都只落在六个档位上。
+        // 输入框写档间值时仍会把小数写进滑条（浏览器显示时会取近似位置），
+        // 但用户一拖滑条就回到最近的整档。
         Utils.$('#resRange').addEventListener('input', function () {
-            const snapped = Math.round(Number(this.value) || 0);
-            if (Number(this.value) !== snapped) this.value = snapped;
             syncResUI(false);
             scheduleSharePreview();
         });
