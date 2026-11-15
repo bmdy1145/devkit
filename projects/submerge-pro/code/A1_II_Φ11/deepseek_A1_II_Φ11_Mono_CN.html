@@ -61,7 +61,8 @@
             --focus-offset: 2px;
             --container-max: 1300px;
         }
-        /* ---------- 主题：等宽 Mono ----------
+        /* __THEME_BLOCK_START__
+         * 主题：等宽 Mono
          * DESIGN.md 原始令牌：primary / secondary / success / warning / danger /
          * surface / text / neutral，见下方 raw-* 变量；亮色底上高亮主色已降饱和达 WCAG 2.2 AA。
          * 派生令牌与所引用的变量同层声明，避免在 :root 被固化。 */
@@ -130,6 +131,7 @@
             --raw-text: #78716B;
             --raw-neutral: #E7E5E4;
         }
+        /* __THEME_BLOCK_END__ */
         * { box-sizing: border-box; margin: 0; font-family: var(--font-ui); }
         body { background: var(--backdrop); background-attachment: fixed; color: var(--text); padding: var(--pad) 12px; min-height: 100vh; display: flex; justify-content: center; letter-spacing: var(--letter-spacing); }
         :focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }

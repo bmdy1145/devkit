@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,52 +51,74 @@ FAIL_KB = 520
 problems: list[str] = []
 warnings: list[str] = []
 
-# SubMerge Pro Φ11 的 10 个版本共用同一份组件 CSS 与同一份功能脚本，
-# 差异只在 body.skin-* 令牌块、字体链接与辅助脚本。体积检查无法发现
-# 「只改了其中一份」这类漂移，故在此按目录做哈希一致性校验。
+# SubMerge Pro Φ11 的 10 个版本共用同一份组件 CSS、同一份功能脚本与同一份
+# 拖拽辅助脚本，差异只在 body.skin-* 令牌块、字体链接与九合一专用切换脚本。
+# 体积检查无法发现「只改了其中一份」这类漂移，故在此按目录做哈希一致性校验。
 PHI11_DIR = ROOT / "projects" / "submerge-pro" / "code" / "A1_II_Φ11"
+# 生成器在每套主题块前后写入稳定标记，避免校验依赖注释文字或缩进格式。
+# START 标记是注释的开头（后面还有说明行），END 标记是独立注释。
 THEME_BLOCK_RE = re.compile(
-    r"        /\* -+ 主题：.*?\n        \}\n", re.S
+    r"[ \t]*/\* __THEME_BLOCK_START__.*?/\* __THEME_BLOCK_END__ \*/[ \t]*\n?", re.S
 )
+SCRIPT_RE = re.compile(r"<script>.*?</script>", re.S)
 
 
 def digest(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
 
 
-def phi11_parts(path: Path) -> tuple[str, str]:
+def majority(items: list[str]) -> tuple[str, int]:
+    """取出现次数最多的哈希；并列时取字典序最小者，保证结果稳定。"""
+    counts = Counter(items)
+    best = max(counts.values())
+    return min(h for h, n in counts.items() if n == best), best
+
+
+def phi11_parts(path: Path) -> tuple[str, str, str, int]:
     text = path.read_text(encoding="utf-8").replace("\r\n", "\n")
     css = text[text.index("<style>") : text.index("</style>")]
+    blocks = THEME_BLOCK_RE.findall(css)
+    if not blocks:
+        problems.append(f"{path.name}：找不到 __THEME_BLOCK_START__/__END__ 标记，无法校验组件 CSS")
     # 去掉主题令牌块后，剩下的组件 CSS 应逐字一致。
     component_css = THEME_BLOCK_RE.sub("", css)
-    start = text.index("<script>")
-    end = text.index("</script>", start) + len("</script>")
-    return digest(component_css), digest(text[start:end])
+    scripts = SCRIPT_RE.findall(text)
+    func = scripts[0] if scripts else ""
+    drag = scripts[1] if len(scripts) > 1 else ""
+    return digest(component_css), digest(func), digest(drag), len(blocks)
 
 
 def check_phi11_sources() -> None:
     files = sorted(PHI11_DIR.glob("deepseek_*.html"))
     if not files:
         return
-    expected = phi11_parts(files[0])
     mother = (
         ROOT / "projects" / "submerge-pro" / "code" / "A1_II_Φ10"
         / "deepseek_html_20261006_d1ca99_Fix.html"
     )
     mother_text = mother.read_text(encoding="utf-8").replace("\r\n", "\n")
-    ms = mother_text.index("<script>")
-    me = mother_text.index("</script>", ms) + len("</script>")
-    mother_script = digest(mother_text[ms:me])
+    mother_script = digest(SCRIPT_RE.search(mother_text).group(0))
 
-    for path in files:
+    parts = {p: phi11_parts(p) for p in files}
+    css_base, css_votes = majority([v[0] for v in parts.values()])
+    drag_base, drag_votes = majority([v[2] for v in parts.values()])
+
+    for path, (css_hash, func_hash, drag_hash, blocks) in parts.items():
         rel = path.relative_to(ROOT).as_posix()
-        css_hash, script_hash = phi11_parts(path)
-        if css_hash != expected[0]:
-            problems.append(f"{rel}：组件 CSS 与同批 Φ11 版本不一致（{css_hash} ≠ {expected[0]}）")
-        if script_hash != expected[1] or script_hash != mother_script:
-            problems.append(f"{rel}：功能脚本与母本不一致（{script_hash}）")
+        expected_blocks = 9 if path.name.endswith("_All.html") else 1
+        if blocks != expected_blocks:
+            problems.append(f"{rel}：主题块 {blocks} 个，应为 {expected_blocks} 个")
+        if css_hash != css_base:
+            problems.append(f"{rel}：组件 CSS 偏离同批多数版本（{css_hash} ≠ {css_base}，{css_votes}/{len(files)} 票）")
+        if func_hash != mother_script:
+            problems.append(f"{rel}：功能脚本与母本不一致（{func_hash} ≠ {mother_script}）")
+        if drag_hash != drag_base:
+            problems.append(f"{rel}：拖拽辅助脚本偏离同批多数版本（{drag_hash} ≠ {drag_base}，{drag_votes}/{len(files)} 票）")
 
-    print(f"Φ11 一致性检查：{len(files)} 个文件，组件 CSS {expected[0]}，功能脚本 {mother_script}。")
+    print(
+        f"Φ11 一致性检查：{len(files)} 个文件，组件 CSS {css_base}（{css_votes} 票），"
+        f"功能脚本 {mother_script}，拖拽脚本 {drag_base}（{drag_votes} 票）。"
+    )
 
 
 def main() -> int:
