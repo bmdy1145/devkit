@@ -18,6 +18,8 @@ diff 里几乎看不出来。
 
 from __future__ import annotations
 
+import hashlib
+import re
 import sys
 from pathlib import Path
 
@@ -48,6 +50,53 @@ FAIL_KB = 520
 problems: list[str] = []
 warnings: list[str] = []
 
+# SubMerge Pro Φ11 的 10 个版本共用同一份组件 CSS 与同一份功能脚本，
+# 差异只在 body.skin-* 令牌块、字体链接与辅助脚本。体积检查无法发现
+# 「只改了其中一份」这类漂移，故在此按目录做哈希一致性校验。
+PHI11_DIR = ROOT / "projects" / "submerge-pro" / "code" / "A1_II_Φ11"
+THEME_BLOCK_RE = re.compile(
+    r"        /\* -+ 主题：.*?\n        \}\n", re.S
+)
+
+
+def digest(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+
+
+def phi11_parts(path: Path) -> tuple[str, str]:
+    text = path.read_text(encoding="utf-8").replace("\r\n", "\n")
+    css = text[text.index("<style>") : text.index("</style>")]
+    # 去掉主题令牌块后，剩下的组件 CSS 应逐字一致。
+    component_css = THEME_BLOCK_RE.sub("", css)
+    start = text.index("<script>")
+    end = text.index("</script>", start) + len("</script>")
+    return digest(component_css), digest(text[start:end])
+
+
+def check_phi11_sources() -> None:
+    files = sorted(PHI11_DIR.glob("deepseek_*.html"))
+    if not files:
+        return
+    expected = phi11_parts(files[0])
+    mother = (
+        ROOT / "projects" / "submerge-pro" / "code" / "A1_II_Φ10"
+        / "deepseek_html_20261006_d1ca99_Fix.html"
+    )
+    mother_text = mother.read_text(encoding="utf-8").replace("\r\n", "\n")
+    ms = mother_text.index("<script>")
+    me = mother_text.index("</script>", ms) + len("</script>")
+    mother_script = digest(mother_text[ms:me])
+
+    for path in files:
+        rel = path.relative_to(ROOT).as_posix()
+        css_hash, script_hash = phi11_parts(path)
+        if css_hash != expected[0]:
+            problems.append(f"{rel}：组件 CSS 与同批 Φ11 版本不一致（{css_hash} ≠ {expected[0]}）")
+        if script_hash != expected[1] or script_hash != mother_script:
+            problems.append(f"{rel}：功能脚本与母本不一致（{script_hash}）")
+
+    print(f"Φ11 一致性检查：{len(files)} 个文件，组件 CSS {expected[0]}，功能脚本 {mother_script}。")
+
 
 def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
@@ -72,6 +121,8 @@ def main() -> int:
     print("最大的 3 个文件：")
     for rel, kb in sizes[:3]:
         print(f"  {kb:7.1f} KB  {rel}")
+
+    check_phi11_sources()
 
     for p in problems:
         print(f"[问题] {p}")
