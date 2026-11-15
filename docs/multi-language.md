@@ -56,6 +56,11 @@ DevKit 有 9 个皮肤，另有 1 个「九皮肤合一」版本：
 合并版把 9 套 CSS 用类名命名空间包起来，运行时切换 `<body>` 上的类，
 与现有 `themePref` / `theme` 机制一致。体积约为单皮肤的 2.3 倍（约 525 KB）。
 
+Writer `A1_I_Φ6` 同样采用「同主干并行皮肤」：`deepseek_A1_I_Φ6_<Variant>_CN.html`，
+变体词为 `Clean / Glass / Material / Minimal / Mono / Neon / Premium / Shadcn`，
+依据 `.claude/skills/<风格>/SKILL.md` 与 `DESIGN.md` 派生。每个文件内部
+自带 `dark / light / auto` 三态（`prefs.ui.themePref`），不做合并版。
+
 ---
 
 ## 构建

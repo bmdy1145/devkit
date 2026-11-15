@@ -166,9 +166,17 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │       ├── index.html               # 项目落地页（打开入口 + 数据安全提示）
 │       └── code/
 │           ├── index.html           # 代码 / 分支索引
-│           ├── A1_I_Φ6/             # 当前版本（写作统计与排版优化）
+│           ├── A1_I_Φ6/             # 当前版本（写作统计与排版优化 · 9 款皮肤）
 │           │   ├── index.html
-│           │   └── deepseek_A1_I_Φ6_CN.html
+│           │   ├── deepseek_A1_I_Φ6_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Mono_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Clean_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Glass_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Material_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Minimal_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Neon_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Premium_CN.html
+│           │   └── deepseek_A1_I_Φ6_Shadcn_CN.html
 │           ├── A1_I_Φ5/             # 小说人称转换器
 │           │   ├── index.html
 │           │   └── deepseek_A1_I_Φ5_CN.html
@@ -292,7 +300,7 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/dircleaner/code/A1_II_Φ8/` | A1_II_Φ8 应用文件 |
 | `/projects/writer/` | Writer 小说编辑器项目页 |
 | `/projects/writer/code/` | Writer 代码分支索引 |
-| `/projects/writer/code/A1_I_Φ6/` | A1_I_Φ6 应用文件（当前版本 · 写作统计与排版优化） |
+| `/projects/writer/code/A1_I_Φ6/` | A1_I_Φ6 应用文件（当前版本 · 写作统计与排版优化；含 8 款审美 Skill 皮肤，各支持深 / 浅 / 跟随系统） |
 | `/projects/writer/code/A1_I_Φ5/` | A1_I_Φ5 应用文件（人称转换器） |
 | `/projects/writer/code/A1_I_Φ4/` | A1_I_Φ4 应用文件（数据安全与并发修复） |
 | `/projects/writer/code/A1_I_Φ3/` | A1_I_Φ3 应用文件（逻辑与健壮性修复） |

@@ -166,9 +166,17 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │       ├── index.html               # Landing page (open link + data-safety notice)
 │       └── code/
 │           ├── index.html           # Code / branch index
-│           ├── A1_I_Φ6/             # Current version (writing stats & layout)
+│           ├── A1_I_Φ6/             # Current version (writing stats & layout · 9 skins)
 │           │   ├── index.html
-│           │   └── deepseek_A1_I_Φ6_CN.html
+│           │   ├── deepseek_A1_I_Φ6_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Mono_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Clean_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Glass_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Material_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Minimal_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Neon_CN.html
+│           │   ├── deepseek_A1_I_Φ6_Premium_CN.html
+│           │   └── deepseek_A1_I_Φ6_Shadcn_CN.html
 │           ├── A1_I_Φ5/             # POV converter
 │           │   ├── index.html
 │           │   └── deepseek_A1_I_Φ5_CN.html
@@ -292,7 +300,7 @@ The site entry is the **root-level** `index.html`, a **project picker**; each pr
 | `/projects/dircleaner/code/A1_II_Φ8/` | A1_II_Φ8 application file |
 | `/projects/writer/` | Writer novel-editor project page |
 | `/projects/writer/code/` | Writer code/branch index |
-| `/projects/writer/code/A1_I_Φ6/` | A1_I_Φ6 application file (current · writing stats & layout) |
+| `/projects/writer/code/A1_I_Φ6/` | A1_I_Φ6 application files (current · writing stats & layout; 8 Skill-based skins, each with dark / light / auto) |
 | `/projects/writer/code/A1_I_Φ5/` | A1_I_Φ5 application file (POV converter) |
 | `/projects/writer/code/A1_I_Φ4/` | A1_I_Φ4 application file (data safety fixes) |
 | `/projects/writer/code/A1_I_Φ3/` | A1_I_Φ3 application file (logic & robustness fixes) |
