@@ -69,7 +69,17 @@ The previous generation `A1_V_Φ8` is available **in parallel** with Φ9 under `
 
 ## Version Naming Scheme
 
-The project uses a "four base layers + cyclic extension" version scheme:
+Three schemes are supported; confirm one before starting (see `.claude/skills/devkit-spec/references/spec-prompt.md`):
+
+| Scheme | Form | Notes |
+|--------|------|-------|
+| **A · Multi-layer (default)** | `A1_V_Φ10_Refactor_CN` | Four base layers + cyclic extension; matches every existing version and Release tag in this repository |
+| **B · Numeric (SemVer)** | `v1.4.2_CN` | Major ↔ Roman-numeral layer, minor ↔ Φ layer, patch ↔ English-tag layer |
+| **C · Custom** | Agreed by the user and the AI | For projects with an existing scheme or a need to align with external systems |
+
+The rules below describe scheme A; schemes B and C keep the same language-suffix and variant-marker rules.
+
+Scheme A uses a "four base layers + cyclic extension" version scheme:
 
 | Layer | Identifier | Description |
 |-------|-----------|-------------|
