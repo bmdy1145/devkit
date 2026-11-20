@@ -9,7 +9,7 @@ versions are kept frozen for reference and rollback only.
 
 | Project | Current version | Supported |
 |---------|-----------------|-----------|
-| DevKit · AI developer toolkit | `A1_V_Φ10` (Refactor, single Premium theme) | ✅ |
+| DevKit · AI developer toolkit | `A1_VI_Φ1` (pre-refactor baseline, single default skin) | ✅ |
 | Writer · Novel editor | `A1_I_Φ6` (8 skins) | ✅ |
 | Persona · Character-profile editor | `A1_II_Φ15` (8 skins) | ✅ |
 | DirCleaner · Directory cleaner | `A1_II_Φ9` (8 themes) | ✅ |
@@ -40,7 +40,7 @@ pastes or imports.
 
 ## Attack Surface per Project
 
-### DevKit · `A1_V_Φ10`
+### DevKit · `A1_VI_Φ1`
 
 **Storage**: **not persisted.** Projects, tabs and settings live in memory only and are
 discarded when the page closes; persistence relies on manually exporting a JSON config.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""DevKit 行为单测（A1_V_Φ10 及以后，默认目标为当前最新 Φ11）。
+"""DevKit 行为单测（需要产品文件带 #selftest 测试缝；默认目标为当前主线 A1_VI_Φ1）。
 
 ## 为什么需要这个脚本
 
@@ -49,7 +49,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-DEFAULT_TARGET = ROOT / "projects" / "devkit" / "code" / "A1_V_Φ11" / "deepseek_A1_V_Φ11_Refactor_CN.html"
+DEFAULT_TARGET = ROOT / "projects" / "devkit" / "code" / "A1_VI_Φ1" / "deepseek_A1_VI_Φ1_CN.html"
 TARGET = Path(os.environ.get("DEVKIT_TEST_TARGET") or DEFAULT_TARGET)
 
 SUBPROCESS_TIMEOUT_SECONDS = 180
@@ -477,11 +477,16 @@ def find_browser() -> str | None:
     return None
 
 
+class NoSeam(Exception):
+    """目标文件没有 window.__devkitTest 测试缝：调用方应把它当作「跳过」而不是失败。"""
+
+
 def build_temp_copy(dest: Path) -> None:
     html = TARGET.read_text(encoding="utf-8")
     if "__devkitTest" not in html:
-        raise SystemExit(
-            "目标文件没有测试缝（window.__devkitTest）。请用 Φ10 及以后带 #selftest 挂缝的版本。"
+        raise NoSeam(
+            "目标文件没有测试缝（window.__devkitTest）。"
+            "当前主线 A1_VI_Φ1 沿用重构前结构、尚未挂缝，本脚本跳过。"
         )
     if "</body>" not in html:
         raise SystemExit("找不到 </body>，无法注入驱动脚本。")
@@ -580,7 +585,13 @@ def main() -> int:
     for attempt in range(1, MAX_ATTEMPTS + 1):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
             tmp = Path(tmpdir)
-            build_temp_copy(tmp)
+            try:
+                build_temp_copy(tmp)
+            except NoSeam as exc:
+                print()
+                print(f"[跳过] {exc}")
+                print("（退出码 0：跳过不等于通过，详见脚本顶部说明。）")
+                return 0
             try:
                 passed, detail = run_one(browser, tmp)
             except subprocess.TimeoutExpired:

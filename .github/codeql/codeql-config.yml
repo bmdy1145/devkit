@@ -42,12 +42,15 @@ paths-ignore:
   - "projects/devkit/code/A1_V_Φ8_fix-archive"
   - "projects/devkit/code/A1_V_Φ9_fix-archive"
 
-  # 已冻结的历史主干（当前受支持的是 A1_V_Φ9_Fix_Fix，见 projects/devkit/code/index.html）
+  # 已冻结的历史主干（当前受支持的是 A1_VI_Φ1，见 projects/devkit/code/index.html）
   - "projects/devkit/code/A1_V_Φ4"
   - "projects/devkit/code/A1_V_Φ5"
   - "projects/devkit/code/A1_V_Φ7"
   - "projects/devkit/code/A1_V_Φ8"
   - "projects/devkit/code/A1_V_Φ9"
+  - "projects/devkit/code/A1_V_Φ10"
+  - "projects/devkit/code/A1_V_Φ11"
+  - "projects/devkit/code/A1_V_Φ10_fix-archive"
 
   # submerge-pro 的原始归档件：文件名与内容都按「导入时的原样」保留，
   # 修它会破坏归档语义。其中 3 条 XSS 告警属此例，已知不做修改。

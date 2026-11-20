@@ -123,15 +123,41 @@ def local_trunks(project: str) -> list[str]:
     return sorted(p.name for p in d.iterdir() if is_trunk_dir(p))
 
 
+ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
+
+
+def roman_value(token: str) -> int:
+    """把罗马数字段转成数值；空串或非法串按 0 处理（视为「最老」）。"""
+    total, prev = 0, 0
+    for ch in reversed(token.upper()):
+        val = ROMAN_VALUES.get(ch, 0)
+        if val < prev:
+            total -= val
+        else:
+            total += val
+            prev = val
+    return total
+
+
+def trunk_sort_key(name: str) -> tuple[int, int, str]:
+    """主干排序键：先比罗马数字，再比 Φ 数字，最后按名字兜底。
+
+    只比 Φ 会选错主线：主线从 A1_V 递增到 A1_VI 后层号重置，
+    A1_VI_Φ1 的 Φ 比 A1_V_Φ11 小，但它是更新的一代。
+    """
+    parts = name.split("_")
+    roman = roman_value(parts[1]) if len(parts) > 1 else 0
+    m = PHI_RE.search(name)
+    phi = int(m.group(1)) if m else 0
+    return (roman, phi, name)
+
+
 def latest_trunk(project: str) -> str | None:
-    """按 Φ 数字取最大的主干；没有 Φ 时退化为字典序最大的那个。"""
+    """取最新的主干：先比罗马数字、再比 Φ 数字；都没有时退化为字典序最大的那个。"""
     trunks = local_trunks(project)
     if not trunks:
         return None
-    with_phi = [(int(m.group(1)), t) for t in trunks if (m := PHI_RE.search(t))]
-    if with_phi:
-        return max(with_phi)[1]
-    return max(trunks)
+    return max(trunks, key=trunk_sort_key)
 
 
 def tag_prefix(project: str) -> str:

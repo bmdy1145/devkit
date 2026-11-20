@@ -136,10 +136,11 @@ B-1 至 B-3 改完各自点 **Save（保存）**。
 |---|---|
 | 规则集名称 | `tag-protection` |
 | 强制执行状态 | 活动 → Active |
-| 目标标签 → Target tags | **按模式包含 → Include by pattern**，填 `A1_V_*` |
+| 目标标签 → Target tags | **按模式包含 → Include by pattern**，填 `A1_V*` |
 | 勾选规则 | **限制删除 → Restrict deletions**、**阻止强制推送 → Block force pushes** |
 
-> pattern 用 `A1_V_*` 而不是常见的 `v*`：本项目的发布标签以主干名开头（`A1_V_Φ8`、`A1_V_Φ8.1`……），`v*` 一个都匹配不到，按原样配置等于这条规则保护不到任何东西。
+> pattern 用 `A1_V*` 而不是常见的 `v*`：本项目的发布标签以主干名开头（`A1_V_Φ8`、`A1_V_Φ8.1`、`A1_VI_Φ1`……），`v*` 一个都匹配不到。
+> 注意必须是 `A1_V*` 而**不是** `A1_V_*`——后者要求 `V` 后紧跟下划线，匹配不到罗马数字递增后的 `A1_VI_Φ1`。
 
 > **⚠️ 不要勾「限制创建 → Restrict creations」。** 发布标签由 `release-on-main.yml` 里的 Actions 自动创建，勾上这一项会用机器人令牌建不了标签，表现为「推送 main 后没有发布」且报错不明显。只勾「限制删除」与「阻止强制推送」即可；若确实需要限制创建，必须把 GitHub Actions 加进绕过列表。
 

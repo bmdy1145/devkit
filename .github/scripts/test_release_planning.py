@@ -253,6 +253,69 @@ class TestArchiveDirsAreNotTrunks(unittest.TestCase):
         finally:
             ar.PROJECTS_DIR = original
 
+    def test_latest_trunk_ranks_roman_before_phi(self):
+        """回归：主线从 A1_V 递增到 A1_VI 后层号重置，A1_VI_Φ1 必须赢过 A1_V_Φ11。
+
+        只按 Φ 数字排序会把 Φ1 当成最老的，导致「只改索引页」的推送
+        把无功能更新发到已冻结的重构线上。
+        """
+        original = ar.PROJECTS_DIR
+        try:
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp_root = Path(tmp)
+                code = tmp_root / "demo" / "code"
+                (code / "A1_V_Φ11").mkdir(parents=True)
+                (code / "A1_V_Φ9_Fix_Fix").mkdir()
+                (code / "A1_VI_Φ1").mkdir()
+                ar.PROJECTS_DIR = tmp_root
+                self.assertEqual(ar.latest_trunk("demo"), "A1_VI_Φ1")
+        finally:
+            ar.PROJECTS_DIR = original
+
+    def test_latest_trunk_same_phi_different_roman(self):
+        """同一 Φ 号下，罗马数字更大的一代更新。"""
+        original = ar.PROJECTS_DIR
+        try:
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp_root = Path(tmp)
+                code = tmp_root / "demo" / "code"
+                (code / "A1_V_Φ1").mkdir(parents=True)
+                (code / "A1_VI_Φ1").mkdir()
+                ar.PROJECTS_DIR = tmp_root
+                self.assertEqual(ar.latest_trunk("demo"), "A1_VI_Φ1")
+        finally:
+            ar.PROJECTS_DIR = original
+
+    def test_roman_value_parsing(self):
+        self.assertEqual(ar.roman_value("I"), 1)
+        self.assertEqual(ar.roman_value("V"), 5)
+        self.assertEqual(ar.roman_value("VI"), 6)
+        self.assertEqual(ar.roman_value("IX"), 9)
+        self.assertEqual(ar.roman_value("XIV"), 14)
+        self.assertEqual(ar.roman_value(""), 0)
+        self.assertEqual(ar.roman_value("Z"), 0)
+
+    def test_index_only_change_targets_new_roman_trunk(self):
+        """只改 code/index.html 时，无功能更新应发给 A1_VI_Φ1 而非已冻结的 Φ11。"""
+        original = ar.PROJECTS_DIR
+        try:
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp_root = Path(tmp)
+                code = tmp_root / "demo" / "code"
+                (code / "A1_V_Φ11").mkdir(parents=True)
+                (code / "A1_VI_Φ1").mkdir()
+                ar.PROJECTS_DIR = tmp_root
+                targets, _ = ar.plan_auto([f("projects/demo/code/index.html")])
+                self.assertEqual(targets, [("demo", "A1_VI_Φ1", "no_changes")])
+        finally:
+            ar.PROJECTS_DIR = original
+
     def test_archive_file_change_does_not_release_archive(self):
         original = ar.PROJECTS_DIR
         try:
