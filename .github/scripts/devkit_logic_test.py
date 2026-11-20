@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""DevKit 行为单测（A1_V_Φ10 及以后）。
+"""DevKit 行为单测（A1_V_Φ10 及以后，默认目标为当前最新 Φ11）。
 
 ## 为什么需要这个脚本
 
@@ -49,7 +49,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-DEFAULT_TARGET = ROOT / "projects" / "devkit" / "code" / "A1_V_Φ10" / "deepseek_A1_V_Φ10_Refactor_CN.html"
+DEFAULT_TARGET = ROOT / "projects" / "devkit" / "code" / "A1_V_Φ11" / "deepseek_A1_V_Φ11_Refactor_CN.html"
 TARGET = Path(os.environ.get("DEVKIT_TEST_TARGET") or DEFAULT_TARGET)
 
 SUBPROCESS_TIMEOUT_SECONDS = 180
@@ -339,10 +339,64 @@ DRIVER = r"""
            'data: 协议应被判为不安全');
 
         /* ---------- 12. 常量一致性 ---------- */
-        ok(T.CURRENT_VERSION === 'A1_V_Φ10_Refactor_CN',
-           'CURRENT_VERSION 应为 Φ10 重构版', T.CURRENT_VERSION);
+        ok(T.CURRENT_VERSION === 'A1_V_Φ11_Refactor_CN',
+           'CURRENT_VERSION 应为 Φ11 修复版', T.CURRENT_VERSION);
         ok(T.isCompatibleVersion(T.CURRENT_VERSION),
            'CURRENT_VERSION 自身应被判为兼容');
+
+        /* ---------- 13. 版本说明：折叠全部不得隐藏条目自身 ---------- */
+        T.App.showVersionHistory();
+        var items = T.App.versionHistoryItems;
+        var roots = items.filter(function (it) { return it._depth === 0; });
+        ok(roots.length > 1, '版本结构应有多条顶层条目', String(roots.length));
+        var firstRootRow = document.querySelector('.vh-item[data-index="' + items.indexOf(roots[0]) + '"]');
+        ok(!!firstRootRow, '顶层条目应有对应 DOM 行');
+        var firstRootBody = firstRootRow && firstRootRow.querySelector('.vh-body');
+        ok(!!firstRootBody && getComputedStyle(firstRootBody).display !== 'none',
+           '展开态下顶层条目应显示版本与说明');
+
+        document.getElementById('vhCollapseAll').click();
+        var rootBodyAfter = firstRootRow.querySelector('.vh-body');
+        ok(getComputedStyle(rootBodyAfter).display !== 'none',
+           '折叠全部后条目自身的版本与说明仍应可见（Φ10 回归点）',
+           getComputedStyle(rootBodyAfter).display);
+        ok(firstRootRow.querySelector('.vh-toggle').textContent === '▶',
+           '折叠全部后箭头应变为 ▶');
+        var visibleRows = [].filter.call(document.querySelectorAll('.vh-item'), function (r) {
+            return r.style.display !== 'none';
+        });
+        ok(visibleRows.length === roots.length,
+           '折叠全部后应恰好只显示顶层条目', visibleRows.length + '/' + roots.length);
+
+        document.getElementById('vhExpandAll').click();
+        var visibleAfterExpand = [].filter.call(document.querySelectorAll('.vh-item'), function (r) {
+            return r.style.display !== 'none';
+        });
+        ok(visibleAfterExpand.length === items.length,
+           '展开全部后应恢复显示全部条目', visibleAfterExpand.length + '/' + items.length);
+        T.getService('modal').close('versionHistoryModal');
+
+        /* ---------- 14. 顶栏下拉菜单必须能展开 ---------- */
+        var menuPairs = [
+            { btn: 'themeBtn', menu: 'themeMenu', label: '主题' },
+            { btn: 'toggleShortcuts', menu: 'shortcutHintMenu', label: '快捷键' }
+        ];
+        menuPairs.forEach(function (pair) {
+            var btn = document.getElementById(pair.btn);
+            var menu = document.getElementById(pair.menu);
+            ok(!!btn && !!menu, pair.label + '菜单应存在');
+            if (!btn || !menu) return;
+            ok(menu.hidden === true, pair.label + '菜单初始应为收起', String(menu.hidden));
+            btn.click();
+            ok(menu.hidden === false, pair.label + '菜单点击后应展开（Φ10 回归点）', String(menu.hidden));
+            ok(getComputedStyle(menu).display !== 'none',
+               pair.label + '菜单展开后应实际可见', getComputedStyle(menu).display);
+            ok(menu.getBoundingClientRect().width > 0,
+               pair.label + '菜单展开后应有非零宽度',
+               String(Math.round(menu.getBoundingClientRect().width)));
+            btn.click();
+            ok(menu.hidden === true, pair.label + '菜单再次点击应收起');
+        });
 
         finish();
     }

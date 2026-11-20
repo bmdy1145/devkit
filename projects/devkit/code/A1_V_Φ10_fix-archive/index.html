@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A1_V_Φ10 原始版本归档 · DevKit</title>
+<meta name="description" content="DevKit A1_V_Φ10 未修复版本的归档。">
+<!--
+    ============================================================
+    项目名称：AI 开发快捷工具箱（DevKit）· 站点外壳
+    文件性质：GitHub Pages 目录索引（/projects/devkit/code/A1_V_Φ10_fix-archive/）。
+              不属于 DevKit 应用的版本架构，不占用版本号。
+    职责：保存 A1_V_Φ10 的未修复版本，供对照与回退。
+    日期：2026-11-21
+    版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
+    许可证：GPLv3
+    ============================================================
+    维护提示：本目录为冻结归档，不再新增文件。当前迭代层见
+              ../A1_V_Φ11/（A1_V_Φ11_Refactor）。
+    约定：href 中的 Φ 一律用百分号编码 %CE%A6，页面显示文字仍写 Φ。
+    ============================================================
+-->
+<style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+        --tone: 187, 243, 81; --tone2: 0, 188, 255; --tint: 10, 12, 17;
+        --text: #e9f2ec; --text2: #8b9aa6; --primary: #bbf351;
+        --primary-fg: #08090d; --edge: 0.24; --radius: 10px;
+        --mono: ui-monospace, 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+        min-height: 100vh;
+        font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, 'Microsoft YaHei', sans-serif;
+        color: var(--text);
+        background:
+            radial-gradient(1100px 700px at 10% -14%, rgba(187,243,81,0.10), transparent 58%),
+            radial-gradient(900px 620px at 96% 2%, rgba(0,188,255,0.09), transparent 60%),
+            #08090d;
+        background-attachment: fixed;
+        line-height: 1.6;
+        padding: 56px 24px 72px;
+        display: flex; justify-content: center;
+    }
+    .wrap { width: 100%; max-width: 880px; }
+    nav.crumbs { font-family: var(--mono); font-size: 0.78rem; color: var(--text2); margin-bottom: 20px; letter-spacing: 0.02em; }
+    nav.crumbs a { color: var(--text2); text-decoration: none; }
+    nav.crumbs a:hover { color: var(--primary); }
+    nav.crumbs a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    nav.crumbs .sep { opacity: 0.45; margin: 0 6px; }
+    nav.crumbs .here { color: var(--primary); }
+    h1 { font-family: var(--mono); font-size: 1.35rem; font-weight: 600; color: var(--primary);
+         text-shadow: 0 0 18px rgba(var(--tone), 0.55); margin-bottom: 6px; word-break: break-all; }
+    .sub { color: var(--text2); font-size: 0.88rem; margin-bottom: 32px; }
+    h2 { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em;
+         color: var(--text2); font-family: var(--mono); margin-bottom: 12px;
+         display: flex; align-items: center; gap: 10px; }
+    h2::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(var(--tone), 0.4), transparent); }
+    .card {
+        display: block; text-decoration: none; color: inherit;
+        background: rgba(var(--tint), 0.90);
+        border: 1px dashed rgba(var(--tone), var(--edge));
+        border-radius: var(--radius); padding: 18px 20px;
+        box-shadow: 0 0 0 1px rgba(var(--tone), var(--edge));
+        transition: border-color 0.2s, transform 0.2s;
+    }
+    .card + .card { margin-top: 12px; }
+    .card:hover { border-color: rgba(var(--tone), 0.55); transform: translateY(-2px); }
+    .card:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+    .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .ver { font-family: var(--mono); font-size: 1rem; font-weight: 600; color: var(--primary);
+           text-shadow: 0 0 14px rgba(var(--tone), 0.55); word-break: break-all; }
+    .card-go { font-size: 0.8rem; color: var(--text2); white-space: nowrap; }
+    .card:hover .card-go { color: var(--primary); }
+    .card-desc { display: block; font-size: 0.85rem; color: var(--text2); margin-top: 6px; }
+    .meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .chip { font-family: var(--mono); font-size: 0.72rem; color: var(--text2);
+            border: 1px solid rgba(var(--tone), 0.25); border-radius: 999px; padding: 1px 10px; }
+    .chip.lang { border-color: rgba(var(--tone2), 0.35); color: #7fd8ff; }
+    .filename { display: block; margin-top: 12px; font-family: var(--mono); font-size: 0.74rem;
+                color: var(--text2); opacity: 0.75; word-break: break-all; }
+    footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid rgba(var(--tone), 0.16);
+             font-size: 0.78rem; color: var(--text2); display: flex; justify-content: space-between;
+             gap: 16px; flex-wrap: wrap; }
+    footer a { color: var(--text2); text-decoration: none; border-bottom: 1px solid rgba(var(--tone), 0.35); }
+    footer a:hover { color: var(--primary); border-bottom-color: var(--primary); }
+    footer a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; } }
+    @media (max-width: 560px) { body { padding: 36px 16px 48px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+    <nav class="crumbs" aria-label="面包屑导航">
+        <a href="../../">DevKit</a><span class="sep">/</span><a href="../">code</a><span class="sep">/</span><a href="../A1_V_%CE%A610/">A1_V_Φ10</a><span class="sep">/</span><span class="here">fix-archive</span>
+    </nav>
+
+    <h1>A1_V_Φ10 原始版本归档</h1>
+    <p class="sub">A1_V_Φ10 的未修复版本，冻结保存供对照与回退。当前迭代层为 <a href="../A1_V_%CE%A611/">A1_V_Φ11_Refactor</a>（2026-11-21，修复两处交互回归）。</p>
+
+    <h2>归档列表</h2>
+
+    <a class="card" href="deepseek_A1_V_%CE%A610_Refactor_CN.html">
+        <span class="card-top">
+            <span class="ver">A1_V_Φ10_Refactor_CN</span>
+            <span class="card-go">打开 →</span>
+        </span>
+        <span class="card-desc">重构版 · Premium 视觉（深 / 浅双主题）。因两处交互回归被 Φ11 取代：版本说明「折叠全部」会连条目自身的版本与说明一起隐藏；顶栏「主题」「快捷键」下拉菜单无法展开。保留供对照与回退。</span>
+        <span class="meta">
+            <span class="chip">2026-11-15</span>
+            <span class="chip">单文件 HTML</span>
+            <span class="chip lang">中文版 _CN</span>
+        </span>
+        <span class="filename">deepseek_A1_V_Φ10_Refactor_CN.html</span>
+    </a>
+
+    <footer>
+        <span>Copyright (C) 2026-至今 北冥的鱼, DeepSeek · GPLv3</span>
+        <span><a href="../A1_V_%CE%A611/">← 当前 A1_V_Φ11_Refactor</a> · <a href="../">← 返回 code 目录</a></span>
+    </footer>
+
+</div>
+</body>
+</html>
