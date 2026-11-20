@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> 本文件有两份副本：仓库根 `CLAUDE.md` 与会话工作区外层的 `CLAUDE.md`（`D:\dai\ccworks\htmls\CLAUDE.md`）。除下方 `@` 导入路径外，两份内容保持一致，改动须同步。
+> 本文件有两份副本：仓库内 `.repo-git/CLAUDE.md` 与会话工作区外层 `D:\dai\ccworks\htmls\CLAUDE.md`。除下方 `@` 导入路径外，两份内容保持一致，改动须同步。
 
 ## 工作约定
 
@@ -77,8 +77,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `python .github/scripts/start_prompt_test.py` | Persona 起始提示词与多轮回复 |
 | `python .github/scripts/test_release_planning.py` | 自动发布决策单测 |
 
-- 跑全部单测：`python -m unittest discover -s .github/scripts -p 'test_*.py'`。
-- 需要浏览器的脚本：Chrome 不在 PATH 时设 `CHROME_BIN="/c/Program Files/Google/Chrome/Application/chrome.exe"`；`version_guard.py` 另需 `node`（v26 已装）。
+- 跑发布决策单测：`python -m unittest discover -s .github/scripts -p 'test_*.py'`。该模式**只匹配 `test_release_planning.py`**；其余四个 `*_test.py` 是独立脚本而非 unittest 用例，需逐个 `python .github/scripts/<名字>.py` 执行。
+- 需要浏览器的脚本（`smoke_test` / `devkit_logic_test` / `snapshot_other_test` / `share_image_test` / `start_prompt_test`）：Chrome 不在 PATH 时设 `CHROME_BIN`（Git Bash 下用 Windows 风格路径 `C:/Program Files/Google/Chrome/Application/chrome.exe`；`/c/...` 形式在部分脚本里传不到浏览器）；`version_guard.py` 另需 `node`（v26 已装）。
 - 这些检查在 CI 上**只报告、不拦截**（`repo-checks.yml`、`version-guard.yml`）。
 - Git Bash 会把 `rev:path` 里的 `/` 当路径转换，含这种参数的 git 命令前先 `export MSYS_NO_PATHCONV=1`。
 - 多语言实现（`implementations/`）本地构建前先 `source toolchains.env`；EXE 产物不入库、只作 Release 附件，实际构建由 Actions 完成。
@@ -86,8 +86,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 架构要点
 
 - **发布根 = 仓库根**。GitHub Pages 从 `main` 根目录发布（`/ (root)` + `.nojekyll`）；根 `index.html` 是项目选择台，逐层进入项目页。Pages 不生成目录列表，`projects/`、各项目、各主干目录都必须有显式 `index.html`。
-- **交付物是自包含单文件 HTML**：`projects/<项目>/code/<主干>/deepseek_<版本号>.html`，无构建、无后端；唯一允许的外部资源是 Google Fonts，CSP 只放行自身脚本与字体。新增文件必须同时登记到所在目录的 `index.html`，否则 `link_check` 报失效链接。
-- **五个项目**：`devkit` / `submerge-pro` / `dircleaner` / `writer` / `persona`，版本号规则各项目自定。`version_guard.py` 只覆盖 `devkit` / `writer` / `persona`——另两个项目的产物文件名（`deepseek_html_<日期>_<随机>`）与 `CURRENT_VERSION` 约定不符，硬套全是误报。
+- **交付物是自包含单文件 HTML**：`projects/<项目>/code/<主干>/deepseek_<版本号>.html`，无构建、无后端；唯一对外**加载**的外部资源是 Google Fonts（CSP 只放行自身脚本与字体域），页面里的 AI 站点地址仅为超链接、不产生请求。新增文件必须同时登记到所在目录的 `index.html`，否则无法从目录页进入（`link_check` 只查「链接指向的文件存在」，不查「文件是否被引用」，漏登记不会报错）。
+- **五个项目**：`devkit` / `submerge-pro` / `dircleaner` / `writer` / `persona`，版本号规则各项目自定。`version_guard.py` 只覆盖 `devkit` / `writer` / `persona`——`dircleaner` 与 `submerge-pro` 的产物均没有 `CURRENT_VERSION` 字段（`dircleaner` 的早期文件还是 `deepseek_html_<日期>_<随机>.html` 命名），硬套四处一致性检查全是误报。
 - **版本文件四处自洽**：文件名 ⟷ 文件头「版本代号」⟷ `CURRENT_VERSION` ⟷ 版本结构块「当前最新版本」，`version_guard` 强制一致。文件内 `VERSION_HISTORY` 是自动发布说明的唯一来源（`make_release_notes.py` 解析它），改版本时必须同步追加。
 - **版本命名规范**：DevKit 的版本架构（层级 / 循环扩展 / 变体标识 / `_CN` / `_GLOBAL` 语言后缀）完整正文在 `.claude/skills/devkit-spec/`（`SKILL.md` + `references/`），README「版本命名体系」是摘要。改版本号前先读技能里的现行规范，不要凭记忆。
 - **DevKit 应用内部分层（Φ10 起）**：Constants → Domain（纯逻辑、不碰 DOM：`PromptBuilder` / `VersionService` / `ProjectModel`）→ Store（单一状态树 + `dispatch` / `subscribe`）→ Services（读写 Store，不碰 DOM）→ UI（视图只渲染、事件转 dispatch）→ App（只装配）。新功能按此分层放，不要跨层。
