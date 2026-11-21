@@ -14,6 +14,7 @@
 | 仓库所有者 | `@bmdy1145`（admin）、`@nahida38454`（write） |
 | Actions | **已启用**，校验工作流已在 PR 上成功运行 |
 | 必需状态检查 → Require status checks to pass | **暂不启用**，理由见下 |
+| 标签保护（tag ruleset） | **未创建**（2026-11-21 核实：仓库仅 `main-protection` 一条分支规则集，无标签规则；旧版 tag protection API 返回 404）。全部发布标签目前无删除/强推保护，属现状而非疏漏；加固步骤见「手册 D」 |
 | 不可变发布 → Immutable Releases | **已开启**（2026-11-06 起观察到，见下方专节） |
 
 **绕过的实际后果**：`@bmdy1145` 是仓库管理员，可绕过规则直推；`@nahida38454` 只是 write 角色，**绕不过**，它的推送一律受规则约束。这正是把绕过限定为"仓库管理员"而非"所有人"的意义。
@@ -128,7 +129,16 @@ B-1 至 B-3 改完各自点 **Save（保存）**。
 
 ---
 
-# 手册 D · 给版本标签加保护（可选）
+# 手册 D · 给版本标签加保护（可选 · **当前未启用**）
+
+> **现状（2026-11-21 核实）**：本仓库目前只有 **1 条** ruleset——`main-protection`，
+> 目标是**分支**（仅 `~DEFAULT_BRANCH`），规则为 deletion / non_fast_forward /
+> pull_request / required_linear_history。**没有任何标签规则集**，旧版
+> tag protection API 也返回 404。也就是说，现有全部发布标签（含 `A1_V_Φ8`、
+> `A1_V_Φ9_Fix_Fix`、`A1_V_Φ10` 等）都没有删除或强推保护。
+>
+> 本节描述的是**尚未执行的可选加固步骤**，不是仓库的既有配置。若日后要启用，
+> 按下表操作；不启用则维持现状即可。
 
 **Rules → Rulesets → New ruleset → New tag ruleset（新建标签规则集）**
 
