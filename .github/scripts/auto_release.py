@@ -58,6 +58,7 @@ PROJECTS_DIR = ROOT / "projects"
 # DevKit 是仓库的主项目，标签历史上一直是裸主干名，不加前缀
 DEVKIT = "devkit"
 PHI_RE = re.compile(r"Φ(\d+)")
+ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
 
 
 def api(method: str, url: str, token: str, payload: dict | None = None):
@@ -121,9 +122,6 @@ def local_trunks(project: str) -> list[str]:
     if not d.is_dir():
         return []
     return sorted(p.name for p in d.iterdir() if is_trunk_dir(p))
-
-
-ROMAN_VALUES = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
 
 
 def roman_value(token: str) -> int:
