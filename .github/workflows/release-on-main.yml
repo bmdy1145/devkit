@@ -1,11 +1,11 @@
 # main 一更新就自动发布（按项目分别发布）
 #
-# 每次推送到 main 都产生 Release，且**按项目分别判定**：
-#   · 只给「本次推送真正改动到的项目 · 主干」发 Release
-#   · 某项目只改了 code/ 下的索引页、没动主干，才给它最新主干发一个
-#     「无功能更新」的 Release；DevKit 不会被 Writer 的提交牵连
-#   · 标签命名：DevKit 沿用裸主干名（A1_V_Φ8、A1_V_Φ8.1……）；
-#     其他项目加项目前缀（writer/A1_I_Φ2、writer/A1_I_Φ2.1……），避免
+# 每次推送到 main，**按项目分别判定**：
+#   · 只给「本次推送真正改动到交付物的项目 · 主干」发 Release
+#   · 索引页（任意层级 index.html）、目录页、README 这类非交付物改动
+#     **不发 Release**；DevKit 也不会被 Writer 的提交牵连
+#   · 标签命名：DevKit 沿用裸主干名（A1_VI_Φ1、A1_VI_Φ1.1……）；
+#     其他项目加项目前缀（writer/A1_I_Φ6、writer/A1_I_Φ6.1……），避免
 #     不同项目的 Φ 号相撞（dircleaner 与 submerge-pro 都从 Φ 号命名）
 #
 # 另有手动触发入口（workflow_dispatch）：填项目名 + 主干名即可补发一个 Release，

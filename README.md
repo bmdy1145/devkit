@@ -28,7 +28,10 @@ DevKit 是一个**纯 HTML 单文件**的本地开发辅助工具，直接用浏
 - **文件快捷命名**：选择目录后按 `Deepseek_ + 自定义内容 + 原后缀` 重命名
 - **快捷键**：`Esc` 关闭当前弹窗
 
-## 视觉皮肤
+## 视觉皮肤（历史主干 A1_V_Φ9_Fix_Fix · 九套）
+
+> **当前主干 `A1_VI_Φ1` 只有一套默认皮肤。** 本节记录的是上一个交付主干
+> `A1_V_Φ9_Fix_Fix` 的九套皮肤，它们仍完整保留、可直接打开，但不再随主线迭代。
 
 同一份功能代码配了九套皮肤，各自是一个独立的单文件版本，互不影响：
 
@@ -44,7 +47,7 @@ DevKit 是一个**纯 HTML 单文件**的本地开发辅助工具，直接用浏
 | `A1_V_Φ9_Glass_Fix_CN` | 毛玻璃：半透明叠层 + 背景模糊 + 发光描边 | 暗色玻璃 / 亮色玻璃 / 跟随系统 |
 | `A1_V_Φ9_Fix_CN` | 基准皮肤（无皮肤，数字主题体系） | 原 theme 主题体系 |
 
-九者同属主干 `A1_V_Φ9`，当前迭代层为 **Fix**。Φ9 的增量改动是**「关于 DevKit」弹窗（点击左上角 DevKit 字样打开）新增 Pages 站点首页链接**，并同步改造站点项目页：顶部新增「九款皮肤 · 直接打开」区块，从站点首页进入应用由三次点击降为两次。
+九者同属主干 `A1_V_Φ9`，迭代层为 **Fix**（该主干为历史代，当前主线已切到 `A1_VI_Φ1`）。Φ9 的增量改动是**「关于 DevKit」弹窗（点击左上角 DevKit 字样打开）新增 Pages 站点首页链接**，并同步改造站点项目页：顶部新增「九款皮肤 · 直接打开」区块，从站点首页进入应用由三次点击降为两次。
 
 Φ9_Fix 的改动是**集中修复 43 项缺陷**（在 Φ9 上追加第四层英文标识 `Fix`，Φ 数字不递增），九款皮肤同批产出：A 功能缺陷 12 项（首次运行主题按钮无绑定、全量导出缺 `version`、复制失败假成功、右键菜单不关闭且可能操作错项目、命名工具删不掉原文件、触屏误关项目、循环扩展层版本号误判、`window.open` 失去用户激活、导入 AI 站点不刷新、导入前不保存编辑区等）、B 视觉缺陷 8 项（Shadcn 主色前景色被二次 `hsl()` 包裹导致文字几乎不可见、激活态被 hover/隐藏文字规则覆盖、多处对比度不足等）、C 无障碍 5 项（键盘可达、焦点陷阱与焦点归还、aria 状态）、D 健壮性 18 项（导入字段类型与页签类型校验、异步回调竞态、导出指纹误报、菜单互斥、右键菜单视口收敛等）。未修复的 Φ9 原始版本移入 `projects/devkit/code/A1_V_Φ9_fix-archive/`。
 
@@ -119,7 +122,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 │   │       ├── index.html                   # 分支目录索引
 │   │       ├── A1_VI_Φ1/                    # 当前主干（重构前基线，单套默认皮肤）
 │   │       ├── A1_V_Φ11/                    # 重构线末代（已冻结，Premium 单套）
-│   │       ├── A1_V_Φ10/                    # 重构线起点（已归档，见 A1_V_Φ10_fix-archive）
+│   │       ├── A1_V_Φ10/                    # 重构线起点（本目录仅余索引页）
+│   │       ├── A1_V_Φ10_fix-archive/        # Φ10 原始版本归档（含两处交互回归）
 │   │       ├── A1_V_Φ9_Fix_Fix/             # 上一个交付主干（Fix_Fix 层，九款皮肤）
 │   │       ├── A1_V_Φ9/                     # 上一迭代层（Fix）
 │   │       │   ├── index.html                              # 本分支版本列表
@@ -299,7 +303,7 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 
 - 每个项目自带一个 `index.html` 作为该项目落地页；项目内部的目录结构与版本号规则**由该项目自定**，仓库不为它们设统一规范。
 - 仓库根 `index.html` 是**项目选择台**，只负责列出全部项目入口。
-- `docs/`（协作约定）与 `.github/`（自动化）是**跨项目通用**的。`auto_release.py` 与 `make_release_notes.py` 已按项目分别发布：DevKit 的标签沿用裸主干名（`A1_V_Φ9.4`），其他项目的标签加项目前缀（`writer/A1_I_Φ4`）避免 Φ 号相撞；`version_guard.py` 覆盖 DevKit、Writer 与 Persona；`size_guard.py` 与 `smoke_test.py` 已改为按 `projects/*/code/*/deepseek_*.html` 自动发现，新增项目无需登记。
+- `docs/`（协作约定）与 `.github/`（自动化）是**跨项目通用**的。`auto_release.py` 与 `make_release_notes.py` 已按项目分别发布：DevKit 的标签沿用裸主干名（`A1_VI_Φ1`、`A1_VI_Φ1.1`……），其他项目的标签加项目前缀（`writer/A1_I_Φ6`）避免 Φ 号相撞；`version_guard.py` 覆盖 DevKit、Writer 与 Persona；`size_guard.py` 与 `smoke_test.py` 已改为按 `projects/*/code/*/deepseek_*.html` 自动发现，新增项目无需登记。
 - 当前托管 `devkit`、`submerge-pro`、`dircleaner`、`writer` 与 `persona` 五个项目；新增项目放入 `projects/<名称>/`，并更新根目录项目选择台和 `projects/index.html`。SubMerge Pro 当前主干为 `A1_II_Φ11`，9 个独立主题版本（8 款审美风格 + 原版基准）与 1 份九合一运行时切换版共用同一套功能代码；八款风格按各自 DESIGN.md 经 Google Fonts 精确加载字体，离线自动回落系统字体。
 
 ### Pages 部署说明
@@ -314,7 +318,8 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/devkit/code/` | DevKit 分支目录（VI_Φ1 / Φ11 / Φ10 / Φ9 / Φ8 / Φ7 / Φ5 / Φ4） |
 | `/projects/devkit/code/A1_VI_Φ1/` | 当前主干的版本列表（重构前基线，单套默认皮肤） |
 | `/projects/devkit/code/A1_V_Φ11/` | 重构线末代（已冻结） |
-| `/projects/devkit/code/A1_V_Φ10/` | 重构线起点（原始版本已归档） |
+| `/projects/devkit/code/A1_V_Φ10/` | 重构线起点（本目录仅余索引页） |
+| `/projects/devkit/code/A1_V_Φ10_fix-archive/` | Φ10 原始版本归档（含两处交互回归，供对照与回退） |
 | `/projects/devkit/code/A1_V_Φ9_Fix_Fix/` | 上一个交付主干（九套皮肤，Fix_Fix 层） |
 | `/projects/devkit/code/A1_V_Φ9/` | 上一迭代层（九套皮肤，Fix 层） |
 | `/projects/devkit/code/A1_V_Φ9_fix-archive/` | Φ9 原始版本归档（九款未修复版本，供对照与回退） |

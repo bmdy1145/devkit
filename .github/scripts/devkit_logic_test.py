@@ -339,8 +339,9 @@ DRIVER = r"""
            'data: 协议应被判为不安全');
 
         /* ---------- 12. 常量一致性 ---------- */
-        ok(T.CURRENT_VERSION === 'A1_V_Φ11_Refactor_CN',
-           'CURRENT_VERSION 应为 Φ11 修复版', T.CURRENT_VERSION);
+        // 期望值由 Python 侧按目标文件名注入，升级版本时不必改这里
+        ok(T.CURRENT_VERSION === '__EXPECTED_VERSION__',
+           'CURRENT_VERSION 应与文件名版本一致', T.CURRENT_VERSION);
         ok(T.isCompatibleVersion(T.CURRENT_VERSION),
            'CURRENT_VERSION 自身应被判为兼容');
 
@@ -481,6 +482,11 @@ class NoSeam(Exception):
     """目标文件没有 window.__devkitTest 测试缝：调用方应把它当作「跳过」而不是失败。"""
 
 
+def expected_version() -> str:
+    """从目标文件名推导期望的版本号（deepseek_<版本>.html）。"""
+    return TARGET.stem.removeprefix("deepseek_")
+
+
 def build_temp_copy(dest: Path) -> None:
     html = TARGET.read_text(encoding="utf-8")
     if "__devkitTest" not in html:
@@ -490,7 +496,8 @@ def build_temp_copy(dest: Path) -> None:
         )
     if "</body>" not in html:
         raise SystemExit("找不到 </body>，无法注入驱动脚本。")
-    html = html.replace("</body>", DRIVER + "</body>", 1)
+    driver = DRIVER.replace("__EXPECTED_VERSION__", expected_version())
+    html = html.replace("</body>", driver + "</body>", 1)
     (dest / "index.html").write_text(html, encoding="utf-8")
 
 

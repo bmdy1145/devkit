@@ -91,7 +91,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **版本文件四处自洽**：文件名 ⟷ 文件头「版本代号」⟷ `CURRENT_VERSION` ⟷ 版本结构块「当前最新版本」，`version_guard` 强制一致。文件内 `VERSION_HISTORY` 是自动发布说明的唯一来源（`make_release_notes.py` 解析它），改版本时必须同步追加。
 - **版本命名规范**：DevKit 的版本架构（层级 / 循环扩展 / 变体标识 / `_CN` / `_GLOBAL` 语言后缀）完整正文在 `.claude/skills/devkit-spec/`（`SKILL.md` + `references/`），README「版本命名体系」是摘要。改版本号前先读技能里的现行规范，不要凭记忆。
 - **DevKit 应用内部分层**：当前主线 `A1_VI_Φ1` 沿用重构前的 EventBus / Store / Services / UI 结构。另一套 Constants → Domain（`PromptBuilder` / `VersionService` / `ProjectModel`）→ Store → Services → UI → App 的分层只存在于**已冻结**的 `A1_V_Φ10` / `Φ11` 重构线；改主线时不要误套那套分层。
-- **浏览器行为测试的机制**：产品文件仅在 URL 带 `#selftest` 时把内部对象挂到 `window.__devkitTest`；测试脚本把产品文件复制到临时目录、注入驱动脚本、用本地 HTTP `/gate` 挂住 load、`chrome --headless=new --dump-dom` 从 `<title>` 读断言结果。新增行为测试沿用此模式，不要改产品文件的非测试路径。
+- **浏览器行为测试的机制**：产品文件仅在 URL 带 `#selftest` 时把内部对象挂到 `window.__devkitTest`；测试脚本把产品文件复制到临时目录、注入驱动脚本、用本地 HTTP `/gate` 挂住 load、`chrome --headless=new --dump-dom` 从 `<title>` 读断言结果。**该测试缝目前只存在于已冻结的 `A1_V_Φ10` / `Φ11` 重构线**；当前主线 `A1_VI_Φ1` 沿用重构前结构、尚未挂缝，`devkit_logic_test.py` 会打印「跳过」并以退出码 0 返回（跳过不等于通过）。新增行为测试沿用此模式，不要改产品文件的非测试路径。
 - **推送 `main` 即自动发布**（`auto_release.py`）：按「项目 · 主干」分别建标签发 Release，devkit 用裸主干名（`A1_VI_Φ1`），其他项目加前缀（`writer/A1_I_Φ6`）；仓库开启 Immutable Releases，标签名发布后不可重用，脚本必须走「建草稿 → 传附件 → 转正式」顺序。
 - **`pull_request_target` 安全前提**：`pr-labeler.yml` 与 `cleanup-merged-branches.yml` 用 `pull_request_target` 拿写权限，**不得检出 PR 的代码**，只通过 API 读改动列表 / 操作分支；改这两个工作流时保持这一点。
 - `implementations/` 下的多语言实现**只做安全修复、不跟进功能迭代**，规范见 `docs/multi-language.md`；修改前先读该文件。

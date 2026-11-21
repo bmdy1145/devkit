@@ -28,7 +28,11 @@ The tool organises collaboration around **workflow steps**: for each step you wr
 - **Quick file rename**: pick a directory and rename files to `Deepseek_ + your text + original extension`
 - **Keyboard shortcut**: `Esc` closes the topmost dialog
 
-## Visual skins
+## Visual skins (previous main line A1_V_Φ9_Fix_Fix · nine skins)
+
+> **The current main line `A1_VI_Φ1` ships one default skin only.** This section
+> documents the nine skins of the previous delivered main line `A1_V_Φ9_Fix_Fix`.
+> They remain fully available but no longer track the main line.
 
 The same functional code ships with nine skins. Each is an independent single-file version; they do not affect one another:
 
@@ -119,7 +123,8 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │   │       ├── index.html                   # Index for the branch directory
 │   │       ├── A1_VI_Φ1/                    # Current main line (pre-refactor baseline, single default skin)
 │   │       ├── A1_V_Φ11/                    # Last of the refactor line (frozen)
-│   │       ├── A1_V_Φ10/                    # Start of the refactor line (archived)
+│   │       ├── A1_V_Φ10/                    # Start of the refactor line (index page only)
+│   │       ├── A1_V_Φ10_fix-archive/        # Archived Φ10 build (two interaction regressions)
 │   │       ├── A1_V_Φ9_Fix_Fix/             # Previous delivered main line (Fix_Fix layer, nine skins)
 │   │       ├── A1_V_Φ9/                     # Previous iteration layer (Fix)
 │   │       │   ├── index.html                              # Version list for this branch
@@ -314,7 +319,8 @@ The site entry is the **root-level** `index.html`, a **project picker**; each pr
 | `/projects/devkit/code/` | DevKit branch index (VI_Φ1 / Φ11 / Φ10 / Φ9 / Φ8 / Φ7 / Φ5 / Φ4) |
 | `/projects/devkit/code/A1_VI_Φ1/` | Version list for the current main line (pre-refactor baseline, single default skin) |
 | `/projects/devkit/code/A1_V_Φ11/` | Last of the refactor line (frozen) |
-| `/projects/devkit/code/A1_V_Φ10/` | Start of the refactor line (original build archived) |
+| `/projects/devkit/code/A1_V_Φ10/` | Start of the refactor line (index page only) |
+| `/projects/devkit/code/A1_V_Φ10_fix-archive/` | Archived Φ10 build (two interaction regressions; for comparison and rollback) |
 | `/projects/devkit/code/A1_V_Φ9_Fix_Fix/` | Previous delivered main line (nine skins, Fix_Fix layer) |
 | `/projects/devkit/code/A1_V_Φ9/` | Version list for the previous iteration layer (nine skins, Fix layer) |
 | `/projects/devkit/code/A1_V_Φ9_fix-archive/` | Archived unfixed Φ9 builds (nine, for comparison and rollback) |
