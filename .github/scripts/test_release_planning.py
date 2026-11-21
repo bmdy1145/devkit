@@ -108,6 +108,26 @@ class TestPlanAuto(unittest.TestCase):
         self.assertEqual(targets, [])
         self.assertIn("不发布任何 Release", reason)
 
+    def test_nested_index_page_releases_nothing(self):
+        """主干下更深层目录里的 index.html 也不算交付物。
+
+        判断按文件名而非固定层级：若将来主干下出现子目录（如 assets/），
+        该子目录的 index.html 改动同样不该触发发布，否则 2026-11-21 的
+        连发问题会复发。
+        """
+        targets, reason = ar.plan_auto(
+            [f("projects/devkit/code/A1_V_Φ9/sub/index.html")]
+        )
+        self.assertEqual(targets, [])
+        self.assertIn("不发布任何 Release", reason)
+
+    def test_nested_non_index_file_still_releases(self):
+        """深层目录里的非 index.html 仍算交付物改动，不能一并跳过。"""
+        targets, _ = ar.plan_auto(
+            [f("projects/devkit/code/A1_V_Φ9/sub/notes.html")]
+        )
+        self.assertEqual(targets, [("devkit", "A1_V_Φ9", "changed")])
+
     def test_both_projects_changed(self):
         targets, _ = ar.plan_auto(
             [

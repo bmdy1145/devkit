@@ -211,12 +211,14 @@ def scan_changes(files: list[dict]) -> dict[str, dict]:
         entry["project_touched"] = True
         if len(parts) >= 5:
             trunk = parts[3]
-            # 主干目录内的 index.html 只是该主干的目录页（卡片、徽标、日期），
-            # 不是交付产物。把它算成「动了这个主干」，会让一次纯索引页改动
-            # （例如统一改页面头部的日期字段）给全部历史主干各发一个 Release。
-            # 2026-11-21 实测踩到：一次 51 个索引页的文案改动连发了 20 多个
-            # Release，且因 Immutable Releases 白烧掉一批标签名。
-            if len(parts) == 5 and parts[4] == "index.html":
+            # 主干目录下的 index.html（含子目录里的）都只是目录页——卡片、
+            # 徽标、日期，不是交付产物。把它算成「动了这个主干」，会让一次
+            # 纯索引页改动（例如统一改页面头部的日期字段）给全部历史主干
+            # 各发一个 Release。2026-11-21 实测踩到：一次 51 个索引页的
+            # 文案改动连发了 20 多个 Release，且因 Immutable Releases 白烧掉
+            # 一批标签名。按文件名判断而非固定层级，避免主干下出现子目录后
+            # 同类问题复发。
+            if parts[-1] == "index.html":
                 continue
             if trunk not in entry["trunks"]:
                 entry["trunks"].append(trunk)
