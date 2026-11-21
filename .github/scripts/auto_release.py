@@ -211,6 +211,13 @@ def scan_changes(files: list[dict]) -> dict[str, dict]:
         entry["project_touched"] = True
         if len(parts) >= 5:
             trunk = parts[3]
+            # 主干目录内的 index.html 只是该主干的目录页（卡片、徽标、日期），
+            # 不是交付产物。把它算成「动了这个主干」，会让一次纯索引页改动
+            # （例如统一改页面头部的日期字段）给全部历史主干各发一个 Release。
+            # 2026-11-21 实测踩到：一次 51 个索引页的文案改动连发了 20 多个
+            # Release，且因 Immutable Releases 白烧掉一批标签名。
+            if len(parts) == 5 and parts[4] == "index.html":
+                continue
             if trunk not in entry["trunks"]:
                 entry["trunks"].append(trunk)
     return result
@@ -504,11 +511,10 @@ def plan_auto(
         if real:
             targets.extend((project, t, "changed") for t in real)
             reasons.append(f"{project}：" + "、".join(real))
-        elif entry["project_touched"]:
-            latest = latest_trunk(project)
-            if latest:
-                targets.append((project, latest, "no_changes"))
-                reasons.append(f"{project}：未动主干（给 {latest} 发「无功能更新」）")
+        # 只改了索引页 / 目录页 / README 这类非交付物时，不再给最新主干发
+        # 「无功能更新」Release：索引页不是产物，改它不该产生新版本。
+        # 2026-11-21 之前这里走 latest_trunk()，结果一次纯文案改动给每个项目
+        # 都烧掉一个标签名（Immutable Releases 下不可重用）。
 
     if not targets:
         return [], "本次推送未改动任何项目的交付物，不发布任何 Release"

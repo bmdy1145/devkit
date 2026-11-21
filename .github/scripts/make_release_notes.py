@@ -25,6 +25,9 @@
     python3 .github/scripts/make_release_notes.py <项目名> <主干名> [--no-changes]
 
 --no-changes 表示本次 main 更新没有改动交付物文件，说明里会写明「无功能更新」。
+注意：自动发布路径已不再使用该模式——只改索引页 / 目录页 / README 时
+auto_release.plan_auto() 直接跳过、不产生 Release（2026-11-21 起）。
+保留本参数仅供手动补发时表达「这批文件与上次相同」。
 
 为兼容旧调用，只给一个参数时按 DevKit 处理：
     python3 .github/scripts/make_release_notes.py A1_V_Φ9
