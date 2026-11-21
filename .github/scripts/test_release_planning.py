@@ -42,13 +42,11 @@ class TestScanChanges(unittest.TestCase):
         out = ar.scan_changes(files)
         self.assertEqual(out["devkit"]["trunks"], ["A1_V_Φ9"])
         self.assertEqual(out["writer"]["trunks"], ["A1_I_Φ3"])
-        self.assertTrue(out["devkit"]["project_touched"])
-        self.assertTrue(out["writer"]["project_touched"])
 
-    def test_index_page_only_marks_touched_without_trunk(self):
+    def test_index_page_only_yields_no_project(self):
+        """只改 code/index.html 时项目不出现在结果里——没有主干要发布。"""
         out = ar.scan_changes([f("projects/writer/code/index.html")])
-        self.assertEqual(out["writer"]["trunks"], [])
-        self.assertTrue(out["writer"]["project_touched"])
+        self.assertEqual(out, {})
 
     def test_skips_renamed(self):
         """整棵目录搬迁的那次提交都是 renamed，不能算成「所有主干都改了」。"""

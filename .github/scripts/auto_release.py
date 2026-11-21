@@ -191,10 +191,10 @@ def changed_paths(repo: str, token: str, before: str, after: str) -> list[dict] 
 
 
 def scan_changes(files: list[dict]) -> dict[str, dict]:
-    """把改动文件按项目归拢。
+    """把改动文件按项目归拢，只保留真正需要发布的主干。
 
-    返回 {项目: {"trunks": [...], "project_touched": bool}}。
-    project_touched 表示该项目 code/ 下有改动（含未落到具体主干的情况）。
+    返回 {项目: {"trunks": [...]}}。索引页、目录页这类非交付物的改动
+    不会让项目出现在结果里——它们不该产生 Release。
     """
     result: dict[str, dict] = {}
     for f in files:
@@ -207,8 +207,6 @@ def scan_changes(files: list[dict]) -> dict[str, dict]:
         if len(parts) < 4 or parts[0] != "projects" or parts[2] != "code":
             continue
         project = parts[1]
-        entry = result.setdefault(project, {"trunks": [], "project_touched": False})
-        entry["project_touched"] = True
         if len(parts) >= 5:
             trunk = parts[3]
             # 主干目录下的 index.html（含子目录里的）都只是目录页——卡片、
@@ -220,6 +218,7 @@ def scan_changes(files: list[dict]) -> dict[str, dict]:
             # 同类问题复发。
             if parts[-1] == "index.html":
                 continue
+            entry = result.setdefault(project, {"trunks": []})
             if trunk not in entry["trunks"]:
                 entry["trunks"].append(trunk)
     return result
