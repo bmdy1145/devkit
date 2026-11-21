@@ -7,6 +7,8 @@
 #   · 运行时冒烟 smoke_test.py  —— 无头浏览器打开每个版本文件，控制台无报错
 #   · 发布逻辑   test_release_planning.py —— 「改哪个项目发哪个项目的标签」
 #     这条规则的单元测试。它不依赖网络与浏览器，跑得很快。
+#   · 测试工具   test_devkit_logic_helpers.py —— devkit_logic_test 里纯辅助函数
+#     （如按文件名推导版本号）的单测，同样不依赖浏览器。
 #   · 人设逻辑   snapshot_other_test.py —— Persona 快照字段存取、恢复、
 #     记忆范围切换的运行时断言。冒烟只查控制台报错，抓不到「启动之后才抛」
 #     的缺陷（这类异常不留 CONSOLE 行），所以那类逻辑需要真正跑一遍流程。
@@ -69,7 +71,9 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v7
       - name: 运行单元测试
-        run: python3 .github/scripts/test_release_planning.py
+        run: |
+          python3 .github/scripts/test_release_planning.py
+          python3 .github/scripts/test_devkit_logic_helpers.py
 
   persona-logic:
     name: 人设逻辑单测
