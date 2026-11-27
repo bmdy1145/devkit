@@ -582,11 +582,27 @@ class TestTestBucket(unittest.TestCase):
         self.assertIn("测试版", reason)
 
     def test_plan_auto_code_only_does_not_emit_test(self):
-        """main 推送不传 files_test → 不会产生 test 目标。"""
+        """只改 code/ 时只出正式版目标，不会顺带产出 test 目标。"""
         targets, _ = ar.plan_auto(
             [f("projects/demo/code/A1_V_Φ9/deepseek_x.html")]
         )
         self.assertEqual(targets, [("demo", "A1_V_Φ9", "changed")])
+
+    def test_same_push_emits_both_buckets(self):
+        """同一次推送若同时改了 code/ 与 test/，两个桶各出一个目标。
+
+        发布按「改了哪个目录」判断，与分支无关——这就是为什么不需要
+        额外的 test 分支。
+        """
+        files = [
+            f("projects/demo/code/A1_V_Φ9/deepseek_x.html"),
+            f("projects/demo/test/A1_V_Φ9_Test1/deepseek_y.html"),
+        ]
+        targets, _ = ar.plan_auto(files, files)
+        self.assertEqual(
+            sorted(targets),
+            sorted([("demo", "A1_V_Φ9", "changed"), ("demo", "A1_V_Φ9_Test1", "test")]),
+        )
 
     def test_test_dir_missing_version_skipped(self):
         targets, _ = ar.plan_auto(

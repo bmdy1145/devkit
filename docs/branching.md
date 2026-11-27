@@ -52,21 +52,29 @@
 
 若两批改动确实互不重叠，也可以不堆叠、各自从 `main` 分叉，只要各自的新分支都推两个远端即可；但一旦有重叠，必须走上面的堆叠路径。
 
-## 长期分支 `test`
+## 测试版（`test/` 目录，不是分支）
 
-`test` 是仓库**唯一**的长期分支，用于承载测试版：
+测试版**靠目录分类，不靠 git 分支**——`projects/<项目>/test/` 与 `projects/<项目>/code/` 平级，里面的版本目录就像 `code/` 下的一样：
+
+```
+projects/devkit/
+├── code/                    # 正式交付物
+│   └── A1_VI_Φ1/
+└── test/                    # 测试版本（带内置自检）
+    └── A1_VI_Φ1_Test1/
+```
 
 | 项 | 约定 |
 |---|---|
-| 用途 | 测试版（带内置自检）的集成分支；`feature` → `test` → `main` |
-| 内容位置 | `projects/<项目>/test/<测试版本>/`——**不在** `code/` 下 |
-| 与 `code/` 的关系 | `test` 分支上**不改** `code/` 下的正式交付物；正式版改动仍走 feature → `main` |
-| 发布 | push 到 `test` 会触发 `release-on-main.yml`，但只发 `test/` 桶：标签前缀 `test/<项目>/`、Release 标记为 **prerelease**、标题与正文带【test】 |
-| Pages | Pages 只从 `main` 发布。**测试版页面必须在 main 上才可见**，所以要让用户访问到测试版，需把 `test` 合入 `main` |
-| 分支清理 | `cleanup_branches.py` 把 `test` 列入 `LONG_LIVED_BRANCHES`，不会被自动删除 |
-| 直推 | 推 `test` 到 `origin` 与推 `main` 同属「共享状态变更」，**同样需要逐次授权** |
+| 位置 | `projects/<项目>/test/<测试版本>/`，与 `code/` 并列，**不放 `code/` 下面**（否则会被 `version_guard` 当成主干校验） |
+| 分支 | **无需额外分支**。测试版改动和正式版一样走 feature 分支 → PR → `main` |
+| 发布触发 | 与正式版同一套规则：本次推送改了 `projects/<项目>/test/<版本>/` 下的交付物（非 `index.html`）就发测试版 Release |
+| 发布形态 | 标签 `test/<项目>/<版本>`、Release 标题带【test】、标记 **prerelease**、正文顶部有醒目警告 |
+| Pages | 与正式版一样，合入 `main` 后即可访问：根页 →「测试版本」→ 项目 → 版本 |
+| 版本命名 | `<基线版本>_Test<N>`（如 `A1_VI_Φ1_Test1`），由 `test_guard.py` 校验 |
+| 生成方式 | 由 `build_test_version.py` 从正式版生成，**不要手改**（CI 的 `--check` 会报漂移） |
 
-从一个测试版转为正式版时：在 `main` 上按正常版本规则产出正式版本，测试版目录保留作为历史（或按需删除）。
+一个测试版转为正式版时：在 `code/` 下按正常版本规则产出正式版本，测试版目录保留作历史（或按需删除）。
 
 ## 红线
 

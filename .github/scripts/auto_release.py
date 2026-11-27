@@ -566,8 +566,8 @@ def plan_auto(
         # 需要时用 workflow_dispatch 手动补发。
         return [], "无法比较提交范围（可能是 force-push 或 compare 接口异常），为安全起见本次不自动发版；如需发布请手动触发并指定主干"
 
-    # 某一桶为 None 表示「本次不关心该桶」（例如 test 分支推送时 code 桶传 None），
-    # 不是「比较失败」。比较失败的情况已在上面拦掉。
+    # 某一桶传 None 表示「本次不关心该桶」（调用方按需只传一边），
+    # 不是「比较失败」——后者已在上面拦掉。
     changes = scan_changes(files or [])
     targets: list[tuple[str, str, str]] = []
     reasons: list[str] = []
@@ -587,9 +587,9 @@ def plan_auto(
         # 2026-11-21 之前这里走 latest_trunk()，结果一次纯文案改动给每个项目
         # 都烧掉一个标签名（Immutable Releases 下不可重用）。
 
-    # 测试版桶：只有当调用方明确给出 test 改动清单时才计算。
-    # test 分支推送只走这一支；main 推送不传 files_test，因此合入 main
-    # 不会重复发一次测试版 Release（Immutable Releases 下标签名不可重用）。
+    # 测试版桶：与正式版同样靠「改了哪个目录」判断，与分支无关。
+    # main() 自动路径会把同一份改动清单同时传给两个桶，因此一次推送若
+    # 同时改了 code/ 与 test/，会分别产出正式版与测试版两个 Release。
     if files_test is not None:
         test_changes = scan_changes(files_test, bucket="test")
         for project in sorted(test_changes):
@@ -620,9 +620,6 @@ def main() -> int:
     dispatch_trunk = os.environ.get("DISPATCH_TRUNK", "").strip()
     dispatch_suffix = os.environ.get("DISPATCH_SUFFIX", "").strip()
     dispatch_kind = os.environ.get("DISPATCH_KIND", "").strip() or "code"
-    # 触发分支：只有 test 分支的推送才走测试版桶。合入 main 时不发 test
-    # Release，否则同一个测试版会因两条分支各发一次而烧掉两个标签名。
-    trigger_ref = os.environ.get("TRIGGER_REF", "").strip() or "main"
 
     if not repo or not token or not after:
         print("[问题] 需要 GITHUB_REPOSITORY、GITHUB_TOKEN、AFTER_SHA 环境变量。")
@@ -647,21 +644,11 @@ def main() -> int:
             return 1
     else:
         files = changed_paths(repo, token, before, after)
-        if trigger_ref == "test":
-            # test 分支：只处理测试版目录，正式交付物一律不发。
-            # 但如果这次推送确实动了 code/，必须明确告知——静默丢弃会让人
-            # 以为正式版已经发布了（docs/branching.md 也约定 test 上不改 code/）。
-            code_changes = scan_changes(files or [])
-            if code_changes:
-                projects = "、".join(sorted(code_changes))
-                print(
-                    f"[告警] test 分支本次推送改动了正式交付物目录（{projects}），"
-                    "按约定 test 分支只发测试版，这些改动不会被发布。"
-                    "正式版请走 feature → main。"
-                )
-            targets, reason = plan_auto(None if files is None else [], files)
-        else:
-            targets, reason = plan_auto(files)
+        # 两个桶都由「改了哪些目录」决定，与推送来自哪个分支无关：
+        #   · projects/<项目>/code/   → 正式版
+        #   · projects/<项目>/test/   → 测试版
+        # 同一次推送可以同时产出两种目标。
+        targets, reason = plan_auto(files, files)
 
     print(f"仓库 {repo} · {reason}")
     print("将发布：" + ("、".join(f"{p}/{t}" for p, t, _ in targets) if targets else "（无）"))

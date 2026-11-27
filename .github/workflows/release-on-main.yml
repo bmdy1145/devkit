@@ -22,9 +22,7 @@ name: 自动发布
 
 on:
   push:
-    # test 分支推送只发测试版 Release（prerelease + 【test】），
-    # 不发正式版；main 推送不发测试版，避免同一版本双发烧掉两个标签名。
-    branches: [main, test]
+    branches: [main]
   # 手动补发：自动发布只覆盖「本次推送改到的主干」，已冻结、不会再被推送碰到的
   # 老主干（例如 A1_V_Φ7）永远等不到发布。这里给一个手动入口补这个缺口。
   workflow_dispatch:
@@ -71,8 +69,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.sha }}
-          # 触发分支名：test 分支只发测试版桶
-          TRIGGER_REF: ${{ github.ref_name }}
           # 手动触发时才有值；推送触发时为空，走「自动识别改动项目与主干」那条路
           DISPATCH_PROJECT: ${{ inputs.project }}
           DISPATCH_TRUNK: ${{ inputs.trunk }}
