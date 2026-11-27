@@ -144,10 +144,21 @@
         })[0];
         if (opt) opt.click();
       }
-      // 多出来的页签删掉
-      for (var i = $$('#tabList > *').length; i > tabCountBefore; i--) {
-        var del = $$('#tabList > *')[i - 1];
-        if (del) del.remove();
+      // 自检过程中「新建页签」会真的改变产品状态。这里只做尽力而为的清理：
+      // 优先点产品自己的删除入口（会同步内部状态），删不掉则放弃——
+      // 直接 remove() DOM 节点会让 DOM 与产品内存不一致（实测后续新建
+      // 页签时数量错乱），比留下一个多余页签更糟。
+      var guard = 0;
+      while ($$('#tabList > *').length > tabCountBefore && guard++ < 5) {
+        var tabs = $$('#tabList > *');
+        var last = tabs[tabs.length - 1];
+        var delBtn = last ? last.querySelector(
+          '[data-action="delete"], [class*="del"], [aria-label*="关闭页签"], [aria-label*="删除"]'
+        ) : null;
+        if (!delBtn) break;
+        var origConfirm = window.confirm;
+        window.confirm = function () { return true; };
+        try { delBtn.click(); } finally { window.confirm = origConfirm; }
       }
       window.removeEventListener('error', onErr);
       window.removeEventListener('unhandledrejection', onErr);
@@ -230,22 +241,21 @@
         return before + ' → ' + after;
       });
 
-      check('删除页签', function () {
-        var before = $$('#tabList > *').length;
-        var origConfirm = window.confirm;
-        window.confirm = function () { return true; };
-        try {
-          var tabs = $$('#tabList > *');
-          var last = tabs[tabs.length - 1];
-          var delBtn = last ? last.querySelector('[class*="del"], [aria-label*="删除"], [title*="删除"]') : null;
-          if (!delBtn) return '跳过（未找到删除入口，不影响其余项）';
-          delBtn.click();
-          var after = $$('#tabList > *').length;
-          if (after >= before) throw new Error('页签数未减少：' + before + ' → ' + after);
-          return before + ' → ' + after;
-        } finally {
-          window.confirm = origConfirm;
-        }
+      check('页签删除入口存在（只读检查，不实际删除）', function () {
+        // 这里刻意**不点击删除**。删除是真的删数据，而自检没法在不触碰
+        // 产品内部状态的前提下还原——补回一个 DOM 元素并不等于恢复产品
+        // 内存里的页签记录，会让后续新建页签时数量错乱（实测 16 → 18）。
+        // 因此只验证「删除入口存在且可交互」，实际删除留给用户手动做。
+        var tabs = $$('#tabList > *');
+        if (!tabs.length) throw new Error('页签列表为空');
+        var last = tabs[tabs.length - 1];
+        var delBtn = last.querySelector(
+          '[data-action="delete"], [class*="del"], [aria-label*="关闭页签"], [aria-label*="删除"]'
+        );
+        if (!delBtn) throw new Error('最后一个页签上没有删除入口');
+        if (delBtn.disabled) throw new Error('删除入口被禁用');
+        if (typeof delBtn.click !== 'function') throw new Error('删除入口不可点击');
+        return '入口存在，未执行删除';
       });
 
       check('localStorage 读写', function () {

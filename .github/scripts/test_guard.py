@@ -27,7 +27,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PROJECTS = ROOT / "projects"
 
-VERSION_RE = re.compile(r"^A\d+_[IVX]+_Φ\d+_Test\d+$")
+# 允许基线带第四层英文标识（如 A1_V_Φ9_Fix_Fix_Test1）——`_Test<N>` 只是
+# 追加在基线之后的测试标记，不对基线的层数作额外限制。
+VERSION_RE = re.compile(r"^A\d+_[IVX]+_Φ\d+(?:_[A-Za-z][A-Za-z0-9]*)*_Test\d+$")
 SELFTEST_MARK = "TEST_SELFTEST_START"
 
 problems: list[str] = []
@@ -53,7 +55,7 @@ def grab(text: str, pattern: str) -> str | None:
 
 
 def baseline_of(version: str) -> str:
-    """A1_VI_Φ1_Test1 → A1_VI_Φ1"""
+    """A1_VI_Φ1_Test1 → A1_VI_Φ1；A1_V_Φ9_Fix_Fix_Test1 → A1_V_Φ9_Fix_Fix"""
     return re.sub(r"_Test\d+$", "", version)
 
 

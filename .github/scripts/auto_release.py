@@ -185,7 +185,13 @@ def tag_base(project: str, trunk: str) -> str:
 
 
 def next_tag(project: str, trunk: str, existing: set[str]) -> str:
-    """给定已存在的标签集合，算出该主干的下一个标签名。"""
+    """给定已存在的标签集合，算出该主干的下一个标签名。
+
+    注意：`release_trunk()` 自引入双桶（code/test）后改为直接调
+    `_bump_tag(base, existing)`，不再走本函数——两者行为等价（无冲突则
+    用裸名，否则取未占用的 `.N`）。保留它是为了不破坏既有测试对标签
+    命名规则的单独验证；若后续确认无外部调用，可连同其测试一并删除。
+    """
     base = tag_base(project, trunk)
     if base not in existing:
         return base
@@ -642,7 +648,17 @@ def main() -> int:
     else:
         files = changed_paths(repo, token, before, after)
         if trigger_ref == "test":
-            # test 分支：只处理测试版目录，正式交付物一律不发
+            # test 分支：只处理测试版目录，正式交付物一律不发。
+            # 但如果这次推送确实动了 code/，必须明确告知——静默丢弃会让人
+            # 以为正式版已经发布了（docs/branching.md 也约定 test 上不改 code/）。
+            code_changes = scan_changes(files or [])
+            if code_changes:
+                projects = "、".join(sorted(code_changes))
+                print(
+                    f"[告警] test 分支本次推送改动了正式交付物目录（{projects}），"
+                    "按约定 test 分支只发测试版，这些改动不会被发布。"
+                    "正式版请走 feature → main。"
+                )
             targets, reason = plan_auto(None if files is None else [], files)
         else:
             targets, reason = plan_auto(files)
