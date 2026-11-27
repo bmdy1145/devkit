@@ -532,5 +532,124 @@ class TestDraftFirstRelease(unittest.TestCase):
         self.assertEqual(tags, ["demo/A1_X_Φ1.7"], "手动指定名字不得被悄悄替换")
 
 
+class TestTestBucket(unittest.TestCase):
+    """测试版（projects/<项目>/test/）与正式版（code/）必须完全隔离。"""
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / "demo" / "code" / "A1_V_Φ9").mkdir(parents=True)
+        (self.root / "demo" / "test" / "A1_V_Φ9_Test1").mkdir(parents=True)
+        self._orig = ar.PROJECTS_DIR
+        ar.PROJECTS_DIR = self.root
+
+    def tearDown(self):
+        ar.PROJECTS_DIR = self._orig
+        self.tmp.cleanup()
+
+    def test_scan_test_bucket_only(self):
+        out = ar.scan_changes(
+            [f("projects/demo/test/A1_V_Φ9_Test1/deepseek_x.html")], bucket="test"
+        )
+        self.assertEqual(out["demo"]["trunks"], ["A1_V_Φ9_Test1"])
+
+    def test_test_bucket_ignores_code_paths(self):
+        """bucket=test 时，code/ 下的改动不应被收进来（桶隔离）。"""
+        out = ar.scan_changes(
+            [f("projects/demo/code/A1_V_Φ9/deepseek_x.html")], bucket="test"
+        )
+        self.assertEqual(out, {})
+
+    def test_code_bucket_ignores_test_paths(self):
+        out = ar.scan_changes(
+            [f("projects/demo/test/A1_V_Φ9_Test1/deepseek_x.html")], bucket="code"
+        )
+        self.assertEqual(out, {})
+
+    def test_test_index_html_not_released(self):
+        out = ar.scan_changes(
+            [f("projects/demo/test/A1_V_Φ9_Test1/index.html")], bucket="test"
+        )
+        self.assertEqual(out, {})
+
+    def test_plan_auto_emits_test_mode(self):
+        targets, reason = ar.plan_auto(
+            None,
+            [f("projects/demo/test/A1_V_Φ9_Test1/deepseek_x.html")],
+        )
+        self.assertEqual(targets, [("demo", "A1_V_Φ9_Test1", "test")])
+        self.assertIn("测试版", reason)
+
+    def test_plan_auto_code_only_does_not_emit_test(self):
+        """main 推送不传 files_test → 不会产生 test 目标。"""
+        targets, _ = ar.plan_auto(
+            [f("projects/demo/code/A1_V_Φ9/deepseek_x.html")]
+        )
+        self.assertEqual(targets, [("demo", "A1_V_Φ9", "changed")])
+
+    def test_test_dir_missing_version_skipped(self):
+        targets, _ = ar.plan_auto(
+            None, [f("projects/demo/test/NO_SUCH/deepseek_x.html")]
+        )
+        self.assertEqual(targets, [])
+
+    def test_test_tag_base_has_project_segment(self):
+        """测试版标签统一带 test/<项目>/ 前缀，不与正式标签撞名。"""
+        self.assertEqual(ar.tag_base_test("devkit", "A1_VI_Φ1_Test1"),
+                         "test/devkit/A1_VI_Φ1_Test1")
+        self.assertNotEqual(ar.tag_base_test("devkit", "A1_VI_Φ1"),
+                            ar.tag_base("devkit", "A1_VI_Φ1"))
+
+    def test_dispatch_test_kind_ok(self):
+        targets, forced, reason = ar.plan_dispatch(
+            "demo", "A1_V_Φ9_Test1", "", kind="test"
+        )
+        self.assertEqual(targets, [("demo", "A1_V_Φ9_Test1", "test")])
+        self.assertIsNone(forced)
+        self.assertIn("测试版", reason)
+
+    def test_dispatch_test_kind_missing_dir(self):
+        targets, _, reason = ar.plan_dispatch(
+            "demo", "NO_SUCH_Test1", "", kind="test"
+        )
+        self.assertEqual(targets, [])
+        self.assertIn("找不到测试版", reason)
+
+    def test_dispatch_code_kind_still_rejects_archive(self):
+        (self.root / "demo" / "code" / "A1_V_Φ9_fix-archive").mkdir()
+        targets, _, reason = ar.plan_dispatch("demo", "A1_V_Φ9_fix-archive", "")
+        self.assertEqual(targets, [])
+        self.assertIn("归档", reason)
+
+
+class TestReleasePrereleaseFlag(unittest.TestCase):
+    """测试版 Release 必须是 prerelease，正式版不能是。"""
+
+    def _capture(self, mode):
+        captured = {}
+
+        def fake_api(method, url, token, payload=None):
+            if url.endswith("/releases"):
+                captured.update(payload or {})
+                return 500, None      # 失败即返回，只为拿到 payload
+            return 200, {}
+
+        with mock.patch.object(ar, "create_tag", return_value=True), \
+             mock.patch.object(ar, "api", side_effect=fake_api):
+            ar._release_one("r", "t", "devkit", "A1_VI_Φ1", "tag", "sha", mode, [])
+        return captured
+
+    def test_test_mode_is_prerelease_with_prefix(self):
+        p = self._capture("test")
+        self.assertTrue(p.get("prerelease"))
+        self.assertTrue(p.get("name", "").startswith("【test】"))
+
+    def test_changed_mode_is_not_prerelease(self):
+        p = self._capture("changed")
+        self.assertFalse(p.get("prerelease"))
+        self.assertFalse(p.get("name", "").startswith("【test】"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

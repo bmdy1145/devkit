@@ -39,8 +39,12 @@ def discover_app_files() -> list[Path]:
     投机泛化——文件名前缀 deepseek_ 是全仓库版本文件的既定惯例。
     """
     seen: set[Path] = set()
-    for path in sorted(ROOT.glob("projects/*/code/*/deepseek_*.html")):
-        seen.add(path.resolve())
+    for pattern in (
+        "projects/*/code/*/deepseek_*.html",   # 正式交付物
+        "projects/*/test/*/deepseek_*.html",   # 测试版（同样要盯体积）
+    ):
+        for path in sorted(ROOT.glob(pattern)):
+            seen.add(path.resolve())
     return sorted(seen)
 
 # 刻意留足余量：当前最大约 290 KB。产品若合理增长，应先调这两个数，

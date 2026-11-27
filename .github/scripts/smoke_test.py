@@ -50,8 +50,12 @@ def discover_app_files() -> list[Path]:
     文件名前缀 deepseek_ 是全仓库版本文件的既定惯例，不会误收导航页。
     """
     seen: set[Path] = set()
-    for path in sorted(ROOT.glob("projects/*/code/*/deepseek_*.html")):
-        seen.add(path.resolve())
+    for pattern in (
+        "projects/*/code/*/deepseek_*.html",   # 正式交付物
+        "projects/*/test/*/deepseek_*.html",   # 测试版（同样要冒烟）
+    ):
+        for path in sorted(ROOT.glob(pattern)):
+            seen.add(path.resolve())
     return sorted(seen)
 
 ERROR_RE = re.compile(r"CONSOLE.*?(Uncaught|SyntaxError|TypeError|ReferenceError)")
@@ -189,6 +193,16 @@ def main() -> int:
     for nav in sorted(ROOT.glob("projects/*/index.html")):
         if nav not in files:
             files.append(nav)
+    # 测试版导航页：站点总入口、各项目测试页、项目 test/ 目录页、版本目录页
+    for pattern in (
+        "test/index.html",
+        "test/*/index.html",
+        "projects/*/test/index.html",
+        "projects/*/test/*/index.html",
+    ):
+        for nav in sorted(ROOT.glob(pattern)):
+            if nav not in files:
+                files.append(nav)
     # 根导航页：项目选择台与 404
     for nav in (
         ROOT / "index.html",

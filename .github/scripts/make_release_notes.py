@@ -52,6 +52,10 @@ CHECKSUM_PREFIX = 12
 def code_dir(project: str) -> Path:
     return PROJECTS_DIR / project / "code"
 
+
+def test_dir(project: str) -> Path:
+    return PROJECTS_DIR / project / "test"
+
 ENTRY_RE = re.compile(
     r"\{\s*version:\s*'((?:[^'\\]|\\.)*)',\s*note:\s*'((?:[^'\\]|\\.)*)'",
     re.S,
@@ -62,9 +66,17 @@ def unescape(text: str) -> str:
     return text.replace("\\'", "'").replace("\\\\", "\\")
 
 
-def collect(project: str, trunk: str) -> list[tuple[str, str]]:
-    """返回 [(版本号, 说明)]，按说明内容去重且保持首次出现顺序。"""
-    files = sorted((code_dir(project) / trunk).glob("deepseek_*.html"))
+def collect(
+    project: str, prefix: str, base: Path | None = None, directory: str | None = None
+) -> list[tuple[str, str]]:
+    """返回 [(版本号, 说明)]，按说明内容去重且保持首次出现顺序。
+
+    `prefix` 用于筛选条目：正式版传主干名（`A1_VI_Φ1`）；测试版传基线
+    主干名（`A1_VI_Φ1`），这样测试版仍能显示它继承的历史脉络。
+    `directory` 指定相对项目根的子目录（"code" / "test"），默认 "code"。
+    """
+    root = base or (PROJECTS_DIR / project / (directory or "code"))
+    files = sorted(root.glob("deepseek_*.html"))
     best: dict[str, str] = {}
     order: list[str] = []
 
@@ -73,7 +85,7 @@ def collect(project: str, trunk: str) -> list[tuple[str, str]]:
         for version, note in ENTRY_RE.findall(text):
             version = unescape(version).strip()
             note = " ".join(unescape(note).split())
-            if not version.startswith(trunk):
+            if not version.startswith(prefix):
                 continue
             if BOILERPLATE in note:
                 continue
@@ -108,22 +120,55 @@ def digest(path: Path) -> str:
     return h.hexdigest()[:CHECKSUM_PREFIX]
 
 
+SELFTEST_COUNT = 17
+
+
 def build_notes(project: str, trunk: str, mode: str = "changed") -> str:
-    """mode 取 changed / no_changes / manual 三者之一。"""
-    trunk_dir = code_dir(project) / trunk
+    """mode 取 changed / no_changes / manual / test 四者之一。"""
+    is_test = mode == "test"
+    trunk_dir = (test_dir(project) if is_test else code_dir(project)) / trunk
     files = sorted(trunk_dir.glob("deepseek_*.html"))
-    entries = collect(project, trunk)
+    if is_test:
+        # 测试版的历史条目以基线主干名为前缀（如 A1_VI_Φ1），这样能看到
+        # 它继承的正式版脉络，而不是只剩一条 Test1 记录。
+        baseline = re.sub(r"_Test\d+$", "", trunk)
+        entries = collect(project, baseline, base=trunk_dir)
+    else:
+        entries = collect(project, trunk)
 
     lines: list[str] = []
-    lines.append(
-        f"项目 `{project}` · 主干 `{trunk}`，本 Release 附带 {len(files)} 个版本文件"
-        "（每个都是自包含的单文件应用，下载后可直接用浏览器打开）。"
-    )
+    if is_test:
+        # 测试版必须在正文最顶部就有醒目警告，避免有人误当正式版下载使用
+        lines.append(f"# 【test】内部测试版 — {project} · `{trunk}`")
+        lines.append("")
+        lines.append("> ## ⚠ 内部测试用")
+        lines.append("> ")
+        lines.append("> **这不是正式发布。** 本版本用于验证中的功能，可能不稳定、")
+        lines.append("> 随时变动，**请勿用于正式数据**。正式版请到 Releases 里找不带")
+        lines.append("> `【test】` 前缀、且未标记 Pre-release 的那一批。")
+        lines.append("> ")
+        lines.append(f"> 内置 **{SELFTEST_COUNT} 项自检**：打开应用后点顶栏「自检」按钮，")
+        lines.append("> 会逐项列出结构 / 样式 / 核心交互的 PASS / FAIL。")
+        lines.append("")
+        lines.append(
+            f"项目 `{project}` · 测试版目录 `test/{trunk}`，附带 {len(files)} 个文件"
+            "（自包含单文件应用，下载后可直接用浏览器打开）。"
+        )
+    else:
+        lines.append(
+            f"项目 `{project}` · 主干 `{trunk}`，本 Release 附带 {len(files)} 个版本文件"
+            "（每个都是自包含的单文件应用，下载后可直接用浏览器打开）。"
+        )
     lines.append("")
 
     lines.append("## 本次更新")
     lines.append("")
-    if mode == "no_changes":
+    if mode == "test":
+        lines.append(
+            f"测试版 `{trunk}` 已更新。它由正式版逐字节复制并注入自检模块生成，"
+            "功能与同基线正式版一致。"
+        )
+    elif mode == "no_changes":
         lines.append(
             f"**无功能更新。** 本次 `main` 的更新未修改任何交付物文件，"
             f"因此附件仍为 `{trunk}` 的同一批文件，与上一次发布完全一致"
@@ -170,20 +215,24 @@ def main() -> int:
         project, trunk = args
     else:
         print(
-            "用法：make_release_notes.py [<项目名>] <主干名> [--no-changes|--manual]",
+            "用法：make_release_notes.py [<项目名>] <主干名> [--no-changes|--manual|--test]",
             file=sys.stderr,
         )
         return 1
 
-    if "--no-changes" in flags:
+    if "--test" in flags:
+        mode = "test"
+    elif "--no-changes" in flags:
         mode = "no_changes"
     elif "--manual" in flags:
         mode = "manual"
     else:
         mode = "changed"
 
-    if not (code_dir(project) / trunk).is_dir():
-        print(f"找不到目录 projects/{project}/code/{trunk}", file=sys.stderr)
+    root = test_dir(project) if mode == "test" else code_dir(project)
+    if not (root / trunk).is_dir():
+        print(f"找不到目录 projects/{project}/{'test' if mode == 'test' else 'code'}/{trunk}",
+              file=sys.stderr)
         return 1
 
     print(build_notes(project, trunk, mode))

@@ -92,6 +92,20 @@ def code_dir(project: str) -> Path:
     return PROJECTS_DIR / project / "code"
 
 
+def test_dir(project: str) -> Path:
+    """测试版目录 projects/<项目>/test/（与 code/ 并列，不归 version_guard 管）。"""
+    return PROJECTS_DIR / project / "test"
+
+
+def tag_base_test(project: str, version: str) -> str:
+    """测试版标签基名：统一带 `test/<项目>/` 前缀。
+
+    不用 devkit 的裸主干名特例——测试版是全新体系，标签需要一眼可辨且
+    与正式标签完全不撞名（Immutable Releases 下撞了就无法重用）。
+    """
+    return f"test/{project}/{version}"
+
+
 def local_projects() -> list[str]:
     """所有带 code/ 目录的项目（即真正有交付物的项目）。
 
@@ -193,8 +207,13 @@ def changed_paths(repo: str, token: str, before: str, after: str) -> list[dict] 
     return data.get("files", [])
 
 
-def scan_changes(files: list[dict]) -> dict[str, dict]:
-    """把改动文件按项目归拢，只保留真正需要发布的主干。
+def scan_changes(files: list[dict], bucket: str = "code") -> dict[str, dict]:
+    """把改动文件按项目归拢，只保留真正需要发布的目录。
+
+    `bucket` 决定认哪一种路径：
+      · "code" → projects/<项目>/code/<主干>/<文件>（正式交付物）
+      · "test" → projects/<项目>/test/<版本>/<文件>（测试版）
+    两个桶互不可见：改 code/ 不会触发 test 发布，反之亦然。
 
     返回 {项目: {"trunks": [...]}}。索引页、目录页这类非交付物的改动
     不会让项目出现在结果里——它们不该产生 Release。
@@ -206,8 +225,8 @@ def scan_changes(files: list[dict]) -> dict[str, dict]:
         if f.get("status") == "renamed":
             continue
         parts = f.get("filename", "").split("/")
-        # 路径形态：projects/<项目>/code/[<主干>/]<文件>
-        if len(parts) < 4 or parts[0] != "projects" or parts[2] != "code":
+        # 路径形态：projects/<项目>/<bucket>/[<目录>/]<文件>
+        if len(parts) < 4 or parts[0] != "projects" or parts[2] != bucket:
             continue
         project = parts[1]
         if len(parts) >= 5:
@@ -228,7 +247,11 @@ def scan_changes(files: list[dict]) -> dict[str, dict]:
 
 
 def existing_tags(repo: str, token: str, project: str, trunk: str) -> set[str]:
-    base = tag_base(project, trunk)
+    return existing_tags_by_base(repo, token, tag_base(project, trunk))
+
+
+def existing_tags_by_base(repo: str, token: str, base: str) -> set[str]:
+    """按标签基名查已存在的标签（含 `.N` 后缀变体）。"""
     url = f"{API}/repos/{repo}/git/matching-refs/tags/{urllib.parse.quote(base)}"
     status, data = api("GET", url, token)
     if status != 200 or not data:
@@ -332,31 +355,40 @@ def release_trunk(
     mode: str,
     forced_tag: str | None = None,
 ) -> bool:
-    trunk_dir = code_dir(project) / trunk
-    # 兜底：即便调用方没过滤，归档目录也不得发布
-    if not is_trunk_dir(trunk_dir):
-        print(f"[告警] {project}/{trunk} 不是可发布的主干（归档或不存在），跳过。")
+    is_test = mode == "test"
+    trunk_dir = (test_dir(project) if is_test else code_dir(project)) / trunk
+
+    if not is_test:
+        # 兜底：即便调用方没过滤，归档目录也不得发布
+        if not is_trunk_dir(trunk_dir):
+            print(f"[告警] {project}/{trunk} 不是可发布的主干（归档或不存在），跳过。")
+            return False
+
+    if not trunk_dir.is_dir():
+        print(f"[告警] {project}/{trunk} 目录不存在，跳过。")
         return False
+
     files = sorted(trunk_dir.glob("deepseek_*.html"))
     if not files:
         print(f"[告警] {project}/{trunk} 下没有版本文件，跳过。")
         return True
 
-    existing = existing_tags(repo, token, project, trunk)
+    base = tag_base_test(project, trunk) if is_test else tag_base(project, trunk)
+    existing = existing_tags_by_base(repo, token, base)
     if forced_tag:
         if forced_tag in existing:
             print(f"[问题] 标签 {forced_tag} 已存在。换一个后缀，或删掉旧标签后重试。")
             return False
         tag = forced_tag
     else:
-        tag = next_tag(project, trunk, existing)
-    base = tag_base(project, trunk)
+        tag = base if base not in existing else _bump_tag(base, existing)
     # attempted 记录已试过的名字，被不可变 Release 烧掉后换下一个后缀
     attempted: set[str] = set()
 
     while True:
         attempted.add(tag)
-        print(f"—— {project} · 主干 {trunk} → 标签 {tag}（{len(files)} 个附件）")
+        label = "测试版" if is_test else "主干"
+        print(f"—— {project} · {label} {trunk} → 标签 {tag}（{len(files)} 个附件）")
 
         ok, burned = _release_one(repo, token, project, trunk, tag, sha, mode, files)
         if ok:
@@ -405,17 +437,22 @@ def _release_one(
         print(f"[问题] 创建标签 {tag} 失败。")
         return False, False
 
+    is_test = mode == "test"
+    # 测试版必须一眼可辨：标题加【test】前缀、标记为 prerelease。
+    # 标签名本身也带 `test/` 前缀（见 tag_base_test）。
+    release_name = f"【test】{tag}" if is_test else tag
+
     status, release = api(
         "POST",
         f"{API}/repos/{repo}/releases",
         token,
         {
             "tag_name": tag,
-            "name": tag,
+            "name": release_name,
             "body": build_notes(project, trunk, mode),
             # 必须先建草稿：仓库开了 Immutable Releases，正式发布后附件就传不进去了
             "draft": True,
-            "prerelease": False,
+            "prerelease": is_test,
         },
     )
     if status not in (201, 200) or not release:
@@ -465,11 +502,32 @@ def is_safe_trunk_name(trunk: str) -> bool:
 
 
 def plan_dispatch(
-    project: str, trunk: str, suffix: str
+    project: str, trunk: str, suffix: str, kind: str = "code"
 ) -> tuple[list[tuple[str, str, str]], str | None, str]:
-    """手动触发：为指定项目的指定主干补发一个 Release。"""
+    """手动触发：为指定项目的指定主干（或测试版本）补发一个 Release。
+
+    `kind="test"` 时目标是 `projects/<项目>/test/<版本>/`，标签走
+    `test/<项目>/<版本>`，Release 标记为 prerelease。
+    """
     if not is_safe_trunk_name(trunk):
         return [], None, f"[问题] 主干名不合法：{trunk!r}（不得包含路径分隔符或为 . / ..）"
+
+    if kind == "test":
+        target_dir = test_dir(project) / trunk
+        if not target_dir.is_dir():
+            msg = f"[问题] 找不到测试版 projects/{project}/test/{trunk}。"
+            if test_dir(project).is_dir():
+                vers = sorted(p.name for p in test_dir(project).iterdir() if p.is_dir())
+                if vers:
+                    msg += "现有测试版：" + "、".join(vers)
+            return [], None, msg
+        base = tag_base_test(project, trunk)
+        forced = f"{base}.{suffix}" if suffix else None
+        reason = f"手动触发，补发 {project} 的测试版 {trunk}（prerelease）"
+        if suffix:
+            reason += f"（指定标签后缀 {suffix}）"
+        return [(project, trunk, "test")], forced, reason
+
     # 与自动路径用同一判定：归档目录（*_fix-archive）不是可发布主干。
     if not is_trunk_dir(code_dir(project) / trunk):
         msg = f"[问题] 找不到可发布的主干 projects/{project}/code/{trunk}。"
@@ -488,20 +546,23 @@ def plan_dispatch(
 
 def plan_auto(
     files: list[dict] | None,
+    files_test: list[dict] | None = None,
 ) -> tuple[list[tuple[str, str, str]], str]:
     """自动触发：按改动文件决定发布哪些 (项目, 主干, 模式)。
 
     目标是三元组而不是「目标 + 模式字典」：两者分开维护时，任何一条新增
     分支只要漏写一处就会失步，最后在 main() 里 KeyError。
     """
-    if files is None:
+    if files is None and files_test is None:
         # 无法比较提交范围（force-push、compare 404 等）。此前的做法是「退化为
         # 给全部项目的全部主干各发一个 Release」——一次异常能连发十几个，
         # 且每个都新建标签，清理起来很麻烦。宁可这次不发，日志写清楚原因，
         # 需要时用 workflow_dispatch 手动补发。
         return [], "无法比较提交范围（可能是 force-push 或 compare 接口异常），为安全起见本次不自动发版；如需发布请手动触发并指定主干"
 
-    changes = scan_changes(files)
+    # 某一桶为 None 表示「本次不关心该桶」（例如 test 分支推送时 code 桶传 None），
+    # 不是「比较失败」。比较失败的情况已在上面拦掉。
+    changes = scan_changes(files or [])
     targets: list[tuple[str, str, str]] = []
     reasons: list[str] = []
 
@@ -520,6 +581,21 @@ def plan_auto(
         # 2026-11-21 之前这里走 latest_trunk()，结果一次纯文案改动给每个项目
         # 都烧掉一个标签名（Immutable Releases 下不可重用）。
 
+    # 测试版桶：只有当调用方明确给出 test 改动清单时才计算。
+    # test 分支推送只走这一支；main 推送不传 files_test，因此合入 main
+    # 不会重复发一次测试版 Release（Immutable Releases 下标签名不可重用）。
+    if files_test is not None:
+        test_changes = scan_changes(files_test, bucket="test")
+        for project in sorted(test_changes):
+            base = test_dir(project)
+            if not base.is_dir():
+                continue
+            entry = test_changes[project]
+            real = [v for v in entry["trunks"] if (base / v).is_dir()]
+            if real:
+                targets.extend((project, v, "test") for v in real)
+                reasons.append(f"{project}（测试版）：" + "、".join(real))
+
     if not targets:
         return [], "本次推送未改动任何项目的交付物，不发布任何 Release"
 
@@ -537,6 +613,10 @@ def main() -> int:
     dispatch_project = os.environ.get("DISPATCH_PROJECT", "").strip() or DEVKIT
     dispatch_trunk = os.environ.get("DISPATCH_TRUNK", "").strip()
     dispatch_suffix = os.environ.get("DISPATCH_SUFFIX", "").strip()
+    dispatch_kind = os.environ.get("DISPATCH_KIND", "").strip() or "code"
+    # 触发分支：只有 test 分支的推送才走测试版桶。合入 main 时不发 test
+    # Release，否则同一个测试版会因两条分支各发一次而烧掉两个标签名。
+    trigger_ref = os.environ.get("TRIGGER_REF", "").strip() or "main"
 
     if not repo or not token or not after:
         print("[问题] 需要 GITHUB_REPOSITORY、GITHUB_TOKEN、AFTER_SHA 环境变量。")
@@ -554,14 +634,18 @@ def main() -> int:
             )
             return 1
         targets, forced_tag, reason = plan_dispatch(
-            dispatch_project, dispatch_trunk, dispatch_suffix
+            dispatch_project, dispatch_trunk, dispatch_suffix, dispatch_kind
         )
         if not targets:
             print(reason)
             return 1
     else:
         files = changed_paths(repo, token, before, after)
-        targets, reason = plan_auto(files)
+        if trigger_ref == "test":
+            # test 分支：只处理测试版目录，正式交付物一律不发
+            targets, reason = plan_auto(None if files is None else [], files)
+        else:
+            targets, reason = plan_auto(files)
 
     print(f"仓库 {repo} · {reason}")
     print("将发布：" + ("、".join(f"{p}/{t}" for p, t, _ in targets) if targets else "（无）"))

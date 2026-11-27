@@ -52,6 +52,11 @@ paths-ignore:
   - "projects/devkit/code/A1_V_Φ11"
   - "projects/devkit/code/A1_V_Φ10_fix-archive"
 
+  # 测试版：由正式版逐字节复制 + 注入自检生成（见 build_test_version.py）。
+  # 其中的脚本与正式版同源，扫出来的告警是重复项、修复无意义；
+  # 正式版 projects/*/code/ 仍照常扫描。
+  - "projects/*/test"
+
   # submerge-pro 的原始归档件：文件名与内容都按「导入时的原样」保留，
   # 修它会破坏归档语义。其中 3 条 XSS 告警属此例，已知不做修改。
   - "projects/submerge-pro/code/A1_II_Φ10/deepseek_html_20260705_d1ca99.html"

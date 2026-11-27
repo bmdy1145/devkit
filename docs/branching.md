@@ -52,6 +52,22 @@
 
 若两批改动确实互不重叠，也可以不堆叠、各自从 `main` 分叉，只要各自的新分支都推两个远端即可；但一旦有重叠，必须走上面的堆叠路径。
 
+## 长期分支 `test`
+
+`test` 是仓库**唯一**的长期分支，用于承载测试版：
+
+| 项 | 约定 |
+|---|---|
+| 用途 | 测试版（带内置自检）的集成分支；`feature` → `test` → `main` |
+| 内容位置 | `projects/<项目>/test/<测试版本>/`——**不在** `code/` 下 |
+| 与 `code/` 的关系 | `test` 分支上**不改** `code/` 下的正式交付物；正式版改动仍走 feature → `main` |
+| 发布 | push 到 `test` 会触发 `release-on-main.yml`，但只发 `test/` 桶：标签前缀 `test/<项目>/`、Release 标记为 **prerelease**、标题与正文带【test】 |
+| Pages | Pages 只从 `main` 发布。**测试版页面必须在 main 上才可见**，所以要让用户访问到测试版，需把 `test` 合入 `main` |
+| 分支清理 | `cleanup_branches.py` 把 `test` 列入 `LONG_LIVED_BRANCHES`，不会被自动删除 |
+| 直推 | 推 `test` 到 `origin` 与推 `main` 同属「共享状态变更」，**同样需要逐次授权** |
+
+从一个测试版转为正式版时：在 `main` 上按正常版本规则产出正式版本，测试版目录保留作为历史（或按需删除）。
+
 ## 红线
 
 - 不得 approve 自己提出的 PR（GitHub 硬性禁止）；合并权始终在仓库主手上。

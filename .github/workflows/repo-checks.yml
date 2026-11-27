@@ -96,3 +96,17 @@ jobs:
       # 断言提示词拼装、版本解析、设置归一化与关键交互。
       - name: 运行 DevKit 行为单测
         run: python3 .github/scripts/devkit_logic_test.py
+
+  test-version-guard:
+    name: 测试版结构校验
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+      # 测试版不归 version_guard 管（那只遍历 code/），由 test_guard 单独校验：
+      # 目录/文件名/版本代号/CURRENT_VERSION 四处一致、基线主干存在、
+      # 必须带自检标记，且正式版不得被注入。
+      - name: 校验测试版结构
+        run: python3 .github/scripts/test_guard.py
+      - name: 校验测试版与正式版同步
+        run: python3 .github/scripts/build_test_version.py --check

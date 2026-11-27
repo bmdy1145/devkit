@@ -33,6 +33,14 @@ API = "https://api.github.com"
 #
 # 顺序有意义：先匹配更具体的前缀，命中即停。
 RULES: list[tuple[str, str]] = [
+    # 测试版路径：`projects/<项目>/test/` 不会被下面的 `projects/<项目>/code/`
+    # 匹配到，两组规则互不干扰，顺序不影响结果。
+    ("projects/devkit/test/", "area:devkit"),
+    ("projects/writer/test/", "area:writer"),
+    ("projects/dircleaner/test/", "area:dircleaner"),
+    ("projects/submerge-pro/test/", "area:submerge-pro"),
+    ("projects/persona/test/", "area:persona"),
+    ("test/", "area:test"),
     ("projects/devkit/code/", "area:devkit"),
     ("projects/writer/code/", "area:writer"),
     ("projects/dircleaner/code/", "area:dircleaner"),
@@ -56,6 +64,7 @@ LABEL_META = {
     "area:submerge-pro": ("8250df", "SubMerge Pro 交付物"),
     "area:persona": ("7fd1c1", "Persona（人设编辑器）交付物"),
     "area:projects": ("bfd4f2", "项目层页面（projects/ 下的索引与落地页）"),
+    "area:test": ("c2410c", "测试版入口与测试版索引页"),
     "area:ci": ("6f42c1", "仓库自动化与配置"),
     "area:docs": ("0e8a16", "文档与约定"),
     "area:other": ("808080", "未归类路径，出现时说明有新目录需要纳入规则"),

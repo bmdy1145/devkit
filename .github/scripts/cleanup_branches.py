@@ -42,6 +42,10 @@ import urllib.request
 API = "https://api.github.com"
 MAX_PRS = 100
 
+# 长期分支：即使它的历史 PR 已合并、之后又没有新提交，也绝不能被自动删除。
+# `test` 是测试版的集成分支（见 docs/branching.md），删掉会让测试版链路断裂。
+LONG_LIVED_BRANCHES = {"test"}
+
 
 def api(method: str, url: str, token: str):
     req = urllib.request.Request(url, method=method)
@@ -87,6 +91,7 @@ def main() -> int:
         return 1
     protected = {pr["base"]["ref"] for pr in (open_prs or [])}
     protected.add(default_branch)
+    protected |= LONG_LIVED_BRANCHES
 
     status, closed_prs = api(
         "GET",
