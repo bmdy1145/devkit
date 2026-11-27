@@ -123,7 +123,7 @@ devkit/                              # Repo root (GitHub Pages publish folder)
 │   │       ├── index.html                   # Index for the branch directory
 │   │       ├── A1_VI_Φ1/                    # Current main line (pre-refactor baseline, single default skin)
 │   │       ├── A1_V_Φ11/                    # Last of the refactor line (frozen)
-│   │       ├── A1_V_Φ10/                    # Start of the refactor line (index page only)
+│   │       ├── A1_V_Φ10/                    # Start of the refactor line (index page only; build moved to the archive below)
 │   │       ├── A1_V_Φ10_fix-archive/        # Archived Φ10 build (two interaction regressions)
 │   │       ├── A1_V_Φ9_Fix_Fix/             # Previous delivered main line (Fix_Fix layer, nine skins)
 │   │       ├── A1_V_Φ9/                     # Previous iteration layer (Fix)

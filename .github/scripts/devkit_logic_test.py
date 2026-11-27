@@ -482,9 +482,19 @@ class NoSeam(Exception):
     """目标文件没有 window.__devkitTest 测试缝：调用方应把它当作「跳过」而不是失败。"""
 
 
-def expected_version() -> str:
-    """从目标文件名推导期望的版本号（deepseek_<版本>.html）。"""
-    return TARGET.stem.removeprefix("deepseek_")
+def expected_version(target: Path | None = None) -> str:
+    """从目标文件名推导期望的版本号（deepseek_<版本>.html）。
+
+    文件名不符合 `deepseek_<版本>.html` 约定时直接报错——否则版本断言会
+    退化成「CURRENT_VERSION 应等于某个奇怪的名字」，报错信息误导人。
+    """
+    path = target if target is not None else TARGET
+    stem = path.stem
+    if not stem.startswith("deepseek_") or len(stem) == len("deepseek_"):
+        raise SystemExit(
+            f"目标文件名不符合约定（应为 deepseek_<版本号>.html）：{path.name}"
+        )
+    return stem.removeprefix("deepseek_")
 
 
 def build_temp_copy(dest: Path) -> None:
