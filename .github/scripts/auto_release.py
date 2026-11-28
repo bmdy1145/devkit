@@ -660,8 +660,12 @@ def main() -> int:
 
     ok = True
     for project, trunk, mode in targets:
-        if not (code_dir(project) / trunk).is_dir():
-            print(f"[告警] projects/{project}/code/{trunk} 不存在，跳过。")
+        # 目标目录按桶取：测试版在 test/ 下，写死 code/ 会让测试版目标
+        # 一律被当成「不存在」而静默跳过（PR #100 引入双桶时漏改）。
+        bucket = "test" if mode == "test" else "code"
+        target_dir = (test_dir(project) if mode == "test" else code_dir(project)) / trunk
+        if not target_dir.is_dir():
+            print(f"[告警] projects/{project}/{bucket}/{trunk} 不存在，跳过。")
             continue
         if not release_trunk(repo, token, project, trunk, after, mode, forced_tag):
             ok = False

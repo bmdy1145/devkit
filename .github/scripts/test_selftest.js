@@ -129,13 +129,26 @@
 
     // 快照用户状态，finally 里恢复
     var bodyClassBefore = document.body.className;
+    // 主题初始状态只认 .active —— 那是产品 HTML 里的初始标记。
+    // 不能用 aria-checked：初始 HTML 没有该属性，点击主题项后产品才补上，
+    // 拿它当快照会让 restore 之后多出一条自检制造的属性差异。
     var themeCheckedBefore = $$('#themeMenu .theme-option')
-      .filter(function (o) { return o.getAttribute('aria-checked') === 'true'; })
+      .filter(function (o) { return o.classList.contains('active'); })
       .map(function (o) { return o.dataset.themePref || o.dataset.theme || ''; });
     var tabCountBefore = $$('#tabList > *').length;
+    // 首访时产品会常驻打开 firstRunModal，自检打开的弹窗不能顺手把它关掉。
+    var openModalsBefore = $$('.modal.visible').map(function (m) { return m.id; });
 
     function restore() {
-      document.body.className = bodyClassBefore;
+      // 只撤销自检自己加过的类，不用快照整体覆盖：自检期间产品可能
+      // 异步加上新类（如主题、抽屉），整体覆盖会把它们抹掉。
+      var now = (document.body.className || '').split(/\s+/).filter(Boolean);
+      var before = bodyClassBefore.split(/\s+/).filter(Boolean);
+      var selfAdded = now.filter(function (c) { return before.indexOf(c) < 0; });
+      // 自检只在「切换主题」时给 body 换 theme-* 类，其余类一律不碰
+      selfAdded = selfAdded.filter(function (c) { return c.indexOf('theme-') === 0; });
+      selfAdded.forEach(function (c) { document.body.classList.remove(c); });
+      before.forEach(function (c) { document.body.classList.add(c); });
       // 主题：按快照重新点一次，让产品自己的状态与 DOM 同步
       var target = themeCheckedBefore[0];
       if (target) {
@@ -160,6 +173,14 @@
         window.confirm = function () { return true; };
         try { delBtn.click(); } finally { window.confirm = origConfirm; }
       }
+      // 弹窗：关掉自检新开的，重新打开自检前就开着的
+      $$('.modal.visible').forEach(function (m) {
+        if (openModalsBefore.indexOf(m.id) < 0) m.classList.remove('visible');
+      });
+      openModalsBefore.forEach(function (id) {
+        var m = document.getElementById(id);
+        if (m && !m.classList.contains('visible')) m.classList.add('visible');
+      });
       window.removeEventListener('error', onErr);
       window.removeEventListener('unhandledrejection', onErr);
     }
@@ -196,25 +217,53 @@
         return '开 → 关正常，aria=' + aria;
       });
 
-      check('切换主题后 CSS 变量变化', function () {
+      check('切换主题后状态同步', function () {
+        // 不能只比 --primary 的值（两套主题可能刻意同色，那会让断言恒过）。
+        // 改为断言「被选中的主题项真的变了」+「--primary 仍可解析」。
         var opts = $$('#themeMenu .theme-option');
         if (opts.length < 2) throw new Error('主题选项不足');
-        var p0 = cssVar('--primary');
-        opts[1].click();
-        var p1 = cssVar('--primary');
-        if (!p1) throw new Error('切换后 --primary 为空');
-        return (p0 === p1 ? '两套主题强调色相同（合法）' : '强调色已变化');
+        function checked() {
+          // 与快照同源：以产品自己的 .active 标记为准
+          return $$('#themeMenu .theme-option').filter(function (o) {
+            return o.classList.contains('active');
+          }).map(function (o) { return o.dataset.themePref || o.dataset.theme || ''; })[0] || '';
+        }
+        var before = checked();
+        var target = opts.filter(function (o) {
+          return (o.dataset.themePref || o.dataset.theme || '') !== before;
+        })[0];
+        if (!target) throw new Error('找不到与当前不同的主题项');
+        target.click();
+        var after = checked();
+        if (!after) throw new Error('切换后没有任何主题项被选中');
+        if (after === before) throw new Error('选中的主题项未变化（' + before + '）');
+        if (!cssVar('--primary')) throw new Error('切换后 --primary 为空');
+        return before + ' → ' + after;
       });
 
       check('关于弹窗可开、Esc 可关', function () {
+        // 产品语义（ModalManager.closeTopmost）：Esc 关闭的是**DOM 顺序
+        // 最后一个** .modal.visible，不是「最近打开的那个」。
+        // 首访时 firstRunModal 常驻，brand 打开的 copyrightModal 在 DOM 里
+        // 排在它前面，于是 Esc 先关掉 firstRunModal——这是既有行为。
+        // 断言按这个语义写，并额外断言「关掉的确实是 DOM 最后一个」，
+        // 产品 Esc 失效或关错对象都能被发现。
         var brand = document.getElementById('brandBtn');
         brand.click();
-        var modal = $('.modal.visible');
-        if (!modal) throw new Error('点击 brand 后无可见弹窗');
+        var visible = $$('.modal.visible');
+        if (!visible.some(function (m) { return m.id === 'copyrightModal'; })) {
+          throw new Error('点击 brand 后 copyrightModal 未可见');
+        }
+        var expected = visible[visible.length - 1];
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-        var stillOpen = $('.modal.visible');
-        if (stillOpen) stillOpen.classList.remove('visible');
-        return '开合正常';
+        if (expected.classList.contains('visible')) {
+          throw new Error('Esc 未关闭 DOM 最后一个可见弹窗：#' + expected.id);
+        }
+        var after = $$('.modal.visible').length;
+        if (after !== visible.length - 1) {
+          throw new Error('Esc 应恰好关掉一个弹窗（' + visible.length + ' → ' + after + '）');
+        }
+        return 'Esc 关闭 #' + expected.id + '（' + visible.length + ' → ' + after + '）';
       });
 
       check('版本说明弹窗条目数与版本号', function () {
@@ -253,9 +302,18 @@
           '[data-action="delete"], [class*="del"], [aria-label*="关闭页签"], [aria-label*="删除"]'
         );
         if (!delBtn) throw new Error('最后一个页签上没有删除入口');
-        if (delBtn.disabled) throw new Error('删除入口被禁用');
-        if (typeof delBtn.click !== 'function') throw new Error('删除入口不可点击');
-        return '入口存在，未执行删除';
+        // 删除入口可能是 <button>，也可能是 <span>/<i>/<div> 这类不可聚焦
+        // 元素。对它们断言 .disabled 恒为 undefined、typeof .click 恒为
+        // "function"（HTMLElement 都有），属于恒真。这里只对真正的表单
+        // 控件断言 disabled；其余元素只要求能被指针命中（尺寸非零）。
+        var tag = (delBtn.tagName || '').toUpperCase();
+        var isFormControl = tag === 'BUTTON' || tag === 'INPUT';
+        if (isFormControl && delBtn.disabled) throw new Error('删除入口被禁用');
+        var rect = delBtn.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+          throw new Error('删除入口不可见（' + Math.round(rect.width) + '×' + Math.round(rect.height) + '）');
+        }
+        return '入口存在且可命中，未执行删除';
       });
 
       check('localStorage 读写', function () {
@@ -294,36 +352,81 @@
     wrap.setAttribute('aria-label', '内置自检结果');
 
     var summaryColor = bad === 0 ? '#7ee787' : '#ff8a3d';
-    var rows = results.map(function (r) {
-      return '<li style="display:flex;gap:8px;align-items:flex-start;padding:3px 0">'
-        + '<span style="flex:0 0 42px;font-family:monospace;color:' + (r.ok ? '#7ee787' : '#ff7b72') + '">'
-        + (r.ok ? 'PASS' : 'FAIL') + '</span>'
-        + '<span style="flex:1">' + r.name
-        + (r.detail ? '<span style="color:#8b9aa6"> — ' + r.detail + '</span>' : '')
-        + '</span></li>';
-    }).join('');
 
-    wrap.innerHTML =
-      '<div class="modal-content" style="max-width:680px">'
-      + '<div class="modal-header">'
-      + '<h2 style="margin:0;font-size:1rem">内置自检</h2>'
-      + '<button class="close-btn" type="button" aria-label="关闭" id="selftestClose">×</button>'
-      + '</div>'
-      + '<div class="modal-body">'
-      + '<p style="margin:0 0 12px;color:' + summaryColor + ';font-weight:600">'
-      + (bad === 0 ? '全部通过：' : '有失败项：') + good + ' / ' + total + ' 通过</p>'
-      + '<ul style="list-style:none;margin:0;padding:0;font-size:0.85rem">' + rows + '</ul>'
-      + '<p style="margin:14px 0 0;color:#8b9aa6;font-size:0.78rem">'
-      + '这是测试版专属的自检，不改动任何用户数据；开跑前的界面状态已自动恢复。</p>'
-      + '</div>'
-      + '<div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 20px">'
-      + '<button class="btn" type="button" id="selftestRerun">重新运行</button>'
-      + '</div>'
-      + '</div>';
+    // 结构用 DOM API 建，结果文本一律走 textContent。当前 detail 都来自
+    // 固定文本或数字，但用 innerHTML 拼接等于给未来留一个注入面，且
+    // 其余四个项目已统一用 textContent。
+    var content = document.createElement('div');
+    content.className = 'modal-content';
+    content.style.maxWidth = '680px';
+
+    var header = document.createElement('div');
+    header.className = 'modal-header';
+    var h2 = document.createElement('h2');
+    h2.style.cssText = 'margin:0;font-size:1rem';
+    h2.textContent = '内置自检';
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'close-btn';
+    closeBtn.type = 'button';
+    closeBtn.setAttribute('aria-label', '关闭');
+    closeBtn.id = 'selftestClose';
+    closeBtn.textContent = '×';
+    header.appendChild(h2);
+    header.appendChild(closeBtn);
+
+    var body = document.createElement('div');
+    body.className = 'modal-body';
+    var summary = document.createElement('p');
+    summary.style.cssText = 'margin:0 0 12px;font-weight:600;color:' + summaryColor;
+    summary.textContent = (bad === 0 ? '全部通过：' : '有失败项：')
+      + good + ' / ' + total + ' 通过';
+    var ul = document.createElement('ul');
+    ul.style.cssText = 'list-style:none;margin:0;padding:0;font-size:0.85rem';
+    results.forEach(function (r) {
+      var li = document.createElement('li');
+      li.style.cssText = 'display:flex;gap:8px;align-items:flex-start;padding:3px 0';
+      var tag = document.createElement('span');
+      tag.style.cssText = 'flex:0 0 42px;font-family:monospace;color:'
+        + (r.ok ? '#7ee787' : '#ff7b72');
+      tag.textContent = r.ok ? 'PASS' : 'FAIL';
+      var txt = document.createElement('span');
+      txt.style.flex = '1';
+      txt.textContent = r.name;
+      if (r.detail) {
+        var detail = document.createElement('span');
+        detail.style.color = '#8b9aa6';
+        detail.textContent = ' — ' + r.detail;
+        txt.appendChild(detail);
+      }
+      li.appendChild(tag);
+      li.appendChild(txt);
+      ul.appendChild(li);
+    });
+    var note = document.createElement('p');
+    note.style.cssText = 'margin:14px 0 0;color:#8b9aa6;font-size:0.78rem';
+    note.textContent = '这是测试版专属的自检，不改动任何用户数据；开跑前的界面状态已自动恢复。';
+    body.appendChild(summary);
+    body.appendChild(ul);
+    body.appendChild(note);
+
+    var footer = document.createElement('div');
+    footer.className = 'modal-footer';
+    footer.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;padding:12px 20px';
+    var rerunBtn = document.createElement('button');
+    rerunBtn.className = 'btn';
+    rerunBtn.type = 'button';
+    rerunBtn.id = 'selftestRerun';
+    rerunBtn.textContent = '重新运行';
+    footer.appendChild(rerunBtn);
+
+    content.appendChild(header);
+    content.appendChild(body);
+    content.appendChild(footer);
+    wrap.appendChild(content);
 
     document.body.appendChild(wrap);
 
-    function close() { wrap.remove(); }
+    function close() { wrap.remove(); restoreTitle(); }
     wrap.querySelector('#selftestClose').addEventListener('click', close);
     wrap.addEventListener('click', function (e) { if (e.target === wrap) close(); });
     document.addEventListener('keydown', function esc(e) {
@@ -337,15 +440,65 @@
     return { total: total, bad: bad, good: good };
   }
 
+  /* 防重入：已有结果弹窗时不重跑。devkit 的检查是同步的，但用户连点
+     会让结果弹窗反复移除/重建，且 interactionChecks 会快照并恢复页签与
+     主题——两轮交叉执行时快照基准已经乱了。 */
+  var titleBefore = null;
+  var lastResult = '';
+
+  /* 产品 boot 是异步的（Storage.init → 读库 → 首次运行建项目/页签），
+     检查本身全同步，但页签列表没渲染出来时断言会对着空 DOM 假失败。
+     这里用 setTimeout 让出事件循环，就绪后再跑检查，与其余四个项目口径一致。 */
+  function waitReady(timeoutMs) {
+    var started = Date.now();
+    function ready() {
+      var tabs = document.getElementById('tabList');
+      var projects = document.getElementById('projectBar');
+      return !!(tabs && tabs.children.length &&
+                projects && projects.children.length);
+    }
+    return new Promise(function (resolve) {
+      (function tick() {
+        if (ready()) return resolve(true);
+        if (Date.now() - started > timeoutMs) return resolve(false);
+        setTimeout(tick, 100);
+      })();
+    });
+  }
+
   function run() {
+    if (document.getElementById('selftestModal')) return;
+    if (titleBefore === null) titleBefore = document.title;
     results = [];
-    structureChecks();
-    styleChecks();
-    interactionChecks();
+    waitReady(8000).then(function (ready) {
+      if (!ready) {
+        fail('产品启动就绪', '8s 内未见首屏页签（可能是存储不可用）');
+      } else {
+        structureChecks();
+        styleChecks();
+        interactionChecks();
+      }
+      finishRun();
+    }, function (e) {
+      fail('自检异常', (e && e.message) ? e.message : String(e));
+      finishRun();
+    });
+  }
+
+  function finishRun() {
     var r = render();
     // 供无头浏览器断言用
-    document.title = (r.bad === 0 ? 'SELFTEST-PASS ' : 'SELFTEST-FAIL ')
+    lastResult = (r.bad === 0 ? 'SELFTEST-PASS ' : 'SELFTEST-FAIL ')
       + r.good + '/' + r.total;
+    // 与异步版一致：弹窗不在就不写标题，避免覆盖关闭时的还原
+    if (document.getElementById('selftestModal')) document.title = lastResult;
+    try { document.documentElement.setAttribute('data-selftest', lastResult); } catch (e) {}
+  }
+
+  /* 弹窗关闭时还原标题：标题只服务于自动化断言，不该永久改写用户的
+     标签页。结果同时写进 <html data-selftest>，供测试脚本读取。 */
+  function restoreTitle() {
+    if (titleBefore !== null) document.title = titleBefore;
   }
 
   /* ---------------- 注入入口 ---------------- */

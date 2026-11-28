@@ -120,7 +120,22 @@ def digest(path: Path) -> str:
     return h.hexdigest()[:CHECKSUM_PREFIX]
 
 
+# 各项目测试版注入的自检项数。数字只是说明文字，真正的断言在
+# .github/scripts/test_selftest*.js 里；新增项目或改动项数时同步这里。
+SELFTEST_COUNTS = {
+    "devkit": 17,
+    "writer": 15,
+    "persona": 15,
+    "dircleaner": 15,
+    "submerge-pro": 14,
+}
+# 未知项目的兜底值。仓库内已无按裸名字引用的调用方；保留它是为了让
+# selftest_count() 对未登记项目也有确定输出，而不是抛异常。
 SELFTEST_COUNT = 17
+
+
+def selftest_count(project: str) -> int:
+    return SELFTEST_COUNTS.get(project, SELFTEST_COUNT)
 
 
 def build_notes(project: str, trunk: str, mode: str = "changed") -> str:
@@ -147,7 +162,9 @@ def build_notes(project: str, trunk: str, mode: str = "changed") -> str:
         lines.append("> 随时变动，**请勿用于正式数据**。正式版请到 Releases 里找不带")
         lines.append("> `【test】` 前缀、且未标记 Pre-release 的那一批。")
         lines.append("> ")
-        lines.append(f"> 内置 **{SELFTEST_COUNT} 项自检**：打开应用后点顶栏「自检」按钮，")
+        lines.append(
+            f"> 内置 **{selftest_count(project)} 项自检**：打开应用后点顶栏「自检」按钮，"
+        )
         lines.append("> 会逐项列出结构 / 样式 / 核心交互的 PASS / FAIL。")
         lines.append("")
         lines.append(

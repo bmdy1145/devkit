@@ -304,6 +304,7 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 - 每个项目自带一个 `index.html` 作为该项目落地页；项目内部的目录结构与版本号规则**由该项目自定**，仓库不为它们设统一规范。
 - 仓库根 `index.html` 是**项目选择台**，只负责列出全部项目入口。
 - `docs/`（协作约定）与 `.github/`（自动化）是**跨项目通用**的。`auto_release.py` 与 `make_release_notes.py` 已按项目分别发布：DevKit 的标签沿用裸主干名（`A1_VI_Φ1`、`A1_VI_Φ1.1`……），其他项目的标签加项目前缀（`writer/A1_I_Φ6`）避免 Φ 号相撞；`version_guard.py` 覆盖 DevKit、Writer 与 Persona；`size_guard.py` 与 `smoke_test.py` 已改为按 `projects/*/code/*/deepseek_*.html` 自动发现，新增项目无需登记。
+- **测试版**放在 `projects/<项目>/test/<测试版本>/`（与 `code/` 并列），由 `build_test_version.py` 从正式版逐字节复制并注入自检生成，各项目一份专属自检脚本；Release 标签为 `test/<项目>/<版本>`、标题带【test】、标记 prerelease；站点入口在根页最下方的「测试版本」。约定见 `docs/branching.md`。
 - 当前托管 `devkit`、`submerge-pro`、`dircleaner`、`writer` 与 `persona` 五个项目；新增项目放入 `projects/<名称>/`，并更新根目录项目选择台和 `projects/index.html`。SubMerge Pro 当前主干为 `A1_II_Φ11`，9 个独立主题版本（8 款审美风格 + 原版基准）与 1 份九合一运行时切换版共用同一套功能代码；八款风格按各自 DESIGN.md 经 Google Fonts 精确加载字体，离线自动回落系统字体。
 
 ### Pages 部署说明
@@ -362,6 +363,7 @@ devkit/                              # 仓库根（GitHub Pages 发布目录）
 | `/projects/persona/code/A1_II_Φ3/` | A1_II_Φ3 应用文件（多比例屏幕适配） |
 | `/projects/persona/code/A1_II_Φ2/` | A1_II_Φ2 应用文件（完善人设访谈模式） |
 | `/projects/persona/code/A1_II_Φ1/` | A1_II_Φ1 应用文件（首版） |
+| `/test/` | **测试版本入口**（内部测试用）：按项目列出测试版，均内置自检 |
 
 Pages 之外还有一个**下载入口**：仓库的 Releases 页（`/releases`）由 `.github/workflows/release-on-main.yml` 自动维护——每次 `main` 更新就按**项目**分别判定，只给真正做到改动的项目 · 主干打一个包，附上该代全部交付物。想拿文件下载走这里最省事，想在线阅读走 Pages。
 

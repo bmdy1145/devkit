@@ -639,6 +639,66 @@ class TestTestBucket(unittest.TestCase):
         self.assertIn("归档", reason)
 
 
+class TestMainLoopTargetGuard(unittest.TestCase):
+    """主循环按桶检查目标目录存在。
+
+    回归点（PR #100 遗留）：这里曾写死 `code_dir(project) / trunk`，
+    测试版目标（在 test/ 下）一律被打印「不存在，跳过」，release_trunk
+    根本不会被调用——测试版 Release 永远发不出来，且日志看起来像正常跳过。
+    """
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / "demo" / "test" / "A1_V_Φ9_Test1").mkdir(parents=True)
+        (self.root / "demo" / "test" / "A1_V_Φ9_Test1" / "deepseek_x.html").write_text(
+            "x", encoding="utf-8"
+        )
+        self._orig = ar.PROJECTS_DIR
+        ar.PROJECTS_DIR = self.root
+
+    def tearDown(self):
+        ar.PROJECTS_DIR = self._orig
+        self.tmp.cleanup()
+
+    def test_test_target_reaches_release_trunk(self):
+        calls = []
+
+        def fake_release(repo, token, project, trunk, sha, mode, forced_tag):
+            calls.append((project, trunk, mode))
+            return True
+
+        with mock.patch.dict("os.environ", {
+                "GITHUB_REPOSITORY": "r", "GITHUB_TOKEN": "t",
+                "AFTER_SHA": "sha", "BEFORE_SHA": "", "DISPATCH_TRUNK": "",
+        }), mock.patch.object(
+            ar, "plan_auto",
+            return_value=([("demo", "A1_V_Φ9_Test1", "test")], "x")
+        ), mock.patch.object(ar, "release_trunk", side_effect=fake_release):
+            rc = ar.main()
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(calls, [("demo", "A1_V_Φ9_Test1", "test")],
+                         "测试版目标必须真的进入 release_trunk")
+
+    def test_missing_test_dir_is_skipped(self):
+        calls = []
+        with mock.patch.dict("os.environ", {
+                "GITHUB_REPOSITORY": "r", "GITHUB_TOKEN": "t",
+                "AFTER_SHA": "sha", "BEFORE_SHA": "", "DISPATCH_TRUNK": "",
+        }), mock.patch.object(
+            ar, "plan_auto",
+            return_value=([("demo", "NO_SUCH_Test1", "test")], "x")
+        ), mock.patch.object(
+            ar, "release_trunk",
+            side_effect=lambda *a: calls.append(a) or True
+        ):
+            rc = ar.main()
+        self.assertEqual(rc, 0)
+        self.assertEqual(calls, [])
+
+
 class TestReleasePrereleaseFlag(unittest.TestCase):
     """测试版 Release 必须是 prerelease，正式版不能是。"""
 

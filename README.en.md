@@ -305,6 +305,7 @@ This repository is organised as `projects/<name>/`, one directory per project:
 - Each project ships its own `index.html` as its landing page. The internal directory structure and version-numbering rules are **up to each project** — the repo imposes no shared convention on them.
 - The root `index.html` is a **project picker**; it only lists entries to the projects.
 - `docs/` (conventions) and `.github/` (automation) are **shared across projects**. `version_guard.py` covers DevKit, Writer and Persona; `size_guard.py` and `smoke_test.py` auto-discover `projects/*/code/*/deepseek_*.html`, so a new project needs no registration. `auto_release.py` discovers projects and main lines automatically and prefixes tags with the project name for non-DevKit projects.
+- **Test builds** live under `projects/<project>/test/<test-version>/` (sibling of `code/`). They are produced by `build_test_version.py`, which copies a release file byte-for-byte and injects a self-test module; each project has its own self-test script. Test Releases use the tag `test/<project>/<version>`, a 【test】 title prefix and are marked prerelease. Entry point on the site: the "test versions" section at the bottom of the root page. See `docs/branching.md` for the full convention.
 - The repository currently hosts five projects: `devkit`, `submerge-pro`, `dircleaner`, `writer` and `persona`. Add future projects under `projects/<name>/` and update the root project picker and `projects/index.html`. SubMerge Pro's current trunk is `A1_II_Φ11`: 9 standalone theme builds (8 style builds + the original baseline) plus 1 all-in-one runtime switcher share the same functional code; the eight style builds load their exact Google Fonts families per DESIGN.md and fall back to system fonts offline.
 
 ### Pages deployment note
@@ -363,6 +364,7 @@ The site entry is the **root-level** `index.html`, a **project picker**; each pr
 | `/projects/persona/code/A1_II_Φ3/` | A1_II_Φ3 application file (responsive layout) |
 | `/projects/persona/code/A1_II_Φ2/` | A1_II_Φ2 application file (interview mode) |
 | `/projects/persona/code/A1_II_Φ1/` | A1_II_Φ1 application file (first release) |
+| `/test/` | **Test-build entry** (internal testing only): test builds per project, all with a built-in self-test |
 
 Beyond Pages there is a **download entry point**: the repository's Releases page (`/releases`), maintained automatically by `.github/workflows/release-on-main.yml` — every update to `main` packages that main line's artifacts and attaches them. Downloading is easiest there; reading online is what Pages is for.
 

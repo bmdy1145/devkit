@@ -76,8 +76,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `python .github/scripts/share_image_test.py` | Persona 分享图比例映射与画布输出 |
 | `python .github/scripts/start_prompt_test.py` | Persona 起始提示词与多轮回复 |
 | `python .github/scripts/test_release_planning.py` | 自动发布决策单测 |
+| `python .github/scripts/test_test_version_system.py` | 测试版体系单测（生成清单自洽、项目级命名差异、自检项数映射） |
+| `python .github/scripts/test_guard.py` | 测试版结构（文件名 / 版本代号 / 自检标记 / 清单对齐 / HTML 骨架） |
+| `python .github/scripts/build_test_version.py --check` | 测试版副本是否与正式版同步（漂移检测） |
+| `python .github/scripts/test_selftest_runner.py` | 无头 Chrome 里实跑五个测试版的内置自检（需 `CHROME_BIN`） |
 
-- 跑发布决策单测：`python -m unittest discover -s .github/scripts -p 'test_*.py'`。该模式**只匹配 `test_release_planning.py`**；其余四个 `*_test.py` 是独立脚本而非 unittest 用例，需逐个 `python .github/scripts/<名字>.py` 执行。
+- 跑单元测试：`python -m unittest discover -s .github/scripts -p 'test_*.py'`。该模式命中 `test_*.py` 前缀的三个文件（`test_release_planning.py`、`test_devkit_logic_helpers.py`、`test_test_version_system.py`）；其余 `*_test.py` 是独立脚本而非 unittest 用例，需逐个 `python .github/scripts/<名字>.py` 执行。
 - 需要浏览器的脚本（`smoke_test` / `devkit_logic_test` / `snapshot_other_test` / `share_image_test` / `start_prompt_test`）：Chrome 不在 PATH 时设 `CHROME_BIN`（Git Bash 下用 Windows 风格路径 `C:/Program Files/Google/Chrome/Application/chrome.exe`；`/c/...` 形式在部分脚本里传不到浏览器）；`version_guard.py` 另需 `node`（v26 已装）。
 - 这些检查在 CI 上**只报告、不拦截**（`repo-checks.yml`、`version-guard.yml`）。
 - Git Bash 会把 `rev:path` 里的 `/` 当路径转换，含这种参数的 git 命令前先 `export MSYS_NO_PATHCONV=1`。
@@ -92,6 +96,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **版本命名规范**：DevKit 的版本架构（层级 / 循环扩展 / 变体标识 / `_CN` / `_GLOBAL` 语言后缀）完整正文在 `.claude/skills/devkit-spec/`（`SKILL.md` + `references/`），README「版本命名体系」是摘要。改版本号前先读技能里的现行规范，不要凭记忆。
 - **DevKit 应用内部分层**：当前主线 `A1_VI_Φ1` 沿用重构前的 EventBus / Store / Services / UI 结构。另一套 Constants → Domain（`PromptBuilder` / `VersionService` / `ProjectModel`）→ Store → Services → UI → App 的分层只存在于**已冻结**的 `A1_V_Φ10` / `Φ11` 重构线；改主线时不要误套那套分层。
 - **浏览器行为测试的机制**：产品文件仅在 URL 带 `#selftest` 时把内部对象挂到 `window.__devkitTest`；测试脚本把产品文件复制到临时目录、注入驱动脚本、用本地 HTTP `/gate` 挂住 load、`chrome --headless=new --dump-dom` 从 `<title>` 读断言结果。**该测试缝目前只存在于已冻结的 `A1_V_Φ10` / `Φ11` 重构线**；当前主线 `A1_VI_Φ1` 沿用重构前结构、尚未挂缝，`devkit_logic_test.py` 会打印「跳过」并以退出码 0 返回（跳过不等于通过）。新增行为测试沿用此模式，不要改产品文件的非测试路径。
+- **测试版（`projects/<项目>/test/<版本>/`，不是 git 分支）**：由 `build_test_version.py` 从正式版逐字节复制并注入自检生成，**不要手改**；每个项目一份自检脚本（`test_selftest*.js`，devkit 的历史文件名是 `test_selftest.js`）。Release 标签 `test/<项目>/<版本>`、标题带【test】、标记 prerelease。`test_guard.py` 校验结构，`test_selftest_runner.py` 在 CI 里实跑自检。约定见 `docs/branching.md`。
 - **推送 `main` 即自动发布**（`auto_release.py`）：按「项目 · 主干」分别建标签发 Release，devkit 用裸主干名（`A1_VI_Φ1`），其他项目加前缀（`writer/A1_I_Φ6`）；仓库开启 Immutable Releases，标签名发布后不可重用，脚本必须走「建草稿 → 传附件 → 转正式」顺序。
 - **`pull_request_target` 安全前提**：`pr-labeler.yml` 与 `cleanup-merged-branches.yml` 用 `pull_request_target` 拿写权限，**不得检出 PR 的代码**，只通过 API 读改动列表 / 操作分支；改这两个工作流时保持这一点。
 - `implementations/` 下的多语言实现**只做安全修复、不跟进功能迭代**，规范见 `docs/multi-language.md`；修改前先读该文件。

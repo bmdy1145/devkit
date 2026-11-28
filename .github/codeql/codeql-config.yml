@@ -52,9 +52,11 @@ paths-ignore:
   - "projects/devkit/code/A1_V_Φ11"
   - "projects/devkit/code/A1_V_Φ10_fix-archive"
 
-  # 测试版：由正式版逐字节复制 + 注入自检生成（见 build_test_version.py）。
-  # 其中的脚本与正式版同源，扫出来的告警是重复项、修复无意义；
-  # 正式版 projects/*/code/ 仍照常扫描。
+  # 测试版：产品代码由正式版逐字节复制（重复告警无修复价值），但页面末尾
+  # 注入的自检脚本（.github/scripts/test_selftest*.js）只存在于测试版，
+  # 排除本目录后 CodeQL 不会扫描它们。这是有意的取舍：自检是纯 DOM 断言、
+  # 不碰网络与文件系统，且 CI 的 test_selftest_runner.py 会在真实浏览器里
+  # 跑一遍，行为覆盖强于静态扫描。改动自检脚本时请以那个脚本的实测为准。
   - "projects/*/test"
 
   # submerge-pro 的原始归档件：文件名与内容都按「导入时的原样」保留，

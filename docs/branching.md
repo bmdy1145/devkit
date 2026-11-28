@@ -73,6 +73,9 @@ projects/devkit/
 | Pages | 与正式版一样，合入 `main` 后即可访问：根页 →「测试版本」→ 项目 → 版本 |
 | 版本命名 | `<基线版本>_Test<N>`（如 `A1_VI_Φ1_Test1`），由 `test_guard.py` 校验 |
 | 生成方式 | 由 `build_test_version.py` 从正式版生成，**不要手改**（CI 的 `--check` 会报漂移） |
+| 自检 | 每个项目一份专属脚本（`.github/scripts/test_selftest_<项目>.js`，devkit 的历史文件名是 `test_selftest.js`），按各自 DOM 验证结构 / 样式 / 核心交互；项数不同（devkit 17、writer / persona / dircleaner 各 15、submerge-pro 14）。`test_selftest_runner.py` 在 CI 里实际跑一遍 |
+| 新增项目 | 在 `build_test_version.py` 的 `TARGETS` 加一条、写一份 `test_selftest_<项目>.js`、在 `test_selftest_runner.py` 的 `FILES` 加一行、在 `make_release_notes.py` 的 `SELFTEST_COUNTS` 补项数，然后 `python .github/scripts/build_test_version.py` 生成。`test_guard.py` 会核对清单与磁盘目录是否双向对齐 |
+| 新增测试版 | 改 `TARGETS`（或复制一条）→ 跑生成脚本 → 手写版本目录的 `index.html`（复制现有页面改版本号与链接，Φ 用 `%CE%A6` 编码）→ 在 `test/<项目>/index.html`、`projects/<项目>/test/index.html` 与 `test/index.html` 补卡片（根 `test/index.html` 的项目计数也要从「N 个测试版本」改成新值）。缺一处不影响链接检查，但会让站点入口漏掉这个版本或缺一条路径 |
 
 一个测试版转为正式版时：在 `code/` 下按正常版本规则产出正式版本，测试版目录保留作历史（或按需删除）。
 

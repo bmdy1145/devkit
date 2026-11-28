@@ -16,12 +16,14 @@
     版权：Copyright (C) 2026-至今  北冥的鱼, DeepSeek
     许可证：GPLv3
     ============================================================
-    维护提示：本目录存放测试版。文件由 .github/scripts/build_test_version.py
-              从正式版生成，不要手改——手改会在 CI 的 --check 下报漂移。
-              重新生成后再复制一个
-              <a class="card"> 块，改 href / 版本号 / 说明 / 日期 / 大小即可；
-              若新版本成为最新，把 .latest 徽标移到新卡片上，并同步更新
-              首页「最新版本」直达条。
+    维护提示：本页与同目录的产品文件都不手改。
+              产品文件由 .github/scripts/build_test_version.py 生成，手改会在
+              CI 的 --check 下报漂移；本页不在生成清单里，但版本号 / 卡片 /
+              链接必须与生成结果保持一致（test_guard.py 会核对版本号登记）。
+              新增测试版时：在 build_test_version.py 的 TARGETS 加一条 →
+              生成 → 在本目录建 index.html（复制现有页面，改版本号与链接，
+              Φ 用 %CE%A6 编码）→ 在 test/<项目>/index.html 与
+              projects/<项目>/test/index.html 补卡片。
     约定：href 中的 Φ 一律用百分号编码 %CE%A6（与仓库原 index.html 一致），
           避免个别浏览器/服务器对非 ASCII 路径处理不一致；页面显示文字仍写 Φ。
     ============================================================
